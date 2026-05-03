@@ -4,7 +4,7 @@ import z from "zod";
 dotenv.config();
 
 export const EnvSchema = z.object({
-  PORT: z.coerce.number().default(8081),
+  PORT: z.coerce.number().default(8080),
   DEBUG: z.coerce.boolean().default(false),
 });
 
