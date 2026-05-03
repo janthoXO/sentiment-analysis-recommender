@@ -5,15 +5,15 @@ on:
     branches:
       - main
     paths:
-      - 'docs/**/*.mermaid'
-      - '.github/workflows/compile.mermaid.yml'
+      - "docs/**/*.mermaid"
+      - ".github/workflows/compile.mermaid.yml"
 
 jobs:
   build-and-commit:
     runs-on: ubuntu-latest
     permissions:
       # Required to allow the GitHub Actions bot to push the new SVGs back to your repo
-      contents: write 
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Install Mermaid CLI
         run: npm install -g @mermaid-js/mermaid-cli
@@ -41,9 +41,11 @@ jobs:
             mmdc -p puppeteer-config.json -i "$file" -o "$outfile"
           done
 
+          # Add this step right before the "Commit and Push SVGs" step
+
       - name: Commit and Push SVGs
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: auto-compile mermaid diagrams to svg"
           # Only commit the generated SVGs so we don't accidentally push other WIP files
-          file_pattern: 'docs/**/*.svg'
+          file_pattern: 'docs/*.svg'
