@@ -47,13 +47,13 @@ jobs:
 
       - name: Set package.json version
         if: ${{ inputs.version && inputs.version != 'latest' }}
-        run: pnpm version ${{ inputs.version }} --no-git-tag-version
+        run: pnpm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Build Docker Image
-        run: docker build -t tracker:latest .
+        run: docker build -t tracker:${{ inputs.version || 'latest' }} .
 
       - name: Save Docker Image
-        run: docker save tracker:latest -o tracker-${{ inputs.version || 'latest' }}.tar
+        run: docker save tracker:${{ inputs.version || 'latest' }} -o tracker-${{ inputs.version || 'latest' }}.tar
 
       - name: Upload Docker Image
         uses: actions/upload-artifact@v6
