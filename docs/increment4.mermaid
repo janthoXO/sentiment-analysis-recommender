@@ -1,0 +1,21 @@
+graph TD
+    UI[React Webclient]
+    CoreServer[Core Server Node.js]
+    TrackServer[Tracking Service]
+    TrackList[(Redis Tracking List)]
+    Postgres[(PostgreSQL Users/Watchlists)]
+    RMQ{{RabbitMQ}}
+    
+    subgraph Watchlist Registration
+        UI -->|1. HTTP POST Add 'NVDA' to Watchlist| CoreServer
+        CoreServer -->|2. Save User Preference| Postgres
+        CoreServer -->|3. HTTP Add 'NVDA' to Daily Tracker| TrackServer
+        TrackServer -->|4. Save to Tracking List| TrackList
+    end
+    
+    subgraph Real-Time Alert Flow
+        RMQ -->|5. Deliver Analyzed Article for NVDA| CoreServer
+        CoreServer -->|6. Check if Score Shifted Drastically| CoreServer
+        CoreServer -->|7. Cross-Reference Affected Users| Postgres
+        CoreServer -.->|8. SSE Push Notification 'NVDA Alert!'| UI
+    end

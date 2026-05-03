@@ -1,0 +1,22 @@
+graph TD
+    UI[React Webclient] -->|1. Search Topic 'AI Logistics'| CoreServer[Core Server Node.js]
+    Postgres[(PostgreSQL pgvector)]
+    
+    subgraph Core Semantic Mapping
+        CoreServer -->|2. Check GICS Match - Miss| CoreServer
+        CoreServer -->|3. Embed Query & Query pgvector| Postgres
+        Postgres -->|4. Return Closest Tickers| CoreServer
+        CoreServer -->|5. Generate Parallel ScanJobIds| CoreServer
+    end
+    
+    CoreServer -->|6. HTTP Scrape Requests| TrackServer[Tracking Service]
+    TrackServer -->|7. Return Expected Counts| CoreServer
+    TrackServer -->|8. Publish Tasks| RMQ{{RabbitMQ}}
+    
+    RMQ -->|9. Deliver Results from Analyzer| CoreServer
+    
+    %% Stream & Aggregate Logic
+        CoreServer -->|10. Aggregate Articles PER JOB| CoreServer
+        CoreServer -.->|11a. Job_StockA Finished - Stream ndJSON Row| UI
+        CoreServer -.->|11b. Job_StockB Finished - Stream ndJSON Row| UI
+        CoreServer -.->|12. All Jobs Finished - Stream Terminal Message & Close| UI

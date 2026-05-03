@@ -1,0 +1,28 @@
+graph TD
+    TrendServer[Trending Service Node.js]
+    Internet((Internet / APIs))
+    TrackServer[Tracking Service]
+    RedisTrackList[(Redis Tracking List)]
+    RMQ{{RabbitMQ}}
+    Analyzer[Python Analyzer]
+    CoreServer[Core Server Node.js]
+    RedisCache[(Redis Cache)]
+
+    subgraph Discovery
+        TrendServer -->|1. Scan APIs for Volume Spikes| Internet
+        TrendServer -->|2. Spot Breakout Ticker 'GME'| TrendServer
+        TrendServer -->|3. HTTP Track 'GME' High Priority 48hr TTL| TrackServer
+    end
+    
+    subgraph Execution
+        TrackServer -->|4. Save Temporary Job| RedisTrackList
+        TrackServer -->|5. Scrape Hourly| Internet
+        TrackServer -->|6. Publish High-Priority Task| RMQ
+    end
+    
+    subgraph Processing & Cache
+        RMQ -->|7. Process Immediately| Analyzer
+        Analyzer -->|8. Publish Results| RMQ
+        RMQ -->|9. Deliver Results| CoreServer
+        CoreServer -->|10. Overwrite Live Score w/ Short TTL| RedisCache
+    end

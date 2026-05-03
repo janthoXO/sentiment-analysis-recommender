@@ -1,0 +1,45 @@
+name: Compile Mermaid Diagrams
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**/*.mermaid'
+      - '.github/workflows/compile.mermaid.yml'
+
+jobs:
+  build-and-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to allow the GitHub Actions bot to push the new SVGs back to your repo
+      contents: write 
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install Mermaid CLI
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: Compile .mermaid files to .svg
+        run: |
+          # Recursively find all .mermaid files inside the /docs folder
+          find ./docs -type f -name "*.mermaid" | while read -r file; do
+            echo "Compiling $file..."
+            # Replace the .mermaid extension with .svg for the output file
+            outfile="${file%.mermaid}.svg"
+            mmdc -i "$file" -o "$outfile"
+          done
+
+      - name: Commit and Push SVGs
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: auto-compile mermaid diagrams to svg"
+          # Only commit the generated SVGs so we don't accidentally push other WIP files
+          file_pattern: 'docs/**/*.svg'

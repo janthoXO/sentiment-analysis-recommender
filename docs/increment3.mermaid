@@ -1,0 +1,19 @@
+graph TD
+    Cron((Daily CRON Job)) -->|1. Trigger S&P 500| TrackServer[Tracking Service]
+    RedisTrackList[(Redis Tracking List)]
+    Internet((Internet))
+    
+    subgraph Tracking Layer
+        TrackServer -->|2. Fetch Universe List with Priority, TTL and Interval| RedisTrackList
+        TrackServer -->|3. Scrape Articles in Interval| Internet
+        TrackServer -->|4. Publish to Low-Priority Queue w/ BackgroundJobId| RMQ{{RabbitMQ}}
+    end
+    
+    RMQ -->|5. Consume Low-Priority Tasks| Analyzer[Python Analyzer]
+    Analyzer -->|6. Publish Results| RMQ
+    
+    subgraph Core Background Ingestion
+        RMQ -->|7. Deliver Results| CoreServer[Core Server Node.js]
+        CoreServer -->|8. Batch Insert Daily History| Postgres[(PostgreSQL)]
+        CoreServer -->|9. Update Live Scores| RedisCache[(Redis Cache)]
+    end
