@@ -1,13 +1,13 @@
-name: Package Web Client
+name: Package Tracker
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - "webclient/**"
-      - ".github/workflows/build.webclient.yml"
-      - ".github/workflows/package.webclient.yml"
+      - "tracker/**"
+      - ".github/workflows/build.tracker.yml"
+      - ".github/workflows/package.tracker.yml"
   workflow_call:
     inputs:
       version:
@@ -17,14 +17,14 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/build.webclient.yml
+    uses: ./.github/workflows/build.tracker.yml
 
   package:
     runs-on: ubuntu-latest
     needs: build
     defaults:
       run:
-        working-directory: webclient
+        working-directory: tracker
 
     steps:
       - name: Checkout code
@@ -33,14 +33,14 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          package_json_file: webclient/package.json
+          package_json_file: tracker/package.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: "pnpm"
-          cache-dependency-path: webclient/pnpm-lock.yaml
+          cache-dependency-path: tracker/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install
@@ -50,14 +50,14 @@ jobs:
         run: pnpm version ${{ inputs.version }} --no-git-tag-version
 
       - name: Build Docker Image
-        run: docker build -t webclient:latest .
+        run: docker build -t tracker:latest .
 
       - name: Save Docker Image
-        run: docker save webclient:latest -o webclient-${{ inputs.version || 'latest' }}.tar
+        run: docker save tracker:latest -o tracker-${{ inputs.version || 'latest' }}.tar
 
       - name: Upload Docker Image
         uses: actions/upload-artifact@v6
         with:
           name: docker-image-${{ inputs.version || 'latest' }}
-          path: webclient/webclient-${{ inputs.version || 'latest' }}.tar
+          path: tracker/tracker-${{ inputs.version || 'latest' }}.tar
           if-no-files-found: error
