@@ -1,0 +1,134 @@
+name: Unified Release
+
+on:
+  push:
+    branches:
+      - main
+    # The workflow itself only triggers if one of these folders (or the workflow itself) changes
+    paths:
+      - "tracker/**"
+      - "webclient/**"
+      - "core/**"
+      - ".github/workflows/**"
+
+jobs:
+  versioning:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Determine Version
+        id: version
+        uses: ./.github/actions/determine-version
+
+  # 1. NEW JOB: Detect which paths actually changed
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      tracker: ${{ steps.filter.outputs.tracker }}
+      webclient: ${{ steps.filter.outputs.webclient }}
+      core: ${{ steps.filter.outputs.core }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Check for changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            tracker:
+              - 'tracker/**'
+              - '.github/workflows/build.tracker.yml'
+              - '.github/workflows/package.tracker.yml'
+            webclient:
+              - 'webclient/**'
+              - '.github/workflows/build.webclient.yml'
+              - '.github/workflows/package.webclient.yml'
+            core:
+              - 'core/**'
+              - '.github/workflows/build.core.yml'
+              - '.github/workflows/package.core.yml'
+
+  # 2. Add 'if' conditions to the package jobs
+  package-tracker:
+    needs: [ versioning, detect-changes ]
+    if: ${{ needs.detect-changes.outputs.tracker == 'true' }}
+    uses: ./.github/workflows/package.tracker.yml
+    with:
+      version: ${{ needs.versioning.outputs.version }}
+
+  package-webclient:
+    needs: [ versioning, detect-changes ]
+    if: ${{ needs.detect-changes.outputs.webclient == 'true' }}
+    uses: ./.github/workflows/package.webclient.yml
+    with:
+      version: ${{ needs.versioning.outputs.version }}
+
+  package-core:
+    needs: [ versioning, detect-changes ]
+    if: ${{ needs.detect-changes.outputs.core == 'true' }}
+    uses: ./.github/workflows/package.core.yml
+    with:
+      version: ${{ needs.versioning.outputs.version }}
+
+  # 3. Update the release job to run even if some packaging jobs were skipped
+  release:
+    needs: [ versioning, package-tracker, package-webclient, package-core ]
+    # Run as long as the workflow wasn't cancelled and no previous jobs failed
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: ./artifacts
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load, Tag, and Push All Images
+        run: |
+          VERSION=${{ needs.versioning.outputs.version }}
+          
+          # This loop naturally adapts. If only 'core' was built, only the core .tar will exist here.
+          find ./artifacts -type f -name "*.tar" | while read -r tar_file; do
+            echo "Processing $tar_file..."
+            
+            docker load -i "$tar_file"
+            
+            FILENAME=$(basename "$tar_file")
+            SERVICE_NAME=$(echo "$FILENAME" | cut -d'-' -f1)
+            
+            IMAGE_ID=ghcr.io/${{ github.repository }}/$SERVICE_NAME
+            IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+            
+            docker tag $SERVICE_NAME:$VERSION $IMAGE_ID:$VERSION
+            docker tag $SERVICE_NAME:$VERSION $IMAGE_ID:latest
+            
+            docker push $IMAGE_ID:$VERSION
+            docker push $IMAGE_ID:latest
+          done
+
+      - name: Create Unified Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.versioning.outputs.version }}
+          name: Release v${{ needs.versioning.outputs.version }}
+          files: ./artifacts/**/*.tar
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

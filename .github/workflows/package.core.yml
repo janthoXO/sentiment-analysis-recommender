@@ -58,6 +58,6 @@ jobs:
       - name: Upload Docker Image
         uses: actions/upload-artifact@v6
         with:
-          name: docker-image-${{ inputs.version || 'latest' }}
+          name: docker-image-core-${{ inputs.version || 'latest' }}
           path: core/core-${{ inputs.version || 'latest' }}.tar
           if-no-files-found: error
