@@ -50,7 +50,7 @@ jobs:
         run: pnpm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Build Docker Image
-        run: docker build -t webclient:${{ inputs.version || 'latest' }} . .
+        run: docker build -t webclient:${{ inputs.version || 'latest' }} .
 
       - name: Save Docker Image
         run: docker save webclient:${{ inputs.version || 'latest' }} -o webclient-${{ inputs.version || 'latest' }}.tar

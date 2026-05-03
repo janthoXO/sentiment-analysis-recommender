@@ -50,7 +50,7 @@ jobs:
         run: pnpm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Build Docker Image
-        run: docker build -t core:${{ inputs.version || 'latest' }} . .
+        run: docker build -t core:${{ inputs.version || 'latest' }} .
 
       - name: Save Docker Image
         run: docker save core:${{ inputs.version || 'latest' }} -o core-${{ inputs.version || 'latest' }}.tar
