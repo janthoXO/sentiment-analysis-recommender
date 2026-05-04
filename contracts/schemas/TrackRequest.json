@@ -8,17 +8,18 @@
       "format": "uuid",
       "description": "The unique correlation ID for this entire aggregation job."
     },
-    "stockId": { "type": "string", "description": "The ticker symbol (e.g., TSLA)." },
+    "stockId": { "type": "string", "description": "The FIGI" },
+    "ticker": { "type": "string", "description": "The stock ticker symbol, e.g., AAPL for Apple Inc." },
     "interval": {
       "type": "integer",
-      "minimum": 1,
+      "minimum": 0,
       "description": "The interval in seconds at which the tracker should check for new articles. For example, if set to 60, the tracker will look for new articles every minute."
     },
     "ttl": {
       "type": "integer",
-      "minimum": 1,
+      "minimum": 0,
       "description": "Time-to-live in seconds for this tracking job. After this time, the tracker should stop looking for new articles and clean up any resources."
     }
   },
-  "required": ["stockId", "interval", "ttl"]
+  "required": ["stockId", "ticker", "interval", "ttl"]
 }

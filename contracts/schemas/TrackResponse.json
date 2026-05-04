@@ -3,12 +3,11 @@
   "title": "TrackResponse",
   "type": "object",
   "properties": {
-    "scanJobId": { "type": "string", "format": "uuid" },
     "expectedArticles": {
       "type": "integer",
       "minimum": 0,
       "description": "The number of articles the tracker found and pushed to RabbitMQ. Is only filled if the ttl if set to 0, indicating that it is a one-time scrape command."
     }
   },
-  "required": ["scanJobId", "expectedArticles"]
+  "required": ["expectedArticles"]
 }

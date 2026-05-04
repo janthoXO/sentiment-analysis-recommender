@@ -4,7 +4,8 @@
   "type": "object",
   "properties": {
     "id": { "type": "string" },
+    "ticker": { "type": "string" },
     "name": { "type": "string" }
   },
-  "required": ["id", "name"]
+  "required": ["id", "ticker", "name"]
 }
