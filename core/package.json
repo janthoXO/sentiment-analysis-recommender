@@ -14,7 +14,7 @@
     "format:check": "prettier --check .",
     "generate:openapi": "orval",
     "generate:schemas": "for file in ../contracts/schemas/*.json; do npx json-schema-to-zod -i \"$file\" -o \"./src/dtos/$(basename \"$file\" .json).gen.ts\"; done",
-    "generate:all": "pnpm run generate:openapi && pnpm run generate:schemas && pnpm run format"
+    "generate:all": "pnpm run generate:openapi && pnpm run generate:schemas"
   },
   "keywords": [],
   "author": "",
