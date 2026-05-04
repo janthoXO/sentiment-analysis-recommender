@@ -13,7 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:openapi": "orval",
-    "generate:schemas": "for file in ../contracts/schemas/*.json; do npx json-schema-to-zod -i \"$file\" -o \"./src/dtos/$(basename \"$file\" .json).ts\"; done",
+    "generate:schemas": "for file in ../contracts/schemas/*.json; do npx json-schema-to-zod -i \"$file\" -o \"./src/dtos/$(basename \"$file\" .json).gen.ts\"; done",
     "generate:all": "pnpm run generate:schemas && pnpm run generate:openapi"
   },
   "keywords": [],
