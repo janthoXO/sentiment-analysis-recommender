@@ -1,3 +1,3 @@
-import { z } from "zod"
+import { z } from "zod";
 
-export default z.object({ "url": z.string().url(), "snippet": z.string() })
+export default z.object({ url: z.string().url(), snippet: z.string() });

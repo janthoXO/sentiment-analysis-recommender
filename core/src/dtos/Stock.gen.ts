@@ -1,3 +1,3 @@
-import { z } from "zod"
+import { z } from "zod";
 
-export default z.object({ "id": z.string(), "name": z.string() })
+export default z.object({ id: z.string(), name: z.string() });

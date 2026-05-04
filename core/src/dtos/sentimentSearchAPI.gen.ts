@@ -5,30 +5,42 @@
  * Core API for handling user searches and delegating tracking tasks.
  * OpenAPI spec version: 1.0.0
  */
-import * as zod from 'zod';
-
+import * as zod from "zod";
 
 /**
  * @summary Command the Tracking Service to track a stock.
  */
 
-
-
-
 export const PostInternalTrackBody = zod.object({
-  "scanJobId": zod.uuid().optional().describe('The unique correlation ID for this entire aggregation job.'),
-  "stockId": zod.string().describe('The ticker symbol (e.g., TSLA).'),
-  "interval": zod.number().min(1).describe('The interval in seconds at which the tracker should check for new articles. For example, if set to 60, the tracker will look for new articles every minute.'),
-  "ttl": zod.number().min(1).describe('Time-to-live in seconds for this tracking job. After this time, the tracker should stop looking for new articles and clean up any resources.')
-})
+  scanJobId: zod
+    .uuid()
+    .optional()
+    .describe("The unique correlation ID for this entire aggregation job."),
+  stockId: zod.string().describe("The ticker symbol (e.g., TSLA)."),
+  interval: zod
+    .number()
+    .min(1)
+    .describe(
+      "The interval in seconds at which the tracker should check for new articles. For example, if set to 60, the tracker will look for new articles every minute."
+    ),
+  ttl: zod
+    .number()
+    .min(1)
+    .describe(
+      "Time-to-live in seconds for this tracking job. After this time, the tracker should stop looking for new articles and clean up any resources."
+    ),
+});
 
 export const postInternalTrackResponseOneExpectedArticlesMin = 0;
 
-
-
-export const PostInternalTrackResponse = zod.object({
-  "scanJobId": zod.uuid(),
-  "expectedArticles": zod.number().min(postInternalTrackResponseOneExpectedArticlesMin).describe('The number of articles the tracker found and pushed to RabbitMQ. Is only filled if the ttl if set to 0, indicating that it is a one-time scrape command.')
-}).nullable()
-
-
+export const PostInternalTrackResponse = zod
+  .object({
+    scanJobId: zod.uuid(),
+    expectedArticles: zod
+      .number()
+      .min(postInternalTrackResponseOneExpectedArticlesMin)
+      .describe(
+        "The number of articles the tracker found and pushed to RabbitMQ. Is only filled if the ttl if set to 0, indicating that it is a one-time scrape command."
+      ),
+  })
+  .nullable();

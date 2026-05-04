@@ -10,11 +10,11 @@ export default defineConfig({
       },
     },
     output: {
-      mode: "split",
+      mode: "single",
       target: "./src/api",
-      schemas: "./src/dtos",
       client: "fetch",
       fileExtension: ".gen.ts",
+      clean: ["./src/api/**/*.gen.ts"],
     },
   },
   // 2. Generate the Zod Schemas
@@ -26,10 +26,11 @@ export default defineConfig({
       },
     },
     output: {
-      mode: "split",
+      mode: "single",
       target: "./src/dtos",
       client: "zod",
       fileExtension: ".gen.ts",
+      clean: ["./src/dtos/**/*.gen.ts"],
     },
   },
 });
