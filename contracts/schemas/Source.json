@@ -1,0 +1,10 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Source",
+  "type": "object",
+  "properties": {
+    "url": { "type": "string", "format": "uri" },
+    "snippet": { "type": "string" }
+  },
+  "required": ["url", "snippet"]
+}

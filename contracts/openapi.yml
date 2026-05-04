@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: Sentiment Search API
+  version: 1.0.0
+  description: Core API for handling user searches and delegating tracking tasks.
+
+paths:
+  # ---------------------------------------------------------
+  # PUBLIC FACING: React Webclient -> Core Server
+  # ---------------------------------------------------------
+  /api/search:
+    get:
+      summary: Search for a stock's sentiment (ndJSON Stream)
+      parameters:
+        - in: query
+          name: query
+          schema:
+            type: string
+          required: true
+          description: The stock name or topic to search.
+      responses:
+        "200":
+          description: A stream of analyzed stock results.
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: "./schemas/QueryResult.json"
+      tags:
+        - webclient
+
+  # ---------------------------------------------------------
+  # INTERNAL ONLY: Core Server -> Tracking Service
+  # ---------------------------------------------------------
+  /internal/track:
+    post:
+      summary: Command the Tracking Service to track a stock.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./schemas/TrackRequest.json"
+      responses:
+        "200":
+          description: Successfully initiated scrape and counted articles.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "./schemas/TrackResponse.json"
+                nullable: true
+      tags:
+        - trends
+        - core

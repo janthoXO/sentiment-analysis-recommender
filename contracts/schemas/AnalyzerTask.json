@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AnalyzerTask",
+  "type": "object",
+  "properties": {
+    "scanJobId": { "type": "string", "format": "uuid" },
+    "stockId": { "type": "string" },
+    "url": { "type": "string", "format": "uri" },
+    "snippet": { "type": "string", "description": "The raw text scraped from the article." },
+    "priority": {
+      "type": "integer",
+      "description": "The priority of the task, where a lower number indicates higher priority."
+    }
+  },
+  "required": ["stockId", "url", "snippet"]
+}
