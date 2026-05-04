@@ -6,7 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export * from './getApiSearch200';
-export * from './getApiSearch200SourcesItem';
-export * from './getApiSearch200Stock';
-export * from './getApiSearchParams';
+export * from "./getApiSearch200.gen"
+export * from "./getApiSearch200SourcesItem.gen"
+export * from "./getApiSearch200Stock.gen"
+export * from "./getApiSearchParams.gen"

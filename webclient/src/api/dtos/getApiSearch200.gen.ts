@@ -5,8 +5,8 @@
  * Core API for handling user searches and delegating tracking tasks.
  * OpenAPI spec version: 1.0.0
  */
-import type { GetApiSearch200SourcesItem } from './getApiSearch200SourcesItem';
-import type { GetApiSearch200Stock } from './getApiSearch200Stock';
+import type { GetApiSearch200SourcesItem } from './getApiSearch200SourcesItem.gen';
+import type { GetApiSearch200Stock } from './getApiSearch200Stock.gen';
 
 export type GetApiSearch200 = {
   stock: GetApiSearch200Stock;
