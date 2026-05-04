@@ -19,6 +19,7 @@ query: string;
 
 export type GetApiSearch200Stock = {
   id: string;
+  ticker: string;
   name: string;
 };
 
