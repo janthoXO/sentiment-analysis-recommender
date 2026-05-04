@@ -14,6 +14,7 @@ export default defineConfig({
       target: "./src/api",
       schemas: "./src/dtos",
       client: "fetch",
+      fileExtension: ".gen.ts",
     },
   },
   // 2. Generate the Zod Schemas
@@ -28,6 +29,7 @@ export default defineConfig({
       mode: "split",
       target: "./src/dtos",
       client: "zod",
+      fileExtension: ".gen.ts",
     },
   },
 });

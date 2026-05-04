@@ -6,5 +6,5 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export * from './postInternalTrack200';
-export * from './postInternalTrackBody';
+export * from "./postInternalTrack200.gen";
+export * from "./postInternalTrackBody.gen";
