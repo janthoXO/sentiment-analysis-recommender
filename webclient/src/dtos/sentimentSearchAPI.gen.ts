@@ -7,12 +7,9 @@
  */
 import * as zod from 'zod';
 
-
 /**
  * @summary Search for a stock's sentiment (ndJSON Stream)
  */
 export const GetApiSearchQueryParams = zod.object({
   "query": zod.string().describe('The stock name or topic to search.')
 })
-
-

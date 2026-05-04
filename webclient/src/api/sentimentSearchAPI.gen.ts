@@ -5,16 +5,43 @@
  * Core API for handling user searches and delegating tracking tasks.
  * OpenAPI spec version: 1.0.0
  */
-import type {
-  GetApiSearch200,
-  GetApiSearchParams
-} from './dtos';
-
 
 interface TypedResponse<T> extends Response {
   json(): Promise<T>;
 }
 
+export type GetApiSearchParams = {
+/**
+ * The stock name or topic to search.
+ */
+query: string;
+};
+
+export type GetApiSearch200Stock = {
+  id: string;
+  name: string;
+};
+
+export type GetApiSearch200SourcesItem = {
+  url: string;
+  snippet: string;
+} & {
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  score: number;
+};
+
+export type GetApiSearch200 = {
+  stock: GetApiSearch200Stock;
+  sources: GetApiSearch200SourcesItem[];
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  score: number;
+};
 
 export type getApiSearchResponse200 = {
   stream: TypedResponse<GetApiSearch200>
@@ -59,6 +86,3 @@ export const getApiSearch = async (params: GetApiSearchParams, options?: Request
 
   return { status: stream.status, stream, headers: stream.headers } as getApiSearchResponse
   }
-
-
-

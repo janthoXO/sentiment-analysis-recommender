@@ -10,7 +10,8 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "generate:api": "orval"
+    "generate:api": "orval",
+    "generate:all": "pnpm run generate:api"
   },
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
