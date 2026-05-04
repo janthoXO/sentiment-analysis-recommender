@@ -1,4 +1,4 @@
-import type { Root } from "@/api/generated/types.gen.js";
+import type { Root } from "@/api/generated/in/index.js";
 
 export type InFlightJob = {
   expected: number;

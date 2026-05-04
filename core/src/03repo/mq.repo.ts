@@ -3,7 +3,7 @@ import { env } from "../env.js";
 import * as db from "./postgres.repo.js";
 import * as cache from "./cache.repo.js";
 import * as inFlight from "../02service/inFlight.service.js";
-import type { Root } from "@/api/generated/types.gen.js";
+import type { Root } from "@/api/generated/in/index.js";
 
 let channel: amqplib.Channel;
 

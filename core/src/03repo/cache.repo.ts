@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
 import { env } from "../env.js";
-import type { Root } from "@/api/generated/types.gen.js";
+import type { Root } from "@/api/generated/in/index.js";
 
 let redis: Redis;
 
