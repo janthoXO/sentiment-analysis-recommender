@@ -1,0 +1,52 @@
+name: Check Core Contracts
+
+on:
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/contracts.core.yml"
+
+jobs:
+  check-contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: core/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "pnpm"
+          cache-dependency-path: core/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate contracts
+        run: pnpm run contracts:generate
+
+      - name: Check for uncommitted changes
+        run: |
+          if [[ -n $(git status --porcelain .) ]]; then
+            echo "❌ Error: Uncommitted changes detected after running 'contracts:generate'."
+            echo "Please run 'pnpm run contracts:generate' locally and commit the resulting files."
+            echo ""
+            echo "Changed files:"
+            git status --porcelain .
+            echo ""
+            echo "Diff:"
+            git diff .
+            exit 1
+          else
+            echo "✅ Working directory is clean. All generated files are committed."
+          fi

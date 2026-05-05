@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TrackRequestScanJob",
+  "allOf": [
+    { "$ref": "./TrackRequestCommon.json" },
+    {
+      "type": "object",
+      "properties": {
+        "scanJobId": { "type": "string", "format": "uuid" }
+      },
+      "required": ["scanJobId"]
+    }
+  ]
+}

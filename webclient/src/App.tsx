@@ -1,19 +1,23 @@
+import { ThemeProvider } from "./context/theme-provider"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { ThemeProvider } from "./components/theme-provider"
-import { CounterProvider } from "./context/CounterContext"
-import { CounterPage } from "./pages/CounterPage"
+import Layout from "./components/Layout"
+import SearchPage from "./pages/Search"
+import WatchlistPage from "./pages/Watchlist"
+import { Toaster } from "@/components/ui/sonner"
 
 export function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <CounterProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/counter" replace />} />
-            <Route path="/counter" element={<CounterPage />} />
-          </Routes>
-        </BrowserRouter>
-      </CounterProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Navigate to="/search" replace />} />
+            <Route path="search" element={<SearchPage />} />
+            <Route path="watchlist" element={<WatchlistPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+      <Toaster />
     </ThemeProvider>
   )
 }

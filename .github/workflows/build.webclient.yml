@@ -2,6 +2,8 @@ name: Build Web Client
 
 on:
   pull_request:
+    branches-ignore:
+      - main
     paths:
       - "webclient/**"
       - ".github/workflows/build.webclient.yml"
@@ -33,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Check formatting
+        run: pnpm run format:check
+        
       - name: Lint
         run: pnpm run lint
 
