@@ -1,44 +1,5 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TrackRequest",
-  "oneOf": [
-    { "$ref": "#/definitions/TrackRequestScanJob" },
-    { "$ref": "#/definitions/TrackRequestInterval" }
-  ],
-  "definitions": {
-    "TrackRequestCommon": {
-      "type": "object",
-      "properties": {
-        "stockId": { "type": "string", "description": "The FIGI" },
-        "ticker": { "type": "string", "description": "The stock ticker symbol" },
-        "priority": { "type": "integer", "minimum": 1, "maximum": 9 }
-      },
-      "required": ["stockId", "ticker", "priority"]
-    },
-    "TrackRequestScanJob": {
-      "allOf": [
-        { "$ref": "#/definitions/TrackRequestCommon" },
-        {
-          "type": "object",
-          "properties": {
-            "scanJobId": { "type": "string", "format": "uuid" }
-          },
-          "required": ["scanJobId"]
-        }
-      ]
-    },
-    "TrackRequestInterval": {
-      "allOf": [
-        { "$ref": "#/definitions/TrackRequestCommon" },
-        {
-          "type": "object",
-          "properties": {
-            "interval": { "type": "integer", "minimum": 1 },
-            "expiration": { "type": "integer", "minimum": 1 }
-          },
-          "required": ["interval", "expiration"]
-        }
-      ]
-    }
-  }
+  "oneOf": [{ "$ref": "./TrackRequestScanJob.json" }, { "$ref": "./TrackRequestInterval.json" }]
 }
