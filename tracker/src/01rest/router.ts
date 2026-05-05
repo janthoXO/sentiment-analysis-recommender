@@ -2,7 +2,7 @@ import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 
-import exampleRouter from "./example.router.js";
+import trackerRouter from "./tracker.router.js";
 import { env } from "@/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -13,7 +13,7 @@ export function initRouter(): Promise<void> {
     res.status(200).json({ msg: "ok" });
   });
 
-  apiRouter.use("/example", exampleRouter);
+  apiRouter.use("/tracker", trackerRouter);
 
   const app = express();
 

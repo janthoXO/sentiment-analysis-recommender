@@ -4,8 +4,11 @@ import z from "zod";
 dotenv.config();
 
 export const EnvSchema = z.object({
-  PORT: z.coerce.number().default(8081),
+  PORT: z.coerce.number().default(3002),
   DEBUG: z.coerce.boolean().default(false),
+  TRACKER_REDIS_URL: z.string().default("redis://localhost:6380"),
+  RABBITMQ_URL: z.string().default("amqp://sentinel:sentinel@localhost:5672"),
+  MAX_ARTICLES: z.coerce.number().default(10),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
