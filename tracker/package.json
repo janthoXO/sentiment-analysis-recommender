@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "generate:schemas": "for file in ../contracts/schemas/*.json; do npx json-schema-to-zod -i \"$file\" -o \"./src/dtos/$(basename \"$file\" .json).gen.ts\"; done",
+    "generate:all": "pnpm run generate:schemas"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +37,7 @@
     "@types/node": "^25.2.3",
     "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
+    "json-schema-to-zod": "^2.8.1",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.16",

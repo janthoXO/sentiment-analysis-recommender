@@ -1,0 +1,62 @@
+asyncapi: 2.6.0
+info:
+  title: Sentiment RabbitMQ Broker
+  version: 1.0.0
+  description: Asynchronous event definitions for the NLP pipeline.
+
+servers:
+  rabbitmq:
+    url: amqp://localhost:5672
+    protocol: amqp
+    description: Local RabbitMQ instance
+
+channels:
+  # ---------------------------------------------------------
+  # THE INPUT QUEUE: Tracker publishes, Python consumes
+  # ---------------------------------------------------------
+  analyzer.tasks:
+    description: Queue for raw text waiting to be analyzed.
+    publish:
+      summary: Tracking service pushes raw articles here.
+      message:
+        $ref: "#/components/messages/TaskMessage"
+      tags:
+        - name: tracker
+    subscribe:
+      summary: Python analyzer consumes from this queue.
+      message:
+        $ref: "#/components/messages/TaskMessage"
+      tags:
+        - name: analyzer
+
+  # ---------------------------------------------------------
+  # THE OUTPUT QUEUE: Python publishes, Core consumes
+  # ---------------------------------------------------------
+  analyzer.results:
+    description: Queue for finalized sentiment scores.
+    publish:
+      summary: Python analyzer pushes calculated scores here.
+      message:
+        $ref: "#/components/messages/ResultMessage"
+      tags:
+        - name: analyzer
+    subscribe:
+      summary: Core server listens here to aggregate the ndJSON stream.
+      message:
+        $ref: "#/components/messages/ResultMessage"
+      tags:
+        - name: core
+
+components:
+  messages:
+    TaskMessage:
+      name: AnalyzerTask
+      title: Article to Analyze
+      payload:
+        $ref: "./schemas/AnalyzerTask.json"
+
+    ResultMessage:
+      name: AnalyzerResult
+      title: Analyzed Sentiment Score
+      payload:
+        $ref: "./schemas/AnalyzerResult.json"

@@ -1,4 +1,4 @@
-import { CounterDTOSchema, type CounterDTO } from "./dto/counter.dto"
+import { CounterDTOSchema, type CounterDTO } from "@/dtos/counter.dto"
 
 export function fetchCounter(): Promise<CounterDTO> {
   return fetch("/api/counter")
