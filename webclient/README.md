@@ -18,6 +18,7 @@ To use the components in your app, import them as follows:
 
 ```tsx
 import { Button } from "@/components/ui/button"
+```
 
 ## Generate Zod Schemas & Handlers
 
@@ -54,16 +55,17 @@ pnpm exec openapi-to-zod ../contracts/openapi.yml --output src/api/dto/openapi.s
 
 ```ts
 // src/api/handlers/search.ts
-import { type Request, type Response } from 'express'
-import { searchQuerySchema } from '../dto/openapi.schemas'
+import { type Request, type Response } from "express"
+import { searchQuerySchema } from "../dto/openapi.schemas"
 
 export async function searchHandler(req: Request, res: Response) {
-	const parsed = searchQuerySchema.safeParse(req.query)
-	if (!parsed.success) return res.status(400).json({ error: parsed.error.errors })
+  const parsed = searchQuerySchema.safeParse(req.query)
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.errors })
 
-	const query = parsed.data
-	// TODO: call API / stream results / use fetch to core server
-	res.json({ ok: true, query })
+  const query = parsed.data
+  // TODO: call API / stream results / use fetch to core server
+  res.json({ ok: true, query })
 }
 ```
 
@@ -80,8 +82,8 @@ pnpm run lint           # run lint checks
 ```
 
 Notes:
+
 - The `openapi-to-zod` CLI is one option — if you prefer other tools (or templates) there are packages that convert OpenAPI/JSON Schema to Zod. Adjust the commands above to the generator you choose.
 - Generated schemas are plain Zod files: integrate them into your API layer and use `parse`/`safeParse` in request handlers.
 
 If you want, I can also add a `gen:schemas` script to `webclient/package.json` and create a tiny example handler file. Tell me which you'd prefer.
-```
