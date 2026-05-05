@@ -7,7 +7,7 @@ on:
       - ".github/workflows/contracts.tracker.yml"
 
 jobs:
-  build:
+  check-contracts:
     runs-on: ubuntu-latest
     defaults:
       run:
