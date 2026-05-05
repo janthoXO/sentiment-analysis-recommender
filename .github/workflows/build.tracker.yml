@@ -2,6 +2,8 @@ name: Build Tracker
 
 on:
   pull_request:
+    branches-ignore:
+      - main
     paths:
       - "tracker/**"
       - ".github/workflows/build.tracker.yml"

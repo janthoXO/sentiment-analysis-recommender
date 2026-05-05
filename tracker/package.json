@@ -12,7 +12,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "generate:all": "openapi-ts"
+    "contracts:generate": "openapi-ts"
   },
   "keywords": [],
   "author": "",
