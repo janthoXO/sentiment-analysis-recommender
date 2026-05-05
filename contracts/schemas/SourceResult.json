@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SourceResult",
+  "type": "object",
+  "allOf": [
+    { "$ref": "./Source.json" },
+    {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": -1.0,
+          "maximum": 1.0
+        }
+      },
+      "required": ["score"]
+    }
+  ]
+}

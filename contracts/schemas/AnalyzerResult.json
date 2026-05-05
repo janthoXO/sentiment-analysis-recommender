@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "scanJobId": { "type": "string", "format": "uuid" },
-    "stockId": { "type": "string" },
+    "ticker": { "type": "string" },
     "score": {
       "type": "number",
       "minimum": -1.0,
@@ -14,5 +14,5 @@
     "snippet": { "type": "string" },
     "url": { "type": "string", "format": "uri" }
   },
-  "required": ["stockId", "score", "snippet", "url"]
+  "required": ["ticker", "score", "snippet", "url"]
 }

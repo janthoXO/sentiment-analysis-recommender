@@ -6,8 +6,9 @@ dotenv.config();
 export const EnvSchema = z.object({
   PORT: z.coerce.number().default(3002),
   DEBUG: z.coerce.boolean().default(false),
-  TRACKER_REDIS_URL: z.string().default("redis://localhost:6380"),
+  REDIS_URL: z.string().default("redis://localhost:6380"),
   RABBITMQ_URL: z.string().default("amqp://sentinel:sentinel@localhost:5672"),
+  FINNHUB_KEY: z.string(),
   MAX_ARTICLES: z.coerce.number().default(10),
 });
 

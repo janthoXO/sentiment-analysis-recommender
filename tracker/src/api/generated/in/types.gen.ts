@@ -26,10 +26,6 @@ export type TrackRequestScanJobRoot = TrackRequestCommonRoot & {
  */
 export type TrackRequestCommonRoot = {
     /**
-     * The FIGI
-     */
-    stockId: string;
-    /**
      * The stock ticker symbol
      */
     ticker: string;

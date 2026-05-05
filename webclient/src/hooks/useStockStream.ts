@@ -1,89 +1,76 @@
-import { getApiSearch } from "@/api/sentimentSearchAPI.gen"
-import { useState, useCallback } from "react"
+import { getApiSearch } from "@/api/generated/sentimentSearchAPI.gen"
+import { useState, useCallback, useRef } from "react"
 import { toast } from "sonner"
-
-export interface StockResult {
-  ticker: string
-  avgScore: number | null
-  articleCount: number
-}
+import { readStream } from "@/lib/stream"
+import type { QueryResult } from "@/api/generated/dtos"
 
 export function useStockStream() {
-  const [results, setResults] = useState<StockResult[]>([])
+  const [results, setResults] = useState<QueryResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const abortControllerRef = useRef<AbortController | null>(null)
+
   const search = useCallback(async (ticker: string) => {
+    // 1. Cleanup previous requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
+    // 2. Reset State
     setLoading(true)
     setError(null)
-    setResults([]) // Clear previous results
+    setResults([])
 
     try {
-      const response = await getApiSearch({ query: ticker })
+      // 3. Initiate the Fetch
+      const response = await getApiSearch(
+        { query: ticker },
+        { signal: abortController.signal }
+      )
 
       if (response.status !== 200) {
-        throw new Error("Failed to fetch")
+        throw new Error("Failed to fetch stream")
       }
 
-      if (!response.stream.body) {
-        throw new Error("No stream in response")
-      }
-
-      const reader = response.stream.body.getReader()
-      const decoder = new TextDecoder("utf-8")
-      let buffer = ""
-
-      let done = false
-      while (!done) {
-        const { value, done: readerDone } = await reader.read()
-        done = readerDone
-
-        if (value) {
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split("\\n")
-
-          // Keep the last incomplete line in the buffer
-          buffer = lines.pop() || ""
-
-          for (const line of lines) {
-            if (line.trim()) {
-              try {
-                const parsed = JSON.parse(line)
-                if (parsed.error) {
-                  throw new Error(parsed.error)
-                }
-                setResults((prev) => {
-                  // if ticker already exists, update it, else append
-                  const index = prev.findIndex(
-                    (p) => p.ticker === parsed.ticker
-                  )
-                  if (index >= 0) {
-                    const newRes = [...prev]
-                    newRes[index] = parsed
-                    return newRes
-                  }
-                  return [...prev, parsed]
-                })
-              } catch (e: unknown) {
-                if (
-                  e instanceof Error &&
-                  e.message !== "Unexpected end of JSON input" &&
-                  !e.message.includes("Unexpected token")
-                ) {
-                  throw e
-                }
-              }
-            }
-          }
+      // 4. Consume the stream using the Orval utility
+      await readStream(response.stream, (parsedObj) => {
+        // Defensive check just in case the backend streams an error object
+        if ("error" in parsedObj && parsedObj.error) {
+          throw new Error(String(parsedObj.error))
         }
-      }
-    } catch (e) {
+
+        if ("score" in parsedObj) {
+          setResults((prev) => {
+            const index = prev.findIndex(
+              (p) => p.stock?.ticker === parsedObj.stock?.ticker
+            )
+            if (index >= 0) {
+              const newRes = [...prev]
+              newRes[index] = parsedObj
+              return newRes
+            }
+            return [...prev, parsedObj]
+          })
+        }
+      })
+    } catch (e: unknown) {
+      // Silently ignore user-triggered aborts
+      if (e instanceof Error && e.name === "AbortError") return
+
       console.error("Stream error:", e)
       const msg = e instanceof Error ? e.message : "Unknown error occurred"
       setError(msg)
       toast.error(msg)
     } finally {
-      setLoading(false)
+      // Only disable loading if a new search hasn't already started
+      if (abortControllerRef.current === abortController) {
+        setLoading(false)
+        abortControllerRef.current = null
+      }
     }
   }, [])
 

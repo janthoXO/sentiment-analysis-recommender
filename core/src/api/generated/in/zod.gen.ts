@@ -6,7 +6,6 @@ import * as z from 'zod';
  * Stock
  */
 export const zStockRoot = z.object({
-    id: z.string(),
     ticker: z.string(),
     name: z.string()
 });
@@ -20,14 +19,23 @@ export const zSourceRoot = z.object({
 });
 
 /**
+ * SourceResult
+ */
+export const zSourceResultRoot = zSourceRoot.and(z.object({
+    score: z.number().gte(-1).lte(1)
+}));
+
+/**
  * QueryResult
  */
 export const zRoot = z.object({
     stock: zStockRoot,
-    sources: z.array(zSourceRoot.and(z.object({
-        score: z.number().gte(-1).lte(1)
-    }))),
+    sources: z.array(zSourceResultRoot),
     score: z.number().gte(-1).lte(1)
+});
+
+export const zSearchError = z.object({
+    error: z.string().optional()
 });
 
 export const zGetApiSearchQuery = z.object({
@@ -37,4 +45,7 @@ export const zGetApiSearchQuery = z.object({
 /**
  * A stream of analyzed stock results.
  */
-export const zGetApiSearchResponse = zRoot;
+export const zGetApiSearchResponse = z.union([
+    zRoot,
+    zSearchError
+]);

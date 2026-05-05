@@ -1,6 +1,6 @@
 export interface ResultCardProps {
   ticker: string
-  avgScore: number | null
+  avgScore: number
   articleCount: number
 }
 
@@ -12,16 +12,12 @@ export function ResultCard({
   let sentimentColor = "border-gray-200 bg-gray-50 text-gray-700"
   let sentimentLabel = "Neutral"
 
-  if (avgScore !== null) {
-    if (avgScore > 0.2) {
-      sentimentColor = "border-green-400 bg-green-50 text-green-700"
-      sentimentLabel = "Bullish"
-    } else if (avgScore < -0.2) {
-      sentimentColor = "border-red-400 bg-red-50 text-red-700"
-      sentimentLabel = "Bearish"
-    }
-  } else {
-    sentimentLabel = "Pending..."
+  if (avgScore > 0.2) {
+    sentimentColor = "border-green-400 bg-green-50 text-green-700"
+    sentimentLabel = "Bullish"
+  } else if (avgScore < -0.2) {
+    sentimentColor = "border-red-400 bg-red-50 text-red-700"
+    sentimentLabel = "Bearish"
   }
 
   return (

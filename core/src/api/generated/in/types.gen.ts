@@ -8,9 +8,15 @@ export type ClientOptions = {
  * Stock
  */
 export type StockRoot = {
-    id: string;
     ticker: string;
     name: string;
+};
+
+/**
+ * SourceResult
+ */
+export type SourceResultRoot = SourceRoot & {
+    score: number;
 };
 
 /**
@@ -26,10 +32,12 @@ export type SourceRoot = {
  */
 export type Root = {
     stock: StockRoot;
-    sources: Array<SourceRoot & {
-        score: number;
-    }>;
+    sources: Array<SourceResultRoot>;
     score: number;
+};
+
+export type SearchError = {
+    error?: string;
 };
 
 export type GetApiSearchData = {
@@ -48,7 +56,7 @@ export type GetApiSearchResponses = {
     /**
      * A stream of analyzed stock results.
      */
-    200: Root;
+    200: Root | SearchError;
 };
 
 export type GetApiSearchResponse = GetApiSearchResponses[keyof GetApiSearchResponses];

@@ -7,20 +7,7 @@
     "sources": {
       "type": "array",
       "items": {
-        "allOf": [
-          { "$ref": "./Source.json" },
-          {
-            "type": "object",
-            "properties": {
-              "score": {
-                "type": "number",
-                "minimum": -1.0,
-                "maximum": 1.0
-              }
-            },
-            "required": ["url", "snippet", "score"]
-          }
-        ]
+        "$ref": "./SourceResult.json"
       }
     },
     "score": {

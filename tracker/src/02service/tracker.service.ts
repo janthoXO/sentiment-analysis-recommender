@@ -14,7 +14,6 @@ const activeJobs = new Map<
 >();
 
 export async function track(
-  stockId: string,
   ticker: string,
   priority: number,
   scanJobId?: string
@@ -22,14 +21,15 @@ export async function track(
   try {
     const articles = await scrape(ticker);
 
+    // in theory we could cache here or in the analyzer, with already seen articles
     for (const a of articles) {
-      publishTask(stockId, ticker, priority, a.snippet, a.url, scanJobId);
+      publishTask(ticker, priority, a.snippet, a.url, scanJobId);
     }
 
     return articles.length;
   } catch (error) {
-    console.error(`Error executing track for ${ticker}:`, error);
-    return 0;
+    console.error(`Error executing track for ${ticker}:`);
+    throw error;
   }
 }
 
@@ -44,7 +44,6 @@ export async function createTracker(tracker: TrackJob): Promise<number> {
   }
 
   const expectedCount = await track(
-    tracker.stockId,
     tracker.ticker,
     tracker.priority,
     "scanJobId" in tracker ? tracker.scanJobId : undefined
@@ -54,7 +53,7 @@ export async function createTracker(tracker: TrackJob): Promise<number> {
 }
 
 export function setupJobInterval(job: TrackRequestIntervalRoot) {
-  const jobKey = `${job.stockId}:${job.interval}`;
+  const jobKey = `${job.ticker}:${job.interval}`;
   const activeJob = activeJobs.get(jobKey);
 
   if (activeJob) {
@@ -80,7 +79,7 @@ export function setupJobInterval(job: TrackRequestIntervalRoot) {
       return;
     }
 
-    track(activeJob.job.stockId, activeJob.job.ticker, activeJob.job.priority);
+    track(activeJob.job.ticker, activeJob.job.priority);
   }, job.interval * 1000);
 
   activeJobs.set(jobKey, { intervalId, job });
@@ -91,9 +90,9 @@ export async function hydrateJobsOnStartup() {
 
   for (const job of jobs) {
     setupJobInterval(job);
-    track(job.stockId, job.ticker, job.priority); // execute immediately on startup
+    track(job.ticker, job.priority); // execute immediately on startup
     console.log(
-      `Hydrated tracker interval for ${job.stockId} every ${job.interval}s`
+      `Hydrated tracker interval for ${job.ticker} every ${job.interval}s`
     );
   }
 }

@@ -13,7 +13,7 @@ export function initRouter(): Promise<void> {
     res.status(200).json({ msg: "ok" });
   });
 
-  apiRouter.use("/tracker", trackerRouter);
+  apiRouter.use("/internal/track", trackerRouter);
 
   const app = express();
 

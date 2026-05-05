@@ -9,20 +9,19 @@ export const connectMq = async () => {
   );
   channel = await conn.createChannel();
 
-  await channel.assertExchange("sentinel.tasks", "direct", { durable: true });
+  await channel.assertExchange("sentinel.analyze", "direct", { durable: true });
 
-  await channel.assertQueue("tasks.high", {
+  await channel.assertQueue("tasks", {
     durable: true,
     arguments: { "x-max-priority": 10 },
   });
-  await channel.bindQueue("tasks.high", "sentinel.tasks", "task.high");
+  await channel.bindQueue("tasks", "sentinel.analyze", "tasks");
 
   await channel.assertQueue("results", { durable: true });
-  await channel.bindQueue("results", "sentinel.tasks", "result");
+  await channel.bindQueue("results", "sentinel.analyze", "result");
 };
 
 export const publishTask = (
-  stockId: string,
   ticker: string,
   priority: number,
   snippet: string,
@@ -31,9 +30,9 @@ export const publishTask = (
 ) => {
   if (!channel) throw new Error("MQ channel not initialized");
   channel.publish(
-    "sentinel.tasks",
-    "task.high",
-    Buffer.from(JSON.stringify({ stockId, ticker, snippet, url, scanJobId })),
+    "sentinel.analyze",
+    "tasks",
+    Buffer.from(JSON.stringify({ ticker, snippet, url, scanJobId })),
     { priority }
   );
 };
