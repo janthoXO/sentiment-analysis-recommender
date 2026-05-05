@@ -3,14 +3,14 @@ import { scrape } from "./scraper.service.js";
 import { publishTask } from "@/03repo/mq.repo.js";
 import { zTrackRequestRoot } from "@/api/generated/in/zod.gen.js";
 import z from "zod";
-import type { TrackRequestInterval } from "@/api/generated/in/index.js";
+import type { TrackRequestIntervalRoot } from "@/api/generated/in/index.js";
 
 type TrackJob = z.infer<typeof zTrackRequestRoot>;
 
 // In-memory store for running intervals so we don't duplicate them on the same instance
 const activeJobs = new Map<
   string,
-  { intervalId: NodeJS.Timeout; job: TrackRequestInterval }
+  { intervalId: NodeJS.Timeout; job: TrackRequestIntervalRoot }
 >();
 
 export async function track(
@@ -53,7 +53,7 @@ export async function createTracker(tracker: TrackJob): Promise<number> {
   return expectedCount;
 }
 
-export function setupJobInterval(job: TrackRequestInterval) {
+export function setupJobInterval(job: TrackRequestIntervalRoot) {
   const jobKey = `${job.stockId}:${job.interval}`;
   const activeJob = activeJobs.get(jobKey);
 

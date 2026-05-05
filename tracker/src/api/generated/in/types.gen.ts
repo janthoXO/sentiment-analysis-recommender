@@ -14,11 +14,17 @@ export type TrackResponseRoot = {
     expectedArticles: number;
 };
 
-export type TrackRequestScanJob = TrackRequestCommon & {
+/**
+ * TrackRequestScanJob
+ */
+export type TrackRequestScanJobRoot = TrackRequestCommonRoot & {
     scanJobId: string;
 };
 
-export type TrackRequestCommon = {
+/**
+ * TrackRequestCommon
+ */
+export type TrackRequestCommonRoot = {
     /**
      * The FIGI
      */
@@ -30,7 +36,10 @@ export type TrackRequestCommon = {
     priority: number;
 };
 
-export type TrackRequestInterval = TrackRequestCommon & {
+/**
+ * TrackRequestInterval
+ */
+export type TrackRequestIntervalRoot = TrackRequestCommonRoot & {
     interval: number;
     expiration: number;
 };
@@ -38,7 +47,7 @@ export type TrackRequestInterval = TrackRequestCommon & {
 /**
  * TrackRequest
  */
-export type TrackRequestRoot = TrackRequestScanJob | TrackRequestInterval;
+export type TrackRequestRoot = TrackRequestScanJobRoot | TrackRequestIntervalRoot;
 
 export type PostInternalTrackData = {
     body: TrackRequestRoot;
