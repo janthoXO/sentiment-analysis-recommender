@@ -15,30 +15,39 @@ export type TrackResponseRoot = {
 };
 
 /**
- * TrackRequest
+ * TrackRequestScanJob
  */
-export type TrackRequestRoot = {
-    /**
-     * The unique correlation ID for this entire aggregation job.
-     */
-    scanJobId?: string;
+export type TrackRequestScanJobRoot = TrackRequestCommonRoot & {
+    scanJobId: string;
+};
+
+/**
+ * TrackRequestCommon
+ */
+export type TrackRequestCommonRoot = {
     /**
      * The FIGI
      */
     stockId: string;
     /**
-     * The stock ticker symbol, e.g., AAPL for Apple Inc.
+     * The stock ticker symbol
      */
     ticker: string;
-    /**
-     * The interval in seconds at which the tracker should check for new articles. For example, if set to 60, the tracker will look for new articles every minute.
-     */
-    interval: number;
-    /**
-     * Time-to-live in seconds for this tracking job. After this time, the tracker should stop looking for new articles and clean up any resources.
-     */
-    ttl: number;
+    priority: number;
 };
+
+/**
+ * TrackRequestInterval
+ */
+export type TrackRequestIntervalRoot = TrackRequestCommonRoot & {
+    interval: number;
+    expiration: number;
+};
+
+/**
+ * TrackRequest
+ */
+export type TrackRequestRoot = TrackRequestScanJobRoot | TrackRequestIntervalRoot;
 
 export type PostInternalTrackData = {
     body: TrackRequestRoot;

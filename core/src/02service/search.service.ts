@@ -5,9 +5,11 @@ import { env } from "../env.js";
 import { finalizeJob } from "../03repo/mq.repo.js";
 import { fetchFigiForTicker } from "../api/polygon.api.js";
 import { v4 as uuidv4 } from "uuid";
-import type { TrackRequestRoot } from "@/api/generated/out/types.gen.js";
 import type { Root } from "@/api/generated/in/index.js";
-import { postInternalTrack } from "@/api/generated/out/index.js";
+import {
+  postInternalTrack,
+  type TrackRequestScanJobRoot,
+} from "@/api/generated/out/index.js";
 
 export async function processSearch(ticker: string): Promise<Root> {
   const existingJobId = inFlight.getJobIdForTicker(ticker);
@@ -29,12 +31,11 @@ export async function processSearch(ticker: string): Promise<Root> {
   }
 
   const scanJobId = uuidv4();
-  const trackPayload: TrackRequestRoot = {
+  const trackPayload: TrackRequestScanJobRoot = {
     scanJobId,
     stockId: stockInfo.figi,
     ticker: ticker,
-    interval: 0,
-    ttl: 0,
+    priority: 9,
   };
 
   const trackerRes = await postInternalTrack({

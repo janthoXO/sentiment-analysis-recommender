@@ -10,15 +10,36 @@ export const zTrackResponseRoot = z.object({
 });
 
 /**
- * TrackRequest
+ * TrackRequestCommon
  */
-export const zTrackRequestRoot = z.object({
-    scanJobId: z.uuid().optional(),
+export const zTrackRequestCommonRoot = z.object({
     stockId: z.string(),
     ticker: z.string(),
-    interval: z.int().gte(0),
-    ttl: z.int().gte(0)
+    priority: z.int().gte(1).lte(9)
 });
+
+/**
+ * TrackRequestScanJob
+ */
+export const zTrackRequestScanJobRoot = zTrackRequestCommonRoot.and(z.object({
+    scanJobId: z.uuid()
+}));
+
+/**
+ * TrackRequestInterval
+ */
+export const zTrackRequestIntervalRoot = zTrackRequestCommonRoot.and(z.object({
+    interval: z.int().gte(1),
+    expiration: z.int().gte(1)
+}));
+
+/**
+ * TrackRequest
+ */
+export const zTrackRequestRoot = z.union([
+    zTrackRequestScanJobRoot,
+    zTrackRequestIntervalRoot
+]);
 
 export const zPostInternalTrackBody = zTrackRequestRoot;
 
