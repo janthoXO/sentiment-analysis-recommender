@@ -81,7 +81,7 @@ export async function* processTickers(
 }
 
 export async function* processTopic(): AsyncGenerator<TickerResultRoot> {
-// topic: string
+  // topic: string
   // convert topic to tickers
 
   yield* processTickers([
