@@ -24,7 +24,9 @@ paths:
           content:
             application/x-ndjson:
               schema:
-                $ref: "./schemas/QueryResult.json"
+                oneOf:
+                  - $ref: "#/components/schemas/QueryResult"
+                  - $ref: "#/components/schemas/SearchError"
       tags:
         - webclient-out
         - core-in
@@ -40,7 +42,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "./schemas/TrackRequest.json"
+              $ref: "#/components/schemas/TrackRequest"
       responses:
         "200":
           description: Successfully initiated scrape and counted articles.
@@ -48,9 +50,27 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: "./schemas/TrackResponse.json"
+                  - $ref: "#/components/schemas/TrackResponse"
                 nullable: true
       tags:
         - trends-out
         - core-out
         - tracker-in
+
+components:
+  schemas:
+    QueryResult:
+      $ref: "./schemas/QueryResult.json"
+    
+    # You can also do this for your error object to make it even cleaner!
+    SearchError:
+      type: object
+      properties:
+        error:
+          type: string
+    
+    TrackRequest:
+      $ref: "./schemas/TrackRequest.json"
+
+    TrackResponse:
+      $ref: "./schemas/TrackResponse.json"

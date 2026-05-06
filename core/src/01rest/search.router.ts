@@ -19,7 +19,7 @@ async function handleSearch(
     res.setHeader("Cache-Control", "no-cache");
 
     const result = await processSearch(ticker);
-    res.write(JSON.stringify(result) + "\\n");
+    res.write(JSON.stringify(result) + "\n");
 
     res.end();
   } catch (e) {
@@ -27,7 +27,7 @@ async function handleSearch(
     if (!res.headersSent) {
       res.status(500).json({ error: "Internal error" });
     } else {
-      res.write(JSON.stringify({ error: "Internal error" }) + "\\n");
+      res.write(JSON.stringify({ error: "Internal error" }) + "\n");
       res.end();
     }
   }

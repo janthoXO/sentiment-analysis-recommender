@@ -3,9 +3,8 @@
   "title": "TrackRequestCommon",
   "type": "object",
   "properties": {
-    "stockId": { "type": "string", "description": "The FIGI" },
     "ticker": { "type": "string", "description": "The stock ticker symbol" },
     "priority": { "type": "integer", "minimum": 1, "maximum": 9 }
   },
-  "required": ["stockId", "ticker", "priority"]
+  "required": ["ticker", "priority"]
 }

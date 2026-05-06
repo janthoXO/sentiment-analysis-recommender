@@ -11,11 +11,9 @@ trackerRouter.post("/", async (req, res) => {
     const expectedCount = await createTracker(trackRequest);
 
     res.json({ expectedArticles: expectedCount });
-  } catch (e) {
-    console.error("Scrape router error:", e);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "Internal error" });
-    }
+  } catch {
+    console.error("Track router error");
+    res.status(500).json({ error: "Internal error" });
   }
 });
 

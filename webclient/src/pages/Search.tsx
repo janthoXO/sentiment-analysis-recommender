@@ -1,30 +1,19 @@
-import { useEffect, useRef } from "react"
-import { useSearchParams } from "react-router-dom"
-import { SearchBar } from "@/components/SearchBar"
+import { useEffect } from "react"
+import { Form, useSearchParams } from "react-router-dom"
 import { ResultCard } from "@/components/ResultCard"
 import { useStockStream } from "@/hooks/useStockStream"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 export default function SearchPage() {
   const { results, loading, search } = useStockStream()
-  const [searchParams, setSearchParams] = useSearchParams()
-
+  const [searchParams] = useSearchParams()
   const q = searchParams.get("q")
-  const lastSearchedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (q && q !== lastSearchedRef.current) {
-      lastSearchedRef.current = q
-      search(q)
-    }
+    if (q === null || q.trim() === "") return
+    search(q)
   }, [q, search])
-
-  const handleSearch = (query: string) => {
-    if (query) {
-      setSearchParams({ q: query })
-    } else {
-      setSearchParams({})
-    }
-  }
 
   return (
     <div className="flex w-full flex-col items-center">
@@ -37,15 +26,32 @@ export default function SearchPage() {
         </p>
       </div>
 
-      <SearchBar onSearch={handleSearch} loading={loading} />
+      <Form
+        className="mb-6 flex w-full max-w-sm items-center space-x-2"
+        role="search"
+      >
+        {/* 2. Use shadcn's Input for the beautiful UI */}
+        <Input
+          type="text"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="Enter Stock Ticker (e.g. AAPL)"
+          disabled={loading}
+        />
+
+        {/* 3. Use shadcn's Button */}
+        <Button type="submit" disabled={loading}>
+          {loading ? "Searching..." : "Search"}
+        </Button>
+      </Form>
 
       <div className="mt-8 grid w-full max-w-4xl grid-cols-1 place-items-center gap-6 md:grid-cols-2 lg:grid-cols-3">
         {results.map((res) => (
           <ResultCard
-            key={res.ticker}
-            ticker={res.ticker}
-            avgScore={res.avgScore}
-            articleCount={res.articleCount}
+            key={res.stock.ticker}
+            ticker={res.stock.ticker}
+            avgScore={res.score}
+            articleCount={res.sources.length}
           />
         ))}
       </div>

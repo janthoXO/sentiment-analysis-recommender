@@ -1,46 +1,27 @@
-import axios from "axios";
-import * as cheerio from "cheerio";
+import { env } from "@/env.js";
+import z from "zod";
 
-const MAX_ARTICLES = 10;
+const zFinnhubNews = z.object({
+  headline: z.string(),
+  url: z.string(),
+  summary: z.string(),
+});
 
 export async function scrape(
   ticker: string
 ): Promise<{ url: string; snippet: string }[]> {
   try {
-    const response = await axios.get(
-      `https://finance.yahoo.com/quote/${ticker}/news/`,
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-        },
-      }
+    const response = await fetch(
+      `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=2025-05-15&to=2025-06-20&token=${env.FINNHUB_KEY}`
     );
+    const data = await zFinnhubNews.array().parseAsync(await response.json());
 
-    const $ = cheerio.load(response.data);
-    const articles: { url: string; snippet: string }[] = [];
-
-    $("h3").each((_i, el) => {
-      if (articles.length >= MAX_ARTICLES) return;
-      const _url = $(el).parent().attr("href") || $(el).find("a").attr("href");
-      if (_url) {
-        // naive snippet extraction
-        const p = $(el).parent().next("p").text();
-        articles.push({
-          url: _url.startsWith("http")
-            ? _url
-            : `https://finance.yahoo.com${_url}`,
-          snippet: p || $(el).text(),
-        });
-      }
-    });
-
-    return articles || [];
+    return data.map((news) => ({
+      url: news.url,
+      snippet: `${news.headline}\n${news.summary}`,
+    }));
   } catch (e) {
-    console.error(
-      `Scrape failed for ${ticker}:`,
-      e instanceof Error ? e.message : e
-    );
+    console.error(`Scrape failed for ${ticker}:`);
     throw e;
   }
 }

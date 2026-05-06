@@ -4,7 +4,7 @@ import type { TrackRequestIntervalRoot } from "@/api/generated/in/index.js";
 import { zTrackRequestIntervalRoot } from "@/api/generated/in/zod.gen.js";
 
 export const redisClient = createClient({
-  url: env.TRACKER_REDIS_URL,
+  url: env.REDIS_URL,
 });
 
 redisClient.on("error", (err) => console.error("Redis Client Error", err));
@@ -13,14 +13,14 @@ export const connectRedis = async () => {
   await redisClient.connect();
 };
 
-const trackJobKey = (stockId: string, interval: number) =>
-  `trackJob:${stockId}:${interval}`;
+const trackJobKey = (ticker: string, interval: number) =>
+  `trackJob:${ticker}:${interval}`;
 
 export async function getTrackJob(
-  stockId: string,
+  ticker: string,
   interval: number
 ): Promise<TrackRequestIntervalRoot | null> {
-  const jobKey = trackJobKey(stockId, interval);
+  const jobKey = trackJobKey(ticker, interval);
   const data = await redisClient.get(jobKey);
   if (!data) return null;
 
@@ -51,7 +51,7 @@ export async function getAllTrackJobs(): Promise<TrackRequestIntervalRoot[]> {
 export async function persistTrackJob(
   job: TrackRequestIntervalRoot
 ): Promise<TrackRequestIntervalRoot> {
-  const jobKey = trackJobKey(job.stockId, job.interval);
+  const jobKey = trackJobKey(job.ticker, job.interval);
 
   const existingData = await redisClient
     .get(jobKey)

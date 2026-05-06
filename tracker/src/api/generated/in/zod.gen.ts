@@ -13,7 +13,6 @@ export const zTrackResponseRoot = z.object({
  * TrackRequestCommon
  */
 export const zTrackRequestCommonRoot = z.object({
-    stockId: z.string(),
     ticker: z.string(),
     priority: z.int().gte(1).lte(9)
 });

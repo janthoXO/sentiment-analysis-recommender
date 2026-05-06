@@ -11,7 +11,8 @@ export default defineConfig({
     },
     output: {
       mode: "single",
-      target: "./src/api",
+      target: "./src/api/generated",
+      schemas: "./src/api/generated/dtos",
       client: "fetch",
       fileExtension: ".gen.ts",
       clean: ["./src/api/generated"],
