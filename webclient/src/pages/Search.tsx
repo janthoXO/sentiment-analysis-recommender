@@ -50,7 +50,7 @@ export default function SearchPage() {
           <ResultCard
             key={res.stock.ticker}
             ticker={res.stock.ticker}
-            avgScore={res.score}
+            avgScore={res.avgScore}
             articleCount={res.sources.length}
           />
         ))}

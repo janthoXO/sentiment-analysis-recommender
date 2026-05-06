@@ -6,13 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type GetApiSearchParams = {
-/**
- * The topic to search.
- */
-topic?: string;
-/**
- * List of stock tickers to analyze.
- */
-tickers?: string;
+export type TickerResultStock = {
+  ticker: string;
+  name: string;
 };
