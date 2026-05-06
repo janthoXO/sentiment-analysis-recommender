@@ -28,7 +28,11 @@ export async function setTickerCache(
   if (prev) {
     if (
       max(searchResult.sources.map((s) => s.updatedAtSec)) <=
-      max(zTickerResultRoot.parse(JSON.parse(prev)).sources.map((s) => s.updatedAtSec))
+      max(
+        zTickerResultRoot
+          .parse(JSON.parse(prev))
+          .sources.map((s) => s.updatedAtSec)
+      )
     ) {
       return; // Cached data is newer, skip update
     }

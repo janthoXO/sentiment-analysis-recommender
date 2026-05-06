@@ -14,7 +14,9 @@ export async function* processTickers(
   ): Promise<TickerResultRoot> => {
     let stockInfo = await getStock(ticker);
     if (!stockInfo) {
-      console.debug(`Stock info for ${ticker} not found in DB, fetching from Polygon...`);
+      console.debug(
+        `Stock info for ${ticker} not found in DB, fetching from Polygon...`
+      );
       const polygonData = await fetchFigiForTicker(ticker);
       stockInfo = polygonData;
       await saveStock(polygonData);
@@ -78,9 +80,8 @@ export async function* processTickers(
   }
 }
 
-export async function* processTopic(
-  // topic: string
-): AsyncGenerator<TickerResultRoot> {
+export async function* processTopic(): AsyncGenerator<TickerResultRoot> {
+// topic: string
   // convert topic to tickers
 
   yield* processTickers([
