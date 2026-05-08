@@ -18,6 +18,11 @@ class MqClient:
     routing key, mirroring the topology declared by the tracker.
     """
 
+    # Routing key the tracker publishes tasks under (see tracker/src/03repo/mq.repo.ts).
+    # The queue name (e.g. "tasks.high") and the routing key ("task.high") differ
+    # by design in the tracker, so we hard-bind them here.
+    TASK_ROUTING_KEY = "task.high"
+
     def __init__(
         self,
         url: str,
@@ -48,6 +53,11 @@ class MqClient:
             queue=self.task_queue,
             durable=True,
             arguments={"x-max-priority": 10},
+        )
+        self.channel.queue_bind(
+            queue=self.task_queue,
+            exchange=self.exchange,
+            routing_key=self.TASK_ROUTING_KEY,
         )
         self.channel.queue_declare(queue="results", durable=True)
         self.channel.queue_bind(
