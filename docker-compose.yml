@@ -50,9 +50,23 @@ services:
     networks:
       - sentinel-net
 
+  analyzer:
+    build: ./analyzer
+    environment:
+      RABBITMQ_URL: amqp://sentinel:sentinel@rabbitmq:5672
+      LOG_LEVEL: INFO
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - hfcache:/root/.cache/huggingface
+    networks:
+      - sentinel-net
+
 volumes:
   pgdata:
   rmqdata:
+  hfcache:
 
 networks:
   sentinel-net:
