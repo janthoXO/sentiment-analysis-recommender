@@ -5,10 +5,10 @@ info:
 
 http:
   method: GET
-  url: "{{core_url}}/api/search?query=TSLA"
+  url: "{{core_url}}/api/search?q=health"
   params:
-    - name: query
-      value: TSLA
+    - name: q
+      value: health
       type: query
   auth: inherit
 

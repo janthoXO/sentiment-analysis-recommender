@@ -11,7 +11,7 @@ export function useStockStream() {
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  const search = useCallback(async (ticker: string) => {
+  const search = useCallback(async (query: string) => {
     // 1. Cleanup previous requests
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -27,10 +27,7 @@ export function useStockStream() {
 
     try {
       // 3. Initiate the Fetch
-      const response = await getApiSearch(
-        { tickers: ticker },
-        { signal: abortController.signal }
-      )
+      const response = await getApiSearch({ q: query })
 
       if (response.status !== 200) {
         throw new Error("Failed to fetch stream")
