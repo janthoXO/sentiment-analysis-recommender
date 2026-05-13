@@ -10,15 +10,10 @@ paths:
       summary: Search for stock sentiment (ndJSON Stream)
       parameters:
         - in: query
-          name: topic
+          name: q
           schema:
             type: string
-          description: The topic to search.
-        - in: query
-          name: tickers
-          schema:
-            type: string
-          description: List of stock tickers to analyze.
+          description: Search query (e.g. company name, ticker, or sector).
       responses:
         "200":
           description: A stream of analyzed stock results.

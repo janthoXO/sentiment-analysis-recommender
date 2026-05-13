@@ -8,11 +8,7 @@
 
 export type GetApiSearchParams = {
 /**
- * The topic to search.
+ * Search query (e.g. company name, ticker, or sector).
  */
-topic?: string;
-/**
- * List of stock tickers to analyze.
- */
-tickers?: string;
+q?: string;
 };
