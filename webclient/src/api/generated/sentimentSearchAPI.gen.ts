@@ -7,8 +7,8 @@
  */
 import type {
   GetApiSearchParams,
-  QueryResult,
-  SearchError
+  SearchError,
+  TickerResult
 } from './dtos';
 
 
@@ -17,7 +17,7 @@ interface TypedResponse<T> extends Response {
 }
 
 export type getApiSearchResponse200 = {
-  stream: TypedResponse<QueryResult | SearchError>
+  stream: TypedResponse<TickerResult | SearchError>
   status: 200
 }
 
@@ -28,7 +28,7 @@ export type getApiSearchResponseSuccess = (getApiSearchResponse200) & {
 
 export type getApiSearchResponse = (getApiSearchResponseSuccess)
 
-export const getGetApiSearchUrl = (params: GetApiSearchParams,) => {
+export const getGetApiSearchUrl = (params?: GetApiSearchParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -44,9 +44,9 @@ export const getGetApiSearchUrl = (params: GetApiSearchParams,) => {
 }
 
 /**
- * @summary Search for a stock's sentiment (ndJSON Stream)
+ * @summary Search for stock sentiment (ndJSON Stream)
  */
-export const getApiSearch = async (params: GetApiSearchParams, options?: RequestInit): Promise<getApiSearchResponse> => {
+export const getApiSearch = async (params?: GetApiSearchParams, options?: RequestInit): Promise<getApiSearchResponse> => {
 
     const stream = await fetch(getGetApiSearchUrl(params),
   {

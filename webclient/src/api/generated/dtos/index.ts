@@ -7,7 +7,7 @@
  */
 
 export * from './getApiSearchParams.gen';
-export * from './queryResult.gen';
-export * from './queryResultSourcesItem.gen';
-export * from './queryResultStock.gen';
 export * from './searchError.gen';
+export * from './tickerResult.gen';
+export * from './tickerResultSourcesItem.gen';
+export * from './tickerResultStock.gen';

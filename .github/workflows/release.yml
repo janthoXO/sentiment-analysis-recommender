@@ -6,7 +6,6 @@ on:
       - main
     # The workflow itself only triggers if one of these folders (or the workflow itself) changes
     paths:
-      - "tracker/**"
       - "webclient/**"
       - "core/**"
       - ".github/workflows/**"
@@ -29,7 +28,6 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      tracker: ${{ steps.filter.outputs.tracker }}
       webclient: ${{ steps.filter.outputs.webclient }}
       core: ${{ steps.filter.outputs.core }}
     steps:
@@ -40,10 +38,6 @@ jobs:
         id: filter
         with:
           filters: |
-            tracker:
-              - 'tracker/**'
-              - '.github/workflows/build.tracker.yml'
-              - '.github/workflows/package.tracker.yml'
             webclient:
               - 'webclient/**'
               - '.github/workflows/build.webclient.yml'
@@ -54,13 +48,6 @@ jobs:
               - '.github/workflows/package.core.yml'
 
   # 2. Add 'if' conditions to the package jobs
-  package-tracker:
-    needs: [ versioning, detect-changes ]
-    if: ${{ needs.detect-changes.outputs.tracker == 'true' }}
-    uses: ./.github/workflows/package.tracker.yml
-    with:
-      version: ${{ needs.versioning.outputs.version }}
-
   package-webclient:
     needs: [ versioning, detect-changes ]
     if: ${{ needs.detect-changes.outputs.webclient == 'true' }}
@@ -77,7 +64,7 @@ jobs:
 
   # 3. Update the release job to run even if some packaging jobs were skipped
   release:
-    needs: [ versioning, package-tracker, package-webclient, package-core ]
+    needs: [ versioning, package-webclient, package-core ]
     # Run as long as the workflow wasn't cancelled and no previous jobs failed
     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
-import { initRouter } from "./01rest/router.js";
+import { initRouter } from "./router.js";
 // always keep this import to load environment variables before anything else
 import { env } from "./env.js";
-import { connectMq } from "./03repo/mq.repo.js";
+import { connectMq } from "./mq.repo.js";
 
 console.log("Environment variables loaded.", env);
 

@@ -2,10 +2,10 @@ import { getApiSearch } from "@/api/generated/sentimentSearchAPI.gen"
 import { useState, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { readStream } from "@/lib/stream"
-import type { QueryResult } from "@/api/generated/dtos"
+import type { TickerResult } from "@/api/generated/dtos"
 
 export function useStockStream() {
-  const [results, setResults] = useState<QueryResult[]>([])
+  const [results, setResults] = useState<TickerResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,7 +28,7 @@ export function useStockStream() {
     try {
       // 3. Initiate the Fetch
       const response = await getApiSearch(
-        { query: ticker },
+        { tickers: ticker },
         { signal: abortController.signal }
       )
 
@@ -43,7 +43,7 @@ export function useStockStream() {
           throw new Error(String(parsedObj.error))
         }
 
-        if ("score" in parsedObj) {
+        if ("avgScore" in parsedObj) {
           setResults((prev) => {
             const index = prev.findIndex(
               (p) => p.stock?.ticker === parsedObj.stock?.ticker
