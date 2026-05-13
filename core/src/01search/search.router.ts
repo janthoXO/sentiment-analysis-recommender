@@ -26,8 +26,8 @@ async function handleSearch(req: Request, res: Response): Promise<void> {
     res.end();
   } catch (e) {
     console.error("Search router error:", e);
-      res.write(JSON.stringify({ error: "Internal error" }) + "\n");
-      res.end();
+    res.write(JSON.stringify({ error: "Internal error" }) + "\n");
+    res.end();
   }
 }
 

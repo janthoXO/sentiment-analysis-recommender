@@ -1,6 +1,12 @@
-import { zSourceResultRoot, zTickerResultRoot } from "@/generated/in/zod.gen.js";
+import {
+  zSourceResultRoot,
+  zTickerResultRoot,
+} from "@/generated/in/zod.gen.js";
 import { getRedis } from "@/cache.repo.js";
-import type { SourceResultRoot, TickerResultRoot } from "@/generated/in/index.js";
+import type {
+  SourceResultRoot,
+  TickerResultRoot,
+} from "@/generated/in/index.js";
 import { max } from "date-fns";
 
 const singleSourceCacheKey = (ticker: string, url: string) =>

@@ -3,7 +3,11 @@ import type {
   StockRoot,
   TickerResultRoot,
 } from "@/generated/in/index.js";
-import { getSingleSourceScoreCache, setOverallScoreCache, setSingleSourceScoreCache } from "./score.cache.js";
+import {
+  getSingleSourceScoreCache,
+  setOverallScoreCache,
+  setSingleSourceScoreCache,
+} from "./score.cache.js";
 import * as scrapeService from "@/03scraper/finnhub.api.js";
 import { publishAnalysisTask } from "@/mq.repo.js";
 
