@@ -41,8 +41,7 @@ export const zSearchError = z.object({
 });
 
 export const zGetApiSearchQuery = z.object({
-    topic: z.string().optional(),
-    tickers: z.string().optional()
+    q: z.string().optional()
 });
 
 /**

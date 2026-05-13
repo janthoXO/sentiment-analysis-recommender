@@ -3,9 +3,8 @@ import type {
   StockRoot,
   TickerResultRoot,
 } from "@/generated/in/index.js";
-import { getSourceScoreCache, setSourceScoreCache } from "./score.cache.js";
+import { getSingleSourceScoreCache, setOverallScoreCache, setSingleSourceScoreCache } from "./score.cache.js";
 import * as scrapeService from "@/03scraper/finnhub.api.js";
-import { setTickerCache } from "./ticker.cache.js";
 import { publishAnalysisTask } from "@/mq.repo.js";
 
 export type InFlightJob = {
@@ -36,7 +35,7 @@ export async function requestAnalysis(
 
   // check cache if scores already exist
   const cachedScores = await Promise.all(
-    sources.map((s) => getSourceScoreCache(ticker, s.url))
+    sources.map((s) => getSingleSourceScoreCache(ticker, s.url))
   ).then((results) => results.filter((r) => r !== null));
   console.debug(
     `Cache hit for ${cachedScores.length} out of ${sources.length} sources for ${ticker}`
@@ -118,7 +117,7 @@ export async function receiveResult(groupId: string, result: SourceResultRoot) {
   job.results.push(result);
 
   // save results to cache
-  await setSourceScoreCache(job.stock.ticker, result);
+  await setSingleSourceScoreCache(job.stock.ticker, result);
 
   if (job.results.length < job.expected) {
     // still waiting for more results, do not resolve yet
@@ -138,7 +137,7 @@ export async function receiveResult(groupId: string, result: SourceResultRoot) {
   }
 
   if (queryResult) {
-    await setTickerCache(job.stock.ticker, queryResult);
+    await setOverallScoreCache(job.stock.ticker, queryResult);
   }
 }
 
