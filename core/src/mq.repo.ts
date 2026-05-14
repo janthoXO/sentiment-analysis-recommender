@@ -10,7 +10,7 @@ let channel: amqplib.Channel;
 const zAnalyzerResult = z.object({
   ticker: z.string(),
   jobId: z.string(),
-  sources: z.array(zSourceResultRoot)
+  sources: z.array(zSourceResultRoot),
 });
 
 export async function connectMq() {
@@ -36,7 +36,9 @@ export async function connectMq() {
     console.debug("Received MQ message:", msg.content.toString());
 
     try {
-      const { jobId, sources } = zAnalyzerResult.parse(JSON.parse(msg.content.toString()));
+      const { jobId, sources } = zAnalyzerResult.parse(
+        JSON.parse(msg.content.toString())
+      );
 
       await inFlight.receiveResult(jobId, sources);
     } catch (e) {

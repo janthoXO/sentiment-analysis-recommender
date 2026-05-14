@@ -86,9 +86,7 @@ export async function requestAnalysis(
   });
 }
 
-export function addSubscriber(
-  jobId: string
-): Promise<TickerResultRoot | null> {
+export function addSubscriber(jobId: string): Promise<TickerResultRoot | null> {
   return new Promise((resolve, reject) => {
     const job = jobs.get(jobId);
     if (!job) {
