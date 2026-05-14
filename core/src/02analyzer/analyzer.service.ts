@@ -8,8 +8,8 @@ import {
   setOverallScoreCache,
   setSingleSourceScoreCache,
 } from "./score.cache.js";
-import * as scrapeService from "@/03scraper/finnhub.api.js";
 import { publishAnalysisTask } from "@/mq.repo.js";
+import { getArticlesByTicker } from "@/articles/articles.api.js";
 
 export type InFlightJob = {
   stock: StockRoot;
@@ -38,7 +38,7 @@ export async function requestAnalysis(
   priority: number
 ): Promise<TickerResultRoot | null> {
   // scrape data
-  const sources = await scrapeService.scrape(ticker);
+  const sources = await getArticlesByTicker(ticker);
   console.debug(`Scraped ${sources.length} sources for ${ticker}`);
 
   if (sources.length === 0) {

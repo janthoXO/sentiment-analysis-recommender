@@ -1,8 +1,8 @@
 import type { StockRoot, TickerResultRoot } from "@/generated/in/index.js";
-import { searchTickers } from "../figi/polygon.api.js";
 import * as analyzeService from "@/02analyzer/analyzer.service.js";
 import { getQueryStockCache, setQueryStockCache } from "./stock.cache.js";
 import { getOverallScoreCache } from "@/02analyzer/score.cache.js";
+import { searchTickers } from "@/stocks/stocks.api.js";
 
 async function processStock(stock: StockRoot): Promise<TickerResultRoot> {
   const cached = await getOverallScoreCache(stock.ticker);
