@@ -1,7 +1,6 @@
 import type { StockRoot, TickerResultRoot } from "@/generated/in/index.js";
 import { searchTickers } from "../figi/polygon.api.js";
 import * as analyzeService from "@/02analyzer/analyzer.service.js";
-import { env } from "@/env.js";
 import { getQueryStockCache, setQueryStockCache } from "./stock.cache.js";
 import { getOverallScoreCache } from "@/02analyzer/score.cache.js";
 
@@ -13,12 +12,12 @@ async function processStock(stock: StockRoot): Promise<TickerResultRoot> {
   }
 
   // check if there is already a inflight request with high priority
-  const groupId = analyzeService.getInFlightGroupId(stock.ticker);
-  console.debug(`Existing in-flight job: ${groupId ? "Yes" : "No"}`);
+  const jobId = analyzeService.getInFlightJobId(stock.ticker);
+  console.debug(`Existing in-flight job: ${jobId ? "Yes" : "No"}`);
 
-  const result = await (groupId
-    ? analyzeService.addSubscriber(groupId, env.GROUP_TIMEOUT_MS)
-    : analyzeService.requestAnalysis(stock.ticker, 4, env.GROUP_TIMEOUT_MS));
+  const result = await (jobId
+    ? analyzeService.addSubscriber(jobId)
+    : analyzeService.requestAnalysis(stock.ticker, 4));
   if (result === null) {
     throw new Error(`Failed to get analysis result for ${stock.ticker}`);
   }

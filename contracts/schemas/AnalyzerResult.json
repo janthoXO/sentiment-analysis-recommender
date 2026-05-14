@@ -2,17 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "AnalyzerResult",
   "type": "object",
-  "allOf": [
-    {
-      "type": "object",
-      "properties": {
-        "ticker": { "type": "string" },
-        "groupId": { "type": "string" }
-      },
-      "required": ["ticker", "groupId"]
-    },
-    {
-      "$ref": "./SourceResult.json"
+  "properties": {
+    "ticker": { "type": "string" },
+    "jobId": { "type": "string" },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "./SourceResult.json" }
     }
-  ]
+  },
+  "required": ["ticker", "jobId", "sources"]
 }
