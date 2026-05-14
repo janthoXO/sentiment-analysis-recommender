@@ -12,7 +12,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "contracts:generate": "openapi-ts"
+    "contracts:generate": "openapi-ts",
+    "db:generate": "drizzle-kit generate"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,7 @@
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
     "amqplib": "^1.0.3",
+    "cheerio": "^1.2.0",
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",

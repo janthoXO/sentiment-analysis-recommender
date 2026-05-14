@@ -1,1 +1,1 @@
-export { stockSchema } from "./figi/stock.schema.js";
+export { trackerSchema } from "./01tracker/tracker.schema.js";

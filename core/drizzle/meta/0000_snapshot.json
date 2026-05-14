@@ -1,21 +1,15 @@
 {
-  "id": "7a1fcdbe-2956-421c-b8dd-1a900e179199",
+  "id": "fe48cf67-1401-45d8-9a23-157f14cc53e6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.stocks": {
-      "name": "stocks",
+    "public.tracker": {
+      "name": "tracker",
       "schema": "",
       "columns": {
         "ticker": {
           "name": "ticker",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "figi": {
-          "name": "figi",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -24,12 +18,45 @@
           "name": "name",
           "type": "text",
           "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "interval": {
+          "name": "interval",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_triggered_at": {
+          "name": "last_triggered_at",
+          "type": "bigint",
+          "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "tracker_ticker_priority_interval_pk": {
+          "name": "tracker_ticker_priority_interval_pk",
+          "columns": [
+            "ticker",
+            "priority",
+            "interval"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

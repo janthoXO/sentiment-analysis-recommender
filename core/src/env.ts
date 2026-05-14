@@ -16,9 +16,7 @@ export const EnvSchema = z.object({
   CACHE_TTL_SECONDS: z.coerce.number().default(900),
   GROUP_TIMEOUT_MS: z.coerce.number().default(15000),
 
-  POLYGON_API_KEY: z.string(),
-
-  FINNHUB_KEY: z.string(),
+  FINNHUB_API_KEY: z.string(),
   MAX_ARTICLES: z.coerce.number().default(10),
 });
 
