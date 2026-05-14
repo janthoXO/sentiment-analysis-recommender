@@ -7,6 +7,12 @@ import type { Root } from "./generated/in/index.js";
 
 let channel: amqplib.Channel;
 
+const zAnalyzerResult = z.object({
+  ticker: z.string(),
+  jobId: z.string(),
+  sources: z.array(zSourceResultRoot)
+});
+
 export async function connectMq() {
   const conn = await amqplib.connect(env.RABBITMQ_URL);
   channel = await conn.createChannel();
@@ -30,11 +36,9 @@ export async function connectMq() {
     console.debug("Received MQ message:", msg.content.toString());
 
     try {
-      const { groupId, ...rest } = zSourceResultRoot
-        .and(z.object({ ticker: z.string(), groupId: z.string() }))
-        .parse(JSON.parse(msg.content.toString()));
+      const { jobId, sources } = zAnalyzerResult.parse(JSON.parse(msg.content.toString()));
 
-      await inFlight.receiveResult(groupId, rest);
+      await inFlight.receiveResult(jobId, sources);
     } catch (e) {
       console.error("Error processing MQ message", e);
     } finally {
@@ -45,15 +49,15 @@ export async function connectMq() {
 
 export const publishAnalysisTask = (
   ticker: string,
-  groupId: string,
-  source: Root,
+  jobId: string,
+  sources: Root[],
   priority: number
 ) => {
   if (!channel) throw new Error("MQ channel not initialized");
   channel.publish(
     "sentinel.analyze",
     "tasks",
-    Buffer.from(JSON.stringify({ ticker, groupId, ...source })),
+    Buffer.from(JSON.stringify({ ticker, jobId, sources })),
     { priority }
   );
 };

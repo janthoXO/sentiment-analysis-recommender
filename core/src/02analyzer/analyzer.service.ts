@@ -12,30 +12,38 @@ import * as scrapeService from "@/03scraper/finnhub.api.js";
 import { publishAnalysisTask } from "@/mq.repo.js";
 
 export type InFlightJob = {
-  expected: number;
   stock: StockRoot;
   subscribers: {
     resolve: (result: TickerResultRoot | null) => void;
     reject: (error: Error) => void;
   }[]; // Callbacks to resolve/reject promises of subscribers
-  results: SourceResultRoot[];
+  cachedResults: SourceResultRoot[];
 };
 
-// maps from groupId to the in-flight job details
+// maps from jobId to the in-flight job details
 // can be both a query job or a interval job
 const jobs = new Map<string, InFlightJob>();
 
-// maps from ticker to groupId of a query
-const highPriorityTickerToGroupId = new Map<string, string>();
+// maps from ticker to jobId of a query
+const highPriorityTickerToJobId = new Map<string, string>();
+
+function calculateAverageScore(results: SourceResultRoot[]): number {
+  if (results.length === 0) return 0;
+
+  return results.reduce((sum, r) => sum + r.score, 0) / results.length;
+}
 
 export async function requestAnalysis(
   ticker: string,
-  priority: number,
-  timeoutMs?: number
+  priority: number
 ): Promise<TickerResultRoot | null> {
   // scrape data
   const sources = await scrapeService.scrape(ticker);
   console.debug(`Scraped ${sources.length} sources for ${ticker}`);
+
+  if (sources.length === 0) {
+    return null;
+  }
 
   // check cache if scores already exist
   const cachedScores = await Promise.all(
@@ -48,93 +56,73 @@ export async function requestAnalysis(
   if (cachedScores.length === sources.length) {
     return {
       stock: { ticker, name: ticker },
-      avgScore:
-        cachedScores.reduce((sum, r) => sum + r.score, 0) / cachedScores.length,
+      avgScore: calculateAverageScore(cachedScores),
       sources: cachedScores,
     };
   }
 
-  const groupId = `${ticker}-${Date.now()}`;
+  const jobId = `${ticker}-${Date.now()}`;
 
   return new Promise((resolve, reject) => {
-    jobs.set(groupId, {
-      expected: sources.length,
+    jobs.set(jobId, {
       stock: { ticker, name: ticker },
       subscribers: [{ resolve, reject }],
-      results: cachedScores,
+      cachedResults: cachedScores,
     });
 
     if (priority === 4) {
-      highPriorityTickerToGroupId.set(ticker, groupId);
+      highPriorityTickerToJobId.set(ticker, jobId);
     }
 
-    if (timeoutMs !== undefined) {
-      setTimeout(() => resolveSubscriberEarly(groupId, resolve), timeoutMs);
-    }
+    const uncachedSources = sources.filter(
+      (s) => !cachedScores.some((cs) => cs.url === s.url)
+    );
 
-    for (const source of sources) {
-      publishAnalysisTask(ticker, groupId, source, priority);
+    if (uncachedSources.length > 0) {
+      publishAnalysisTask(ticker, jobId, uncachedSources, priority);
+    } else {
+      receiveResult(jobId, []);
     }
   });
 }
 
 export function addSubscriber(
-  groupId: string,
-  timeoutMs?: number
+  jobId: string
 ): Promise<TickerResultRoot | null> {
   return new Promise((resolve, reject) => {
-    const job = jobs.get(groupId);
+    const job = jobs.get(jobId);
     if (!job) {
       reject(new Error("Job not found"));
       return;
     }
 
     job.subscribers.push({ resolve, reject });
-
-    if (timeoutMs !== undefined) {
-      setTimeout(() => resolveSubscriberEarly(groupId, resolve), timeoutMs);
-    }
   });
 }
 
-export function getCurrentResult(
-  groupId: string,
-  job?: InFlightJob
-): TickerResultRoot | null {
-  job = job || jobs.get(groupId);
-  if (!job || job.results.length === 0) return null;
-
-  const averageScore =
-    job.results.reduce((sum, r) => sum + r.score, 0) / job.results.length;
-
-  return {
-    stock: job.stock,
-    avgScore: averageScore,
-    sources: job.results,
-  };
-}
-
-export async function receiveResult(groupId: string, result: SourceResultRoot) {
-  const job = jobs.get(groupId);
+export async function receiveResult(
+  jobId: string,
+  results: SourceResultRoot[]
+) {
+  const job = jobs.get(jobId);
   if (!job) return;
 
-  job.results.push(result);
-
   // save results to cache
-  await setSingleSourceScoreCache(job.stock.ticker, result);
+  await Promise.all(
+    results.map((r) => setSingleSourceScoreCache(job.stock.ticker, r))
+  );
 
-  if (job.results.length < job.expected) {
-    // still waiting for more results, do not resolve yet
-    return;
+  jobs.delete(jobId);
+  if (highPriorityTickerToJobId.get(job.stock.ticker) === jobId) {
+    highPriorityTickerToJobId.delete(job.stock.ticker);
   }
 
-  // otherwise complete the job
-  jobs.delete(groupId);
-  if (highPriorityTickerToGroupId.get(job.stock.ticker) === groupId) {
-    highPriorityTickerToGroupId.delete(job.stock.ticker);
-  }
-
-  const queryResult = getCurrentResult(groupId, job);
+  const overallResult = [...job.cachedResults, ...results];
+  const queryResult: TickerResultRoot = {
+    stock: job.stock,
+    avgScore: calculateAverageScore(overallResult),
+    sources: overallResult,
+  };
 
   for (const { resolve } of job.subscribers) {
     resolve(queryResult);
@@ -145,23 +133,6 @@ export async function receiveResult(groupId: string, result: SourceResultRoot) {
   }
 }
 
-function resolveSubscriberEarly(
-  groupId: string,
-  resolve: (result: TickerResultRoot | null) => void
-) {
-  const job = jobs.get(groupId);
-  if (!job) {
-    resolve(null);
-    return;
-  }
-
-  job.subscribers = job.subscribers.filter((s) => s.resolve !== resolve);
-  // DO NOT clean up the job, so if results arrive later they will be cached
-
-  // Give back whatever results have arrived so far
-  resolve(getCurrentResult(groupId, job));
-}
-
-export function getInFlightGroupId(ticker: string): string | undefined {
-  return highPriorityTickerToGroupId.get(ticker);
+export function getInFlightJobId(ticker: string): string | undefined {
+  return highPriorityTickerToJobId.get(ticker);
 }
