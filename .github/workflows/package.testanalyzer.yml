@@ -50,14 +50,14 @@ jobs:
         run: pnpm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Build Docker Image
-        run: docker build -t test-analyzer:${{ inputs.version || 'latest' }} .
+        run: docker build -t testanalyzer:${{ inputs.version || 'latest' }} .
 
       - name: Save Docker Image
-        run: docker save test-analyzer:${{ inputs.version || 'latest' }} -o test-analyzer-${{ inputs.version || 'latest' }}.tar
+        run: docker save testanalyzer:${{ inputs.version || 'latest' }} -o testanalyzer-${{ inputs.version || 'latest' }}.tar
 
       - name: Upload Docker Image
         uses: actions/upload-artifact@v6
         with:
-          name: docker-image-test-analyzer-${{ inputs.version || 'latest' }}
-          path: test-analyzer/test-analyzer-${{ inputs.version || 'latest' }}.tar
+          name: docker-image-testanalyzer-${{ inputs.version || 'latest' }}
+          path: test-analyzer/testanalyzer-${{ inputs.version || 'latest' }}.tar
           if-no-files-found: error
