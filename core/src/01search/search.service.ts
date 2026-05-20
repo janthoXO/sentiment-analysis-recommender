@@ -7,7 +7,7 @@ import { searchTickers } from "@/stocks/stocks.api.js";
 async function processStock(stock: StockRoot): Promise<TickerResultRoot> {
   const cached = await getOverallScoreCache(stock.ticker);
   if (cached) {
-    console.debug(`Cache hit for ${stock.ticker}`);
+    console.debug(`Overall Score Cache hit for ${stock.ticker}`);
     return cached;
   }
 

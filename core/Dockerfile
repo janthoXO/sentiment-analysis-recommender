@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM node:20-slim AS base
+FROM node:24-slim AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -20,15 +20,16 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build
 
 # Stage 2: Production image using Distroless
-FROM gcr.io/distroless/nodejs20-debian12 AS runner
+FROM gcr.io/distroless/nodejs24-debian13 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY drizzle ./drizzle
 
-EXPOSE 8080
+EXPOSE 3001
 
 CMD ["dist/main.js"]
 
