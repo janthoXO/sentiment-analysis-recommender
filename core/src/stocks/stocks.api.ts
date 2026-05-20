@@ -26,12 +26,14 @@ export async function searchTickers(
   const data = SearchTickersResponse.parse(await response.json());
 
   const tickerSet: Record<string, StockRoot> = {};
-  data.result.map((r) => ({
-    ticker: r.symbol.split(".")[0]!, // take the part before the first dot as ticker
-    name: r.description,
-  })).forEach((t) => {
-    tickerSet[t.ticker] = t;
-  });
+  data.result
+    .map((r) => ({
+      ticker: r.symbol.split(".")[0]!, // take the part before the first dot as ticker
+      name: r.description,
+    }))
+    .forEach((t) => {
+      tickerSet[t.ticker] = t;
+    });
 
   return Object.values(tickerSet);
 }
