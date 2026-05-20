@@ -8,6 +8,7 @@ on:
     paths:
       - "webclient/**"
       - "core/**"
+      - "test-analyzer/**"
       - ".github/workflows/**"
 
 jobs:
@@ -30,6 +31,7 @@ jobs:
     outputs:
       webclient: ${{ steps.filter.outputs.webclient }}
       core: ${{ steps.filter.outputs.core }}
+      test-analyzer: ${{ steps.filter.outputs.test-analyzer }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -46,6 +48,10 @@ jobs:
               - 'core/**'
               - '.github/workflows/build.core.yml'
               - '.github/workflows/package.core.yml'
+            test-analyzer:
+              - 'test-analyzer/**'
+              - '.github/workflows/build.testanalyzer.yml'
+              - '.github/workflows/package.testanalyzer.yml'
 
   # 2. Add 'if' conditions to the package jobs
   package-webclient:
@@ -62,9 +68,16 @@ jobs:
     with:
       version: ${{ needs.versioning.outputs.version }}
 
+  package-test-analyzer:
+    needs: [ versioning, detect-changes ]
+    if: ${{ needs.detect-changes.outputs.test-analyzer == 'true' }}
+    uses: ./.github/workflows/package.testanalyzer.yml
+    with:
+      version: ${{ needs.versioning.outputs.version }}
+
   # 3. Update the release job to run even if some packaging jobs were skipped
   release:
-    needs: [ versioning, package-webclient, package-core ]
+    needs: [ versioning, package-webclient, package-core, package-test-analyzer ]
     # Run as long as the workflow wasn't cancelled and no previous jobs failed
     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
