@@ -1,5 +1,5 @@
 # Stage 1: Build the React application
-FROM node:20-slim AS build
+FROM node:24-slim AS build
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -24,6 +24,7 @@ FROM nginx:alpine AS runner
 
 # Copy built assets from the build stage
 COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Expose port (default nginx port)
 EXPOSE 80
