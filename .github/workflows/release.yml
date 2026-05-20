@@ -25,7 +25,7 @@ jobs:
         id: version
         uses: ./.github/actions/determine-version
 
-  # 1. NEW JOB: Detect which paths actually changed
+  # 1. NEW JOB: Detect which paths actually changed since the last release
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -35,23 +35,36 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-      - name: Check for changed paths
-        uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            webclient:
-              - 'webclient/**'
-              - '.github/workflows/build.webclient.yml'
-              - '.github/workflows/package.webclient.yml'
-            core:
-              - 'core/**'
-              - '.github/workflows/build.core.yml'
-              - '.github/workflows/package.core.yml'
-            test-analyzer:
-              - 'test-analyzer/**'
-              - '.github/workflows/build.testanalyzer.yml'
-              - '.github/workflows/package.testanalyzer.yml'
+          fetch-depth: 0
+          
+      - name: Detect changes since last release
+        id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+
+          if [ -z "$LATEST" ]; then
+            echo "No previous release found — building all services"
+            echo "webclient=true" >> $GITHUB_OUTPUT
+            echo "core=true" >> $GITHUB_OUTPUT
+            echo "test-analyzer=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Comparing against $LATEST"
+          CHANGED=$(git diff --name-only "$LATEST" HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          check() {
+            echo "$CHANGED" | grep -qE "$1" && echo "true" || echo "false"
+          }
+
+          echo "webclient=$(check '^webclient/|^\.github/workflows/(build|package)\.webclient\.yml')" >> $GITHUB_OUTPUT
+          echo "core=$(check '^core/|^\.github/workflows/(build|package)\.core\.yml')" >> $GITHUB_OUTPUT
+          echo "test-analyzer=$(check '^test-analyzer/|^\.github/workflows/(build|package)\.testanalyzer\.yml')" >> $GITHUB_OUTPUT
 
   # 2. Add 'if' conditions to the package jobs
   package-webclient:
