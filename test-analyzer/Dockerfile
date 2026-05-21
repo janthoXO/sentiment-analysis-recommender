@@ -27,9 +27,6 @@ ENV NODE_ENV=production
 
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY drizzle ./drizzle
-
-EXPOSE 3001
 
 CMD ["dist/main.js"]
 

@@ -1,18 +1,56 @@
-version: '3.8'
-
 services:
+  core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      PORT: 3001
+      CACHE_URL: redis://core-redis:6379
+      DB_URL: postgresql://${CORE_DB_USER:-sentinel}:${CORE_DB_PASSWORD:-sentinel}@core-postgres:5432/${CORE_DB_NAME:-sentinel}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-sentinel}:${RABBITMQ_PASSWORD:-sentinel}@rabbitmq:5672
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY}
+    ports:
+      - "3001:3001"
+    depends_on:
+      core-postgres:
+        condition: service_healthy
+      core-redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - sentinel-net
+
+  webclient:
+    build:
+      context: ./webclient
+      dockerfile: Dockerfile
+    environment:
+      API_URL: ${API_URL:-http://core:3001}
+    ports:
+      - "3000:80"
+    depends_on:
+      - core
+    networks:
+      - sentinel-net
+
   core-postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: sentinel
-      POSTGRES_PASSWORD: sentinel
-      POSTGRES_DB: sentinel
+      POSTGRES_USER: ${CORE_DB_USER:-sentinel}
+      POSTGRES_PASSWORD: ${CORE_DB_PASSWORD:-sentinel}
+      POSTGRES_DB: ${CORE_DB_NAME:-sentinel}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - sentinel-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CORE_DB_USER:-sentinel} -d ${CORE_DB_NAME:-sentinel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   core-redis:
     image: redis:8.6.2-alpine
@@ -22,6 +60,11 @@ services:
     command: redis-server --save 60 1 --loglevel warning
     networks:
       - sentinel-net
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:4.3-management-alpine
@@ -29,8 +72,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: sentinel
-      RABBITMQ_DEFAULT_PASS: sentinel
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-sentinel}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-sentinel}
     volumes:
       - rmqdata:/var/lib/rabbitmq
     healthcheck:

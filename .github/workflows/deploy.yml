@@ -1,0 +1,51 @@
+name: Deploy to VM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      url: "https://${{ vars.PUBLIC_IP }}.nip.io"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Copy Docker Compose File From Repo to VM Host
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ vars.PUBLIC_IP }}
+          username: ${{ vars.AZURE_USER }}
+          key: ${{ secrets.AZURE_PRIVATE_KEY }}
+          source: "./docker-compose.prod.yml"
+          target: /home/${{ vars.AZURE_USER }}
+
+      - name: SSH to VM and Create .env.prod
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.PUBLIC_IP }}
+          username: ${{ vars.AZURE_USER }}
+          key: ${{ secrets.AZURE_PRIVATE_KEY }}
+          script: |
+            rm .env.prod
+            touch .env.prod
+            echo "DOMAIN=${{ vars.PUBLIC_IP }}.nip.io" >> .env.prod
+            echo "CORE_DB_USER=${{ secrets.CORE_DB_USER }}" >> .env.prod
+            echo "CORE_DB_PASSWORD=${{ secrets.CORE_DB_PASSWORD }}" >> .env.prod
+            echo "RABBITMQ_USER=${{ secrets.RABBITMQ_USER }}" >> .env.prod
+            echo "RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}" >> .env.prod
+            echo "FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}" >> .env.prod
+
+      - name: SSH to VM and Execute Docker-Compose Up
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.PUBLIC_IP }}
+          username: ${{ vars.AZURE_USER }}
+          key: ${{ secrets.AZURE_PRIVATE_KEY }}
+          script: |
+            echo "Logging into Docker registry..."
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "Starting Docker Compose..."
+            docker compose -f docker-compose.prod.yml --env-file=.env.prod up --pull=always -d
