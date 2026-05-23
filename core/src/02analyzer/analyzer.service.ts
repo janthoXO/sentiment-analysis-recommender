@@ -50,7 +50,7 @@ export async function requestAnalysis(
     sources.map((s) => getSingleSourceScoreCache(ticker, s.url))
   ).then((results) => results.filter((r) => r !== null));
   console.debug(
-    `Cache hit for ${cachedScores.length} out of ${sources.length} sources for ${ticker}`
+    `Article Score Cache hit for ${cachedScores.length} out of ${sources.length} sources for ${ticker}`
   );
 
   if (cachedScores.length === sources.length) {

@@ -33,8 +33,6 @@ export async function connectMq() {
   channel.consume("results", async (msg) => {
     if (!msg) return;
 
-    console.debug("Received MQ message:", msg.content.toString());
-
     try {
       const { jobId, sources } = zAnalyzerResult.parse(
         JSON.parse(msg.content.toString())
