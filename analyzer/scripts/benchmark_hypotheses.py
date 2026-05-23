@@ -19,7 +19,7 @@ from pathlib import Path
 # Make `src.scorer` importable when running this file directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.scorer import SentimentScorer  # noqa: E402
+from src.scorer import NliScorer  # noqa: E402
 
 MODEL_NAME = os.getenv("MODEL_NAME", "cross-encoder/nli-deberta-v3-base")
 
@@ -82,7 +82,7 @@ class PairResult:
     max_magnitude: float
 
 
-def evaluate(scorer: SentimentScorer, name: str) -> PairResult:
+def evaluate(scorer: NliScorer, name: str) -> PairResult:
     pos_scores = scorer.score_batch(POSITIVE_SNIPPETS)
     neg_scores = scorer.score_batch(NEGATIVE_SNIPPETS)
 
@@ -104,7 +104,7 @@ def evaluate(scorer: SentimentScorer, name: str) -> PairResult:
     )
 
 
-def print_per_snippet_scores(scorer: SentimentScorer, name: str) -> None:
+def print_per_snippet_scores(scorer: NliScorer, name: str) -> None:
     print(f"\n  Per-snippet detail for '{name}':")
     pos_scores = scorer.score_batch(POSITIVE_SNIPPETS)
     neg_scores = scorer.score_batch(NEGATIVE_SNIPPETS)
@@ -124,7 +124,7 @@ def main() -> None:
     results: list[PairResult] = []
     for name, h_pos, h_neg in HYPOTHESIS_PAIRS:
         print(f"  Scoring '{name}'...")
-        scorer = SentimentScorer(MODEL_NAME, h_pos, h_neg)
+        scorer = NliScorer(MODEL_NAME, h_pos, h_neg)
         results.append(evaluate(scorer, name))
 
     # ── Summary table ──────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ def main() -> None:
 
     # ── Per-snippet detail for the winning pair (sanity check) ─────────────
     h_pos, h_neg = next((p, n) for name, p, n in HYPOTHESIS_PAIRS if name == winner.name)
-    scorer = SentimentScorer(MODEL_NAME, h_pos, h_neg)
+    scorer = NliScorer(MODEL_NAME, h_pos, h_neg)
     print_per_snippet_scores(scorer, winner.name)
 
 
