@@ -28,15 +28,21 @@ tickersRouter.get("/", async (req: Request, res: Response): Promise<void> => {
 
     const results = await Promise.allSettled(
       tickers.map(async (ticker) => {
-        const stock = (await getTickerStock(ticker)) ?? { ticker, name: ticker };
+        const stock = (await getTickerStock(ticker)) ?? {
+          ticker,
+          name: ticker,
+        };
         return processStock(stock);
       })
     );
 
     const tickerResults = results
       .filter(
-        (r): r is PromiseFulfilledResult<NonNullable<Awaited<ReturnType<typeof processStock>>>> =>
-          r.status === "fulfilled" && r.value !== null
+        (
+          r
+        ): r is PromiseFulfilledResult<
+          NonNullable<Awaited<ReturnType<typeof processStock>>>
+        > => r.status === "fulfilled" && r.value !== null
       )
       .map((r) => r.value);
 

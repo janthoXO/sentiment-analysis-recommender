@@ -8,7 +8,11 @@ export async function getListsForUser(userId: string) {
     with: { items: true },
     orderBy: listsSchema.createdAtSec,
   });
-  return lists.map(l => ({ id: l.id, name: l.name, items: l.items.map(i => ({ ticker: i.ticker })) }));
+  return lists.map((l) => ({
+    id: l.id,
+    name: l.name,
+    items: l.items.map((i) => ({ ticker: i.ticker })),
+  }));
 }
 
 export async function getAllTickersForUser(userId: string): Promise<string[]> {
@@ -20,11 +24,21 @@ export async function getAllTickersForUser(userId: string): Promise<string[]> {
   const items = await db
     .select({ ticker: listItemsSchema.ticker })
     .from(listItemsSchema)
-    .where(inArray(listItemsSchema.listId, lists.map(l => l.id)));
-  return [...new Set(items.map(i => i.ticker))];
+    .where(
+      inArray(
+        listItemsSchema.listId,
+        lists.map((l) => l.id)
+      )
+    );
+  return [...new Set(items.map((i) => i.ticker))];
 }
 
-export async function createList(userId: string, id: string, name: string, createdAtSec: number) {
+export async function createList(
+  userId: string,
+  id: string,
+  name: string,
+  createdAtSec: number
+) {
   await db.insert(listsSchema).values({ id, userId, name, createdAtSec });
   return { id, name, items: [] };
 }
@@ -39,7 +53,9 @@ export async function renameList(userId: string, listId: string, name: string) {
 }
 
 export async function deleteList(userId: string, listId: string) {
-  await db.delete(listsSchema).where(and(eq(listsSchema.id, listId), eq(listsSchema.userId, userId)));
+  await db
+    .delete(listsSchema)
+    .where(and(eq(listsSchema.id, listId), eq(listsSchema.userId, userId)));
 }
 
 export async function addListItem(listId: string, ticker: string) {
@@ -52,10 +68,17 @@ export async function addListItem(listId: string, ticker: string) {
 export async function removeListItem(listId: string, ticker: string) {
   await db
     .delete(listItemsSchema)
-    .where(and(eq(listItemsSchema.listId, listId), eq(listItemsSchema.ticker, ticker)));
+    .where(
+      and(
+        eq(listItemsSchema.listId, listId),
+        eq(listItemsSchema.ticker, ticker)
+      )
+    );
 }
 
 export async function getListOwner(listId: string): Promise<string | null> {
-  const row = await db.query.listsSchema.findFirst({ where: eq(listsSchema.id, listId) });
+  const row = await db.query.listsSchema.findFirst({
+    where: eq(listsSchema.id, listId),
+  });
   return row?.userId ?? null;
 }

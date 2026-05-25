@@ -3,12 +3,12 @@ import type {
   StockRoot,
   TickerResultRoot,
 } from "@/generated/in/index.js";
-import {
-  getSourceScore,
-  upsertManySourceScores,
-} from "./source-score.repo.js";
+import { getSourceScore, upsertManySourceScores } from "./source-score.repo.js";
 import { upsertTickerStock } from "@/01search/ticker-stock.repo.js";
-import { getTickerArticlesCache, setTickerArticlesCache } from "@/01search/stock.cache.js";
+import {
+  getTickerArticlesCache,
+  setTickerArticlesCache,
+} from "@/01search/stock.cache.js";
 import { publishAnalysisTask } from "@/mq.repo.js";
 import { getArticlesByTicker } from "@/articles/articles.api.js";
 import { calculateAverageScore } from "./score.util.js";
@@ -42,7 +42,9 @@ export async function requestAnalysis(
       await setTickerArticlesCache(ticker, sources);
     }
   } else {
-    console.debug(`Article cache hit for ${ticker} (${sources.length} sources)`);
+    console.debug(
+      `Article cache hit for ${ticker} (${sources.length} sources)`
+    );
   }
 
   if (sources.length === 0) {

@@ -3,7 +3,9 @@ import { db } from "../postgres.repo.js";
 import { tickerStockSchema } from "./ticker-stock.schema.js";
 import type { StockRoot } from "@/generated/in/index.js";
 
-export async function getTickerStock(ticker: string): Promise<StockRoot | null> {
+export async function getTickerStock(
+  ticker: string
+): Promise<StockRoot | null> {
   const row = await db.query.tickerStockSchema.findFirst({
     where: eq(tickerStockSchema.ticker, ticker),
   });
@@ -20,7 +22,9 @@ export async function upsertTickerStock(stock: StockRoot): Promise<void> {
     });
 }
 
-export async function upsertManyTickerStocks(stocks: StockRoot[]): Promise<void> {
+export async function upsertManyTickerStocks(
+  stocks: StockRoot[]
+): Promise<void> {
   if (stocks.length === 0) return;
   await db
     .insert(tickerStockSchema)
@@ -31,7 +35,9 @@ export async function upsertManyTickerStocks(stocks: StockRoot[]): Promise<void>
     });
 }
 
-export async function getManyTickerStocks(tickers: string[]): Promise<Map<string, StockRoot>> {
+export async function getManyTickerStocks(
+  tickers: string[]
+): Promise<Map<string, StockRoot>> {
   if (tickers.length === 0) return new Map();
   const rows = await db
     .select()

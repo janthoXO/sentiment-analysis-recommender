@@ -10,11 +10,15 @@ import { calculateAverageScore } from "@/02analyzer/score.util.js";
 import { searchTickers } from "@/stocks/stocks.api.js";
 import { env } from "@/env.js";
 
-export async function processStock(stock: StockRoot): Promise<TickerResultRoot | null> {
+export async function processStock(
+  stock: StockRoot
+): Promise<TickerResultRoot | null> {
   const count = await countFreshSourceScoresForTicker(stock.ticker);
 
   if (count >= env.CACHE_MIN_SOURCES) {
-    console.debug(`Source score cache sufficient for ${stock.ticker} (${count} entries)`);
+    console.debug(
+      `Source score cache sufficient for ${stock.ticker} (${count} entries)`
+    );
     const sources = await listFreshSourceScoresForTicker(stock.ticker);
     return { stock, sources, avgScore: calculateAverageScore(sources) };
   }
@@ -67,8 +71,7 @@ export async function* processQuery(
     await upsertManyTickerStocks(stocks);
 
     const isDirectTickerQuery =
-      stocks.length === 1 &&
-      stocks[0]!.ticker.toUpperCase() === qUpper;
+      stocks.length === 1 && stocks[0]!.ticker.toUpperCase() === qUpper;
 
     if (!isDirectTickerQuery) {
       await setQueryStockCache(q, stocks);
