@@ -5,6 +5,236 @@ info:
   description: Core API for handling user searches and delegating tracking tasks.
 
 paths:
+  /api/auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+      responses:
+        "200":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Username already taken
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/auth/login:
+    post:
+      summary: Login to an existing user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/lists:
+    get:
+      summary: Get all user lists with their items
+      responses:
+        "200":
+          description: The user's lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/List"
+        "401":
+          description: Unauthorized
+      tags:
+        - webclient-out
+        - core-in
+    post:
+      summary: Create a new list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListRequest"
+      responses:
+        "200":
+          description: Created list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/List"
+        "401":
+          description: Unauthorized
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/lists/{id}:
+    patch:
+      summary: Rename a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameListRequest"
+      responses:
+        "200":
+          description: Renamed list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSummary"
+        "401":
+          description: Unauthorized
+        "404":
+          description: List not found
+      tags:
+        - webclient-out
+        - core-in
+    delete:
+      summary: Delete a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+        "401":
+          description: Unauthorized
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/lists/{id}/items:
+    post:
+      summary: Add a ticker to a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddListItemRequest"
+      responses:
+        "200":
+          description: Added
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/lists/{id}/items/{ticker}:
+    delete:
+      summary: Remove a ticker from a list
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: ticker
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/lists/stream:
+    get:
+      summary: Stream sentiment updates for user's watchlist tickers (SSE)
+      description: >
+        Server-Sent Events stream. Each `data:` line is a JSON-encoded
+        `SentimentStreamEvent`. The client is responsible for deciding whether
+        a score change warrants an alert. Pass the JWT via the `token` query
+        parameter when using the browser `EventSource` API (which cannot set
+        custom headers).
+      parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          description: JWT token (alternative to Authorization header, required for EventSource)
+      responses:
+        "200":
+          description: SSE stream of sentiment update events (use EventSource, not fetch)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: Unauthorized
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/tickers:
+    get:
+      summary: Get TickerResult for a batch of tickers
+      parameters:
+        - in: query
+          name: tickers
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of ticker symbols (e.g. AAPL,MSFT). Max 50.
+      responses:
+        "200":
+          description: Array of analyzed ticker results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TickerResult"
+      tags:
+        - webclient-out
+        - core-in
+
   /api/search:
     get:
       summary: Search for stock sentiment (ndJSON Stream)
@@ -37,3 +267,101 @@ components:
       properties:
         error:
           type: string
+
+    AuthRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
+
+    ListItem:
+      type: object
+      properties:
+        ticker:
+          type: string
+      required:
+        - ticker
+
+    List:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ListItem"
+      required:
+        - id
+        - name
+        - items
+
+    ListSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+
+    CreateListRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    RenameListRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    AddListItemRequest:
+      type: object
+      properties:
+        ticker:
+          type: string
+      required:
+        - ticker
+
+    SentimentStreamEvent:
+      oneOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [connected]
+          required:
+            - type
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [TICKER_UPDATE]
+            payload:
+              $ref: "#/components/schemas/TickerResult"
+          required:
+            - type
+            - payload

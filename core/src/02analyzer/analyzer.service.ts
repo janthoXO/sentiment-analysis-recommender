@@ -4,53 +4,57 @@ import type {
   TickerResultRoot,
 } from "@/generated/in/index.js";
 import {
-  getSingleSourceScoreCache,
-  setOverallScoreCache,
-  setSingleSourceScoreCache,
-} from "./score.cache.js";
+  getSourceScore,
+  upsertManySourceScores,
+} from "./source-score.repo.js";
+import { upsertTickerStock } from "@/01search/ticker-stock.repo.js";
+import { getTickerArticlesCache, setTickerArticlesCache } from "@/01search/stock.cache.js";
 import { publishAnalysisTask } from "@/mq.repo.js";
 import { getArticlesByTicker } from "@/articles/articles.api.js";
+import { calculateAverageScore } from "./score.util.js";
+import { sentimentEmitter } from "../events.js";
 
 export type InFlightJob = {
   stock: StockRoot;
   subscribers: {
     resolve: (result: TickerResultRoot | null) => void;
     reject: (error: Error) => void;
-  }[]; // Callbacks to resolve/reject promises of subscribers
+  }[];
   cachedResults: SourceResultRoot[];
 };
 
-// maps from jobId to the in-flight job details
-// can be both a query job or a interval job
 const jobs = new Map<string, InFlightJob>();
-
-// maps from ticker to jobId of a query
 const highPriorityTickerToJobId = new Map<string, string>();
-
-function calculateAverageScore(results: SourceResultRoot[]): number {
-  if (results.length === 0) return 0;
-
-  return results.reduce((sum, r) => sum + r.score, 0) / results.length;
-}
 
 export async function requestAnalysis(
   ticker: string,
   priority: number
 ): Promise<TickerResultRoot | null> {
-  // scrape data
-  const sources = await getArticlesByTicker(ticker);
-  console.debug(`Scraped ${sources.length} sources for ${ticker}`);
+  // ensure ticker_stock row exists so source_score FK is satisfied
+  await upsertTickerStock({ ticker, name: ticker });
+
+  // check article cache before hitting Finnhub
+  let sources = await getTickerArticlesCache(ticker);
+  if (sources === null) {
+    sources = await getArticlesByTicker(ticker);
+    console.debug(`Scraped ${sources.length} sources for ${ticker}`);
+    if (sources.length > 0) {
+      await setTickerArticlesCache(ticker, sources);
+    }
+  } else {
+    console.debug(`Article cache hit for ${ticker} (${sources.length} sources)`);
+  }
 
   if (sources.length === 0) {
     return null;
   }
 
-  // check cache if scores already exist
+  // check Postgres source_score for already-scored sources
   const cachedScores = await Promise.all(
-    sources.map((s) => getSingleSourceScoreCache(ticker, s.url))
+    sources.map((s) => getSourceScore(ticker, s.url))
   ).then((results) => results.filter((r) => r !== null));
   console.debug(
-    `Article Score Cache hit for ${cachedScores.length} out of ${sources.length} sources for ${ticker}`
+    `Source score cache hit for ${cachedScores.length} out of ${sources.length} sources for ${ticker}`
   );
 
   if (cachedScores.length === sources.length) {
@@ -93,7 +97,6 @@ export function addSubscriber(jobId: string): Promise<TickerResultRoot | null> {
       reject(new Error("Job not found"));
       return;
     }
-
     job.subscribers.push({ resolve, reject });
   });
 }
@@ -105,30 +108,28 @@ export async function receiveResult(
   const job = jobs.get(jobId);
   if (!job) return;
 
-  // save results to cache
-  await Promise.all(
-    results.map((r) => setSingleSourceScoreCache(job.stock.ticker, r))
-  );
+  await upsertManySourceScores(job.stock.ticker, results);
 
   jobs.delete(jobId);
   if (highPriorityTickerToJobId.get(job.stock.ticker) === jobId) {
     highPriorityTickerToJobId.delete(job.stock.ticker);
   }
 
-  const overallResult = [...job.cachedResults, ...results];
+  const allResults = [...job.cachedResults, ...results];
   const queryResult: TickerResultRoot = {
     stock: job.stock,
-    avgScore: calculateAverageScore(overallResult),
-    sources: overallResult,
+    avgScore: calculateAverageScore(allResults),
+    sources: allResults,
   };
 
   for (const { resolve } of job.subscribers) {
     resolve(queryResult);
   }
 
-  if (queryResult) {
-    await setOverallScoreCache(job.stock.ticker, queryResult);
-  }
+  sentimentEmitter.emit("sentiment-update", {
+    ticker: job.stock.ticker,
+    result: queryResult,
+  });
 }
 
 export function getInFlightJobId(ticker: string): string | undefined {

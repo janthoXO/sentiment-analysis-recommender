@@ -1,9 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Map data-open/closed/active shorthand variants to Radix UI data-state attributes */
+@custom-variant data-open (&[data-state=open]);
+@custom-variant data-closed (&[data-state=closed]);
+@custom-variant data-active (&[data-state=active], &[data-active]);
 
 :root {
   --background: oklch(0.9821 0 0);
