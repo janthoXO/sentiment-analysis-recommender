@@ -1,12 +1,23 @@
 import { useEffect, useState, useCallback } from "react"
-import { ChevronsUpDown, MoreHorizontal, Pencil, Trash2, Plus, RefreshCw } from "lucide-react"
+import {
+  ChevronsUpDown,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Plus,
+  RefreshCw,
+} from "lucide-react"
 import { useAuth } from "@/context/auth-provider"
 import { useWatchlistContext } from "@/context/watchlist-provider"
 import { ResultCard } from "@/components/ResultCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Command,
   CommandEmpty,
@@ -48,7 +59,7 @@ export default function WatchlistPage() {
   const { results: streamResults, loading, search } = useStockStream()
 
   const [comboOpen, setComboOpen] = useState(false)
-  const [activeListId, setActiveListId] = useState<string | null>(null)
+  const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [renameValue, setRenameValue] = useState("")
@@ -60,20 +71,13 @@ export default function WatchlistPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Set active list to first list when lists load / change
-  useEffect(() => {
-    if (lists.length > 0 && (activeListId === null || !lists.find(l => l.id === activeListId))) {
-      setActiveListId(lists[0].id)
-    } else if (lists.length === 0) {
-      setActiveListId(null)
-    }
-  }, [lists, activeListId])
-
-  const activeList: List | undefined = lists.find(l => l.id === activeListId)
+  const activeList: List | undefined =
+    lists.find((l) => l.id === selectedListId) ?? lists[0]
+  const activeListId = activeList?.id ?? null
 
   const loadSentiment = useCallback(() => {
     if (!activeList || activeList.items.length === 0) return
-    void search(activeList.items.map(i => i.ticker).join(" "))
+    void search(activeList.items.map((i) => i.ticker).join(" "))
   }, [activeList, search])
 
   // Load sentiment data when active list changes
@@ -101,7 +105,7 @@ export default function WatchlistPage() {
   const handleCreateSubmit = async () => {
     if (!createValue.trim()) return
     const list = await createList(createValue.trim())
-    if (list) setActiveListId(list.id)
+    if (list) setSelectedListId(list.id)
     setCreateValue("")
     setCreateOpen(false)
   }
@@ -110,24 +114,27 @@ export default function WatchlistPage() {
     if (!activeList) return null
     if (activeList.items.length === 0) {
       return (
-        <div className="text-muted-foreground pt-4">
-          This list is empty. Search for tickers and add them with the bookmark icon.
+        <div className="pt-4 text-muted-foreground">
+          This list is empty. Search for tickers and add them with the bookmark
+          icon.
         </div>
       )
     }
     if (loading) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-          {activeList.items.map(item => (
+        <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-2 lg:grid-cols-3">
+          {activeList.items.map((item) => (
             <Skeleton key={item.ticker} className="h-64 w-full rounded-xl" />
           ))}
         </div>
       )
     }
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-        {activeList.items.map(item => {
-          const streamData = streamResults.find(r => r.stock.ticker === item.ticker)
+      <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-2 lg:grid-cols-3">
+        {activeList.items.map((item) => {
+          const streamData = streamResults.find(
+            (r) => r.stock.ticker === item.ticker
+          )
           return (
             <ResultCard
               key={item.ticker}
@@ -145,11 +152,15 @@ export default function WatchlistPage() {
   return (
     <div className="flex w-full flex-col">
       <div className="mb-8 w-full max-w-4xl space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight text-primary">Your Equities</h1>
-        <p className="text-lg text-muted-foreground">Manage your watchlists and portfolio.</p>
+        <h1 className="text-4xl font-bold tracking-tight text-primary">
+          Your Equities
+        </h1>
+        <p className="text-lg text-muted-foreground">
+          Manage your watchlists and portfolio.
+        </p>
       </div>
 
-      <div className="flex items-center gap-2 mb-6">
+      <div className="mb-6 flex items-center gap-2">
         {/* List selector combobox */}
         <Popover open={comboOpen} onOpenChange={setComboOpen}>
           <PopoverTrigger asChild>
@@ -164,13 +175,13 @@ export default function WatchlistPage() {
               <CommandList>
                 <CommandEmpty>No lists found.</CommandEmpty>
                 <CommandGroup>
-                  {lists.map(list => (
+                  {lists.map((list) => (
                     <CommandItem
                       key={list.id}
                       value={list.name}
                       data-checked={list.id === activeListId}
                       onSelect={() => {
-                        setActiveListId(list.id)
+                        setSelectedListId(list.id)
                         setComboOpen(false)
                       }}
                     >
@@ -222,7 +233,12 @@ export default function WatchlistPage() {
 
         {/* Refresh sentiment */}
         {activeList && activeList.items.length > 0 && (
-          <Button variant="ghost" size="icon" onClick={loadSentiment} disabled={loading}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={loadSentiment}
+            disabled={loading}
+          >
             <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         )}
@@ -238,12 +254,14 @@ export default function WatchlistPage() {
           </DialogHeader>
           <Input
             value={renameValue}
-            onChange={e => setRenameValue(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && void handleRenameSubmit()}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void handleRenameSubmit()}
             placeholder="List name"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setRenameOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={() => void handleRenameSubmit()}>Save</Button>
           </DialogFooter>
         </DialogContent>
@@ -257,12 +275,14 @@ export default function WatchlistPage() {
           </DialogHeader>
           <Input
             value={createValue}
-            onChange={e => setCreateValue(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && void handleCreateSubmit()}
+            onChange={(e) => setCreateValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void handleCreateSubmit()}
             placeholder="List name"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={() => void handleCreateSubmit()}>Create</Button>
           </DialogFooter>
         </DialogContent>
@@ -272,9 +292,12 @@ export default function WatchlistPage() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete &quot;{activeList?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete &quot;{activeList?.name}&quot;?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the list and all its tickers. This action cannot be undone.
+              This will remove the list and all its tickers. This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

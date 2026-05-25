@@ -1,6 +1,10 @@
 import { useState } from "react"
 import { Bookmark, Plus } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Command,
   CommandEmpty,
@@ -21,7 +25,13 @@ interface AddToListButtonProps {
 
 export function AddToListButton({ ticker, className }: AddToListButtonProps) {
   const { requireAuth } = useAuth()
-  const { lists, listsContainingTicker, addToList, removeFromList, createList } = useWatchlistContext()
+  const {
+    lists,
+    listsContainingTicker,
+    addToList,
+    removeFromList,
+    createList,
+  } = useWatchlistContext()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
@@ -34,12 +44,12 @@ export function AddToListButton({ ticker, className }: AddToListButtonProps) {
     requireAuth(() => setOpen(true))()
   }
 
-  const filteredLists = lists.filter(l =>
+  const filteredLists = lists.filter((l) =>
     l.name.toLowerCase().includes(query.toLowerCase())
   )
-  const showCreate = query.trim().length > 0 && !lists.some(l =>
-    l.name.toLowerCase() === query.trim().toLowerCase()
-  )
+  const showCreate =
+    query.trim().length > 0 &&
+    !lists.some((l) => l.name.toLowerCase() === query.trim().toLowerCase())
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -47,22 +57,21 @@ export function AddToListButton({ ticker, className }: AddToListButtonProps) {
         <button
           className={cn(
             "cursor-pointer rounded p-0.5 transition-colors",
-            isInAnyList ? "text-primary" : "text-muted-foreground hover:text-primary",
+            isInAnyList
+              ? "text-primary"
+              : "text-muted-foreground hover:text-primary",
             className
           )}
           onClick={handleTrigger}
           aria-label="Add to list"
         >
-          <Bookmark
-            size={20}
-            className={isInAnyList ? "fill-primary" : ""}
-          />
+          <Bookmark size={20} className={isInAnyList ? "fill-primary" : ""} />
         </button>
       </PopoverTrigger>
       <PopoverContent
         className="w-56 p-0"
         align="start"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <Command>
           <CommandInput
@@ -76,8 +85,8 @@ export function AddToListButton({ ticker, className }: AddToListButtonProps) {
             )}
             {filteredLists.length > 0 && (
               <CommandGroup>
-                {filteredLists.map(list => {
-                  const isIn = inLists.some(l => l.id === list.id)
+                {filteredLists.map((list) => {
+                  const isIn = inLists.some((l) => l.id === list.id)
                   return (
                     <CommandItem
                       key={list.id}
@@ -102,7 +111,7 @@ export function AddToListButton({ ticker, className }: AddToListButtonProps) {
                     value={`__create__${query.trim()}`}
                     onSelect={() => {
                       const name = query.trim()
-                      void createList(name).then(list => {
+                      void createList(name).then((list) => {
                         if (list) void addToList(list.id, ticker)
                       })
                       setQuery("")

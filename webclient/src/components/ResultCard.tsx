@@ -14,24 +14,48 @@ export interface ResultCardProps {
   sources?: SourceResult[]
 }
 
-function parseSentimentLabel(score: number): { label: string; className: string } {
-  if (score > 0.2) return { label: "Bullish", className: "border-green-400 bg-green-50 text-green-700" }
-  if (score < -0.2) return { label: "Bearish", className: "border-red-400 bg-red-50 text-red-700" }
-  return { label: "Neutral", className: "border-gray-200 bg-gray-50 text-gray-700" }
+function parseSentimentLabel(score: number): {
+  label: string
+  className: string
+} {
+  if (score > 0.2)
+    return {
+      label: "Bullish",
+      className: "border-green-400 bg-green-50 text-green-700",
+    }
+  if (score < -0.2)
+    return {
+      label: "Bearish",
+      className: "border-red-400 bg-red-50 text-red-700",
+    }
+  return {
+    label: "Neutral",
+    className: "border-gray-200 bg-gray-50 text-gray-700",
+  }
 }
 
 function parseHeadline(snippet: string): { headline: string; body: string } {
   const idx = snippet.indexOf("\n")
   if (idx === -1) return { headline: snippet, body: "" }
-  return { headline: snippet.slice(0, idx).trim(), body: snippet.slice(idx + 1).trim() }
+  return {
+    headline: snippet.slice(0, idx).trim(),
+    body: snippet.slice(idx + 1).trim(),
+  }
 }
 
-export function ResultCard({ ticker, avgScore, articleCount, sources = [] }: ResultCardProps) {
+export function ResultCard({
+  ticker,
+  avgScore,
+  articleCount,
+  sources = [],
+}: ResultCardProps) {
   const sentiment = parseSentimentLabel(avgScore)
 
-  const sortedSources = [...sources].sort((a, b) => b.updatedAtSec - a.updatedAtSec)
-  const positive = sortedSources.filter(s => s.score > 0)
-  const negative = sortedSources.filter(s => s.score < 0)
+  const sortedSources = [...sources].sort(
+    (a, b) => b.updatedAtSec - a.updatedAtSec
+  )
+  const positive = sortedSources.filter((s) => s.score > 0)
+  const negative = sortedSources.filter((s) => s.score < 0)
 
   let displayedSources: SourceResult[]
   if (avgScore > 0.2) {
@@ -45,12 +69,20 @@ export function ResultCard({ ticker, avgScore, articleCount, sources = [] }: Res
   return (
     <Link
       to={`/stock/${ticker}`}
-      state={{ tickerResult: { stock: { ticker, name: "" }, sources, avgScore } as TickerResult }}
+      state={{
+        tickerResult: {
+          stock: { ticker, name: "" },
+          sources,
+          avgScore,
+        } as TickerResult,
+      }}
       className="block w-full max-w-sm"
     >
-      <Card className="h-full transition-colors hover:border-primary cursor-pointer group">
+      <Card className="group h-full cursor-pointer transition-colors hover:border-primary">
         <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
-          <h3 className="text-2xl leading-none font-semibold tracking-tight">{ticker}</h3>
+          <h3 className="text-2xl leading-none font-semibold tracking-tight">
+            {ticker}
+          </h3>
           <div className="flex items-center gap-2">
             <AddToListButton ticker={ticker} />
             <Badge
@@ -65,7 +97,9 @@ export function ResultCard({ ticker, avgScore, articleCount, sources = [] }: Res
         <CardContent className="pb-2">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="mb-1 block text-muted-foreground">Avg Score</span>
+              <span className="mb-1 block text-muted-foreground">
+                Avg Score
+              </span>
               <span className="text-lg font-medium">
                 {avgScore !== null ? avgScore.toFixed(2) : "---"}
               </span>
@@ -80,25 +114,32 @@ export function ResultCard({ ticker, avgScore, articleCount, sources = [] }: Res
         {displayedSources.length > 0 && (
           <CardFooter className="flex flex-col items-start gap-2 pt-0">
             <Separator className="mb-2" />
-            <span className="text-xs text-muted-foreground font-semibold">Related News</span>
+            <span className="text-xs font-semibold text-muted-foreground">
+              Related News
+            </span>
             {displayedSources.map((source, i) => {
               const { headline, body } = parseHeadline(source.snippet || "")
               const articleSentiment = parseSentimentLabel(source.score)
               return (
-                <div key={i} className="flex flex-col gap-0.5 w-full">
+                <div key={i} className="flex w-full flex-col gap-0.5">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-medium truncate flex-1">
+                    <span className="flex-1 truncate text-xs font-medium">
                       {headline || source.url}
                     </span>
                     <Badge
                       variant="outline"
-                      className={cn("text-[10px] shrink-0", articleSentiment.className)}
+                      className={cn(
+                        "shrink-0 text-[10px]",
+                        articleSentiment.className
+                      )}
                     >
                       {source.score.toFixed(2)}
                     </Badge>
                   </div>
                   {body && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{body}</p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {body}
+                    </p>
                   )}
                 </div>
               )

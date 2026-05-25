@@ -5,7 +5,11 @@ import { useAuth } from "@/context/auth-provider"
 import { useWatchlistContext } from "@/context/watchlist-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +63,7 @@ export function AppHeader() {
         <div className="flex items-center gap-2">
           <Link
             to="/"
-            className="text-sm font-semibold tracking-tight text-primary hover:opacity-80 transition-opacity"
+            className="text-sm font-semibold tracking-tight text-primary transition-opacity hover:opacity-80"
           >
             Sentinel Finance
           </Link>
@@ -77,7 +81,12 @@ export function AppHeader() {
                 className="h-8 w-48 text-sm"
                 onKeyDown={(e) => e.key === "Escape" && closeSearch()}
               />
-              <Button type="submit" size="sm" variant="ghost" className="h-8 px-2">
+              <Button
+                type="submit"
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2"
+              >
                 <Search className="size-4" />
               </Button>
               <Button
@@ -105,12 +114,7 @@ export function AppHeader() {
         {/* Right: watchlist, notifications, profile */}
         <div className="ml-auto flex items-center gap-1">
           {/* Watchlist */}
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="gap-1.5"
-          >
+          <Button variant="ghost" size="sm" asChild className="gap-1.5">
             <a href="/watchlist" onClick={handleWatchlistClick}>
               <Popcorn className="size-4" />
               <span className="hidden md:inline">Watchlist</span>
@@ -136,15 +140,25 @@ export function AppHeader() {
               </Button>
             </PopoverTrigger>
             {isAuthenticated && (
-              <PopoverContent align="end" className="w-80 max-h-96 overflow-y-auto">
-                <h4 className="font-semibold mb-2">Recent Alerts</h4>
+              <PopoverContent
+                align="end"
+                className="max-h-96 w-80 overflow-y-auto"
+              >
+                <h4 className="mb-2 font-semibold">Recent Alerts</h4>
                 {events.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No recent alerts</p>
+                  <p className="text-sm text-muted-foreground">
+                    No recent alerts
+                  </p>
                 ) : null}
                 <div className="flex flex-col gap-2">
                   {events.map((ev, i) => (
-                    <div key={i} className="text-sm border-b pb-2 last:border-b-0">
-                      <span className="font-bold block">{ev.result.stock.ticker}</span>
+                    <div
+                      key={i}
+                      className="border-b pb-2 text-sm last:border-b-0"
+                    >
+                      <span className="block font-bold">
+                        {ev.result.stock.ticker}
+                      </span>
                       <span className="text-muted-foreground">
                         Score: {ev.result.avgScore.toFixed(2)}
                       </span>
@@ -164,7 +178,10 @@ export function AppHeader() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={logout} className="gap-2 cursor-pointer">
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="cursor-pointer gap-2"
+                >
                   <LogOut className="size-4" />
                   Log out
                 </DropdownMenuItem>
