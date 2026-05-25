@@ -235,6 +235,29 @@ paths:
         - webclient-out
         - core-in
 
+  /api/tickers/{tickerId}/peers:
+    get:
+      summary: Get peer companies for a ticker
+      parameters:
+        - in: path
+          name: tickerId
+          required: true
+          schema:
+            type: string
+          description: Ticker symbol to find peers for (e.g. AAPL)
+      responses:
+        "200":
+          description: List of peer stocks (same country + sector/industry)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stock"
+      tags:
+        - webclient-out
+        - core-in
+
   /api/search:
     get:
       summary: Search for stock sentiment (ndJSON Stream)
@@ -259,6 +282,9 @@ paths:
 
 components:
   schemas:
+    Stock:
+      $ref: "./schemas/Stock.json"
+
     TickerResult:
       $ref: "./schemas/TickerResult.json"
 

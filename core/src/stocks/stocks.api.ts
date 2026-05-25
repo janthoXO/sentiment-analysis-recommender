@@ -19,7 +19,7 @@ export async function searchTickers(query: string): Promise<StockRoot[]> {
 
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error("Failed to fetch Tickers from query");
+    throw new Error(`Failed to fetch Tickers for query "${query}"`);
   }
   const data = SearchTickersResponse.parse(await response.json());
 
@@ -34,6 +34,24 @@ export async function searchTickers(query: string): Promise<StockRoot[]> {
     });
 
   return Object.values(tickerSet);
+}
+
+const zPeersResponse = z.array(z.string());
+
+export async function getCompanyPeers(ticker: string): Promise<string[]> {
+  const url = `https://finnhub.io/api/v1/stock/peers?symbol=${encodeURIComponent(ticker)}`;
+  const res = await fetch(url, {
+    headers: { "X-Finnhub-Token": env.FINNHUB_API_KEY },
+  });
+  if (!res.ok) throw new Error(`Finnhub peers ${res.status}`);
+
+  const parsed = zPeersResponse.parse(await res.json());
+  const upper = ticker.toUpperCase();
+  return Array.from(
+    new Set(
+      parsed.map((t) => t.toUpperCase().trim()).filter((t) => t && t !== upper)
+    )
+  );
 }
 
 export async function getTopTickers(): Promise<StockRoot[]> {

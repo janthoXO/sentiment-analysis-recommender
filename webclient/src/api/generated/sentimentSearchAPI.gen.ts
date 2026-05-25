@@ -17,6 +17,7 @@ import type {
   ListSummary,
   RenameListRequest,
   SearchError,
+  Stock,
   TickerResult
 } from './dtos';
 
@@ -554,6 +555,49 @@ export const getApiTickers = async (params: GetApiTickersParams, options?: Reque
 
   const data: getApiTickersResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getApiTickersResponse
+}
+
+
+
+export type getApiTickersTickerIdPeersResponse200 = {
+  data: Stock[]
+  status: 200
+}
+
+export type getApiTickersTickerIdPeersResponseSuccess = (getApiTickersTickerIdPeersResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getApiTickersTickerIdPeersResponse = (getApiTickersTickerIdPeersResponseSuccess)
+
+export const getGetApiTickersTickerIdPeersUrl = (tickerId: string,) => {
+
+
+
+
+  return `/api/tickers/${tickerId}/peers`
+}
+
+/**
+ * @summary Get peer companies for a ticker
+ */
+export const getApiTickersTickerIdPeers = async (tickerId: string, options?: RequestInit): Promise<getApiTickersTickerIdPeersResponse> => {
+
+  const res = await fetch(getGetApiTickersTickerIdPeersUrl(tickerId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiTickersTickerIdPeersResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getApiTickersTickerIdPeersResponse
 }
 
 

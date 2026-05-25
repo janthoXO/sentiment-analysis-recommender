@@ -146,6 +146,15 @@ export const zGetApiTickersQuery = z.object({
  */
 export const zGetApiTickersResponse = z.array(zTickerResultRoot);
 
+export const zGetApiTickersByTickerIdPeersPath = z.object({
+    tickerId: z.string()
+});
+
+/**
+ * List of peer stocks (same country + sector/industry)
+ */
+export const zGetApiTickersByTickerIdPeersResponse = z.array(zStockRoot);
+
 export const zGetApiSearchQuery = z.object({
     q: z.string().optional()
 });

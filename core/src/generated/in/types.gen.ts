@@ -332,6 +332,27 @@ export type GetApiTickersResponses = {
 
 export type GetApiTickersResponse = GetApiTickersResponses[keyof GetApiTickersResponses];
 
+export type GetApiTickersByTickerIdPeersData = {
+    body?: never;
+    path: {
+        /**
+         * Ticker symbol to find peers for (e.g. AAPL)
+         */
+        tickerId: string;
+    };
+    query?: never;
+    url: '/api/tickers/{tickerId}/peers';
+};
+
+export type GetApiTickersByTickerIdPeersResponses = {
+    /**
+     * List of peer stocks (same country + sector/industry)
+     */
+    200: Array<StockRoot>;
+};
+
+export type GetApiTickersByTickerIdPeersResponse = GetApiTickersByTickerIdPeersResponses[keyof GetApiTickersByTickerIdPeersResponses];
+
 export type GetApiSearchData = {
     body?: never;
     path?: never;

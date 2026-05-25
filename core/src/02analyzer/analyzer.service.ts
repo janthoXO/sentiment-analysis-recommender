@@ -27,23 +27,23 @@ const jobs = new Map<string, InFlightJob>();
 const highPriorityTickerToJobId = new Map<string, string>();
 
 export async function requestAnalysis(
-  ticker: string,
+  stock: StockRoot,
   priority: number
 ): Promise<TickerResultRoot | null> {
   // ensure ticker_stock row exists so source_score FK is satisfied
-  await upsertTickerStock({ ticker, name: ticker });
+  await upsertTickerStock(stock);
 
   // check article cache before hitting Finnhub
-  let sources = await getTickerArticlesCache(ticker);
+  let sources = await getTickerArticlesCache(stock.ticker);
   if (sources === null) {
-    sources = await getArticlesByTicker(ticker);
-    console.debug(`Scraped ${sources.length} sources for ${ticker}`);
+    sources = await getArticlesByTicker(stock.ticker);
+    console.debug(`Scraped ${sources.length} sources for ${stock.ticker}`);
     if (sources.length > 0) {
-      await setTickerArticlesCache(ticker, sources);
+      await setTickerArticlesCache(stock.ticker, sources);
     }
   } else {
     console.debug(
-      `Article cache hit for ${ticker} (${sources.length} sources)`
+      `Article cache hit for ${stock.ticker} (${sources.length} sources)`
     );
   }
 
@@ -53,31 +53,31 @@ export async function requestAnalysis(
 
   // check Postgres source_score for already-scored sources
   const cachedScores = await Promise.all(
-    sources.map((s) => getSourceScore(ticker, s.url))
+    sources.map((s) => getSourceScore(stock.ticker, s.url))
   ).then((results) => results.filter((r) => r !== null));
   console.debug(
-    `Source score cache hit for ${cachedScores.length} out of ${sources.length} sources for ${ticker}`
+    `Source score cache hit for ${cachedScores.length} out of ${sources.length} sources for ${stock.ticker}`
   );
 
   if (cachedScores.length === sources.length) {
     return {
-      stock: { ticker, name: ticker },
+      stock: stock,
       avgScore: calculateAverageScore(cachedScores),
       sources: cachedScores,
     };
   }
 
-  const jobId = `${ticker}-${Date.now()}`;
+  const jobId = `${stock.ticker}-${Date.now()}`;
 
   return new Promise((resolve, reject) => {
     jobs.set(jobId, {
-      stock: { ticker, name: ticker },
+      stock: stock,
       subscribers: [{ resolve, reject }],
       cachedResults: cachedScores,
     });
 
     if (priority === 4) {
-      highPriorityTickerToJobId.set(ticker, jobId);
+      highPriorityTickerToJobId.set(stock.ticker, jobId);
     }
 
     const uncachedSources = sources.filter(
@@ -85,7 +85,7 @@ export async function requestAnalysis(
     );
 
     if (uncachedSources.length > 0) {
-      publishAnalysisTask(ticker, jobId, uncachedSources, priority);
+      publishAnalysisTask(stock.ticker, jobId, uncachedSources, priority);
     } else {
       receiveResult(jobId, []);
     }

@@ -43,7 +43,7 @@ function track(tracker: Tracker) {
 
   const jobId = getInFlightJobId(tracker.ticker);
   if (!jobId) {
-    requestAnalysis(tracker.ticker, tracker.priority).catch((err) => {
+    requestAnalysis(tracker, tracker.priority).catch((err) => {
       console.error(`Error requesting analysis for ${tracker.ticker}:`, err);
     });
   }
