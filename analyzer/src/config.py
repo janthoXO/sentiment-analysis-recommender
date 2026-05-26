@@ -30,10 +30,10 @@ def load_config() -> Config:
         mq_result_routing_key=os.getenv("MQ_RESULT_ROUTING_KEY", "result"),
         model_name=os.getenv("MODEL_NAME", "cross-encoder/nli-deberta-v3-base"),
         hypothesis_positive=os.getenv(
-            "HYPOTHESIS_POSITIVE", "This is positive news for investors."
+            "HYPOTHESIS_POSITIVE", "The company's stock price will go up."
         ),
         hypothesis_negative=os.getenv(
-            "HYPOTHESIS_NEGATIVE", "This is negative news for investors."
+            "HYPOTHESIS_NEGATIVE", "The company's stock price will go down."
         ),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         prefetch_count=int(os.getenv("PREFETCH_COUNT", "1")),
