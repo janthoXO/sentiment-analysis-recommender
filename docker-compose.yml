@@ -102,7 +102,6 @@ services:
 volumes:
   pgdata:
   rmqdata:
-  hfcache:
 
 networks:
   sentinel-net:
