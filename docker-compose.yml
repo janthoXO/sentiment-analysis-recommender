@@ -40,6 +40,7 @@ services:
       POSTGRES_USER: ${CORE_DB_USER:-sentinel}
       POSTGRES_PASSWORD: ${CORE_DB_PASSWORD:-sentinel}
       POSTGRES_DB: ${CORE_DB_NAME:-sentinel}
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:
@@ -89,6 +90,7 @@ services:
     environment:
       RABBITMQ_URL: amqp://sentinel:sentinel@rabbitmq:5672
       LOG_LEVEL: INFO
+      SCORER_TYPE: ${SCORER_TYPE:-finbert}
     depends_on:
       rabbitmq:
         condition: service_healthy
