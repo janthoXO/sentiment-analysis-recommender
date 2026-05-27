@@ -7,7 +7,7 @@ export const EnvSchema = z.object({
   PORT: z.coerce.number().default(3001),
   DEBUG: z.coerce.boolean().default(false),
 
-  CACHE_URL: z.string().default("redis://localhost:6379"),
+  CACHE_URL: z.string().default("redis://default:sentinel@localhost:6379"),
   DB_URL: z
     .string()
     .default("postgresql://sentinel:sentinel@localhost:5432/sentinel"),

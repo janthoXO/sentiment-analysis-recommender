@@ -1,12 +1,6 @@
 name: Build Web Client
 
 on:
-  pull_request:
-    branches-ignore:
-      - main
-    paths:
-      - "webclient/**"
-      - ".github/workflows/build.webclient.yml"
   workflow_call:
 
 jobs:

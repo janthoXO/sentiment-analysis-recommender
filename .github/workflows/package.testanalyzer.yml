@@ -1,13 +1,6 @@
 name: Package Test Analyzer
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "test-analyzer/**"
-      - ".github/workflows/build.testanalyzer.yml"
-      - ".github/workflows/package.testanalyzer.yml"
   workflow_call:
     inputs:
       version:
