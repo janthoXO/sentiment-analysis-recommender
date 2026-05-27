@@ -22,7 +22,7 @@ jobs:
           cache-dependency-path: analyzer/requirements.txt
 
       - name: Install dependencies
-        run: pip install --no-cache-dir -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Check syntax
-        run: python -m py_compile src/__init__.py src/cache.py src/config.py src/main.py src/mq.py src/scorer.py
+        run: python -m compileall src/
