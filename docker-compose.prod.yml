@@ -19,6 +19,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./letsencrypt:/letsencrypt
+    networks:
+      - sentinel-net
 
   core:
     image: ghcr.io/janthoxo/sentiment-analysis-recommender/core:latest
@@ -61,13 +63,17 @@ services:
       - "traefik.http.middlewares.client-compress.compress=true"
       - "traefik.http.routers.client.middlewares=client-compress"
 
-  test-analyzer:
-    image: ghcr.io/janthoxo/sentiment-analysis-recommender/testanalyzer:latest
+  analyzer:
+    image: ghcr.io/janthoxo/sentiment-analysis-recommender/analyzer:latest
     environment:
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      LOG_LEVEL: INFO
+      SCORER_TYPE: ${SCORER_TYPE:-finbert}
     depends_on:
       rabbitmq:
         condition: service_healthy
+    volumes:
+      - hfcache:/root/.cache/huggingface
     networks:
       - sentinel-net
 
@@ -126,6 +132,7 @@ services:
 volumes:
   pgdata:
   rmqdata:
+  hfcache:
 
 networks:
   sentinel-net:

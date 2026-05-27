@@ -135,15 +135,13 @@ Both scorers load their model **once at startup** and implement `score_batch()`,
 analyzer/
 ├── .env.example          # template for runtime config
 ├── .gitignore
+├── .dockerignore         # keeps non-runtime files out of Docker build context
 ├── Dockerfile            # python:3.12-slim, single-stage
 ├── README.md             # ← this file
-├── df_metadata.csv       # reference dataset from the original notebook (S&P 500 metadata)
-├── df_news.csv           # reference dataset from the original notebook (~4k headlines)
 ├── requirements.txt      # pinned Python dependencies
 ├── scripts/
 │   ├── benchmark_hypotheses.py  # compares NLI hypothesis wording
 │   └── benchmark_scorers.py     # compares NLI vs FinBERT
-├── sentiment_nli.ipynb   # original exploratory notebook; the production scorer is derived from this
 └── src/
     ├── __init__.py
     ├── cache.py          # in-process in-flight + TTL cache for scored sources
@@ -166,7 +164,7 @@ docker compose up -d rabbitmq      # start the broker
 docker compose up --build analyzer # build the analyzer image and run it
 ```
 
-The first build downloads the selected Hugging Face model into the `hfcache` named volume; subsequent runs reuse it. Logs:
+The Docker image installs the CPU-only PyTorch wheel to avoid bundling unused CUDA libraries. The first run downloads the selected Hugging Face model into the `hfcache` named volume; subsequent runs reuse it. Logs:
 
 ```bash
 docker compose logs -f analyzer
@@ -298,6 +296,5 @@ Score aggregation is `core`'s job today (simple mean of per-article scores → p
 
 ## Reference
 
-- Original exploratory notebook: [`sentiment_nli.ipynb`](sentiment_nli.ipynb) — covers the NLI scoring rationale, sector-level correlation analysis, and the limits of headline-only sentiment as a market signal.
 - Message contracts: [`../contracts/schemas/AnalyzerTask.json`](../contracts/schemas/AnalyzerTask.json), [`../contracts/schemas/AnalyzerResult.json`](../contracts/schemas/AnalyzerResult.json), [`../contracts/asyncapi.yml`](../contracts/asyncapi.yml).
 - Architecture overview & roll-out plan: [`../docs/ImplementationPlan.md`](../docs/ImplementationPlan.md).
