@@ -23,12 +23,10 @@ tickersRouter.get(
     try {
       const parsed = zGetApiTickersSentimentQuery.safeParse(req.query);
       if (!parsed.success) {
-        res
-          .status(400)
-          .json({
-            error: "Invalid query parameters",
-            details: parsed.error.issues,
-          });
+        res.status(400).json({
+          error: "Invalid query parameters",
+          details: parsed.error.issues,
+        });
         return;
       }
 
@@ -93,12 +91,10 @@ tickersRouter.get(
       const parsed =
         zGetApiTickersByTickerIdSentimentQuery.safeParse(coercedQuery);
       if (!parsed.success) {
-        res
-          .status(400)
-          .json({
-            error: "Invalid query parameters",
-            details: parsed.error.issues,
-          });
+        res.status(400).json({
+          error: "Invalid query parameters",
+          details: parsed.error.issues,
+        });
         return;
       }
 

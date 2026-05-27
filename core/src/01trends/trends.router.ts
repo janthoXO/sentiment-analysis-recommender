@@ -30,12 +30,10 @@ trendsRouter.get(
 
       const parsed = zGetApiTickersByTickerIdCandlesQuery.safeParse(req.query);
       if (!parsed.success) {
-        res
-          .status(400)
-          .json({
-            error: "Invalid query parameters",
-            details: parsed.error.issues,
-          });
+        res.status(400).json({
+          error: "Invalid query parameters",
+          details: parsed.error.issues,
+        });
         return;
       }
       const { duration, interval } = parsed.data;
