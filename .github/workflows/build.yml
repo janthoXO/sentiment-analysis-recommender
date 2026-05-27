@@ -2,9 +2,7 @@ name: Build Gate
 
 on:
   pull_request:
-    branches-ignore:
-      - main  # PRs to main are covered by pr-gate, which runs build via the package chain
-
+    
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -37,22 +35,22 @@ jobs:
 
   build-webclient:
     needs: detect-changes
-    if: needs.detect-changes.outputs.webclient == 'true'
+    if: github.base_ref != 'main' && needs.detect-changes.outputs.webclient == 'true'
     uses: ./.github/workflows/build.webclient.yml
 
   build-core:
     needs: detect-changes
-    if: needs.detect-changes.outputs.core == 'true'
+    if: github.base_ref != 'main' && needs.detect-changes.outputs.core == 'true'
     uses: ./.github/workflows/build.core.yml
 
   build-test-analyzer:
     needs: detect-changes
-    if: needs.detect-changes.outputs.test-analyzer == 'true'
+    if: github.base_ref != 'main' && needs.detect-changes.outputs.test-analyzer == 'true'
     uses: ./.github/workflows/build.testanalyzer.yml
 
   build-analyzer:
     needs: detect-changes
-    if: needs.detect-changes.outputs.analyzer == 'true'
+    if: github.base_ref != 'main' && needs.detect-changes.outputs.analyzer == 'true'
     uses: ./.github/workflows/build.analyzer.yml
 
   ci-gate:
