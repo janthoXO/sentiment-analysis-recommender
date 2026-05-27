@@ -25,17 +25,17 @@ function ArticleCard({
     <div
       className={cn(
         "flex flex-col gap-2 rounded-xl border p-4",
-        dimmed
-          ? "border-border/40 bg-muted/40"
-          : "bg-card"
+        dimmed ? "border-border/40 bg-muted/40" : "bg-card"
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className={cn(
-            "text-base leading-snug font-semibold",
-            dimmed && "text-muted-foreground"
-          )}>
+          <p
+            className={cn(
+              "text-base leading-snug font-semibold",
+              dimmed && "text-muted-foreground"
+            )}
+          >
             {headline || source.url}
           </p>
           <a
@@ -47,8 +47,7 @@ function ArticleCard({
               dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
             )}
           >
-            {source.url}{" "}
-            <ExternalLink className="size-3 shrink-0" />
+            {source.url} <ExternalLink className="size-3 shrink-0" />
           </a>
         </div>
         <Badge
@@ -62,10 +61,12 @@ function ArticleCard({
         </Badge>
       </div>
       {body && (
-        <p className={cn(
-          "text-sm",
-          dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
-        )}>
+        <p
+          className={cn(
+            "text-sm",
+            dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
+          )}
+        >
           {body}
         </p>
       )}
@@ -78,7 +79,7 @@ export function ArticleList({ articles, highlightedUrls }: Props) {
     if (!highlightedUrls || highlightedUrls.size === 0) {
       return { highlighted: null, rest: articles }
     }
-    
+
     return {
       highlighted: articles.filter((a) => highlightedUrls.has(a.url)),
       rest: articles.filter((a) => !highlightedUrls.has(a.url)),

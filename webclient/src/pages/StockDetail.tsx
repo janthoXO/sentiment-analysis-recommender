@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "react-router-dom"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -36,10 +36,14 @@ export default function StockDetailPage() {
   const { ticker } = useParams()
   const location = useLocation()
 
-  const preloaded = (location.state as { tickerResult?: TickerResult } | null)?.tickerResult ?? null
+  const preloaded =
+    (location.state as { tickerResult?: TickerResult } | null)?.tickerResult ??
+    null
 
   const [range, setRange] = useState<RangeKey>("latest")
-  const [selectedEventTSec, setSelectedEventTSec] = useState<number | null>(null)
+  const [selectedEventTSec, setSelectedEventTSec] = useState<number | null>(
+    null
+  )
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
   // Fetch per-ticker sentiment only when not preloaded from router state
   const { data: fetched, loading: fetchLoading } = useTickerSentiment(
@@ -51,7 +55,11 @@ export default function StockDetailPage() {
   const duration: CandleDuration = range === "latest" ? "today" : range
   const interval = pickIntervalForDuration(duration)
 
-  const { candles, loading: candlesLoading } = useCandles(ticker, duration, interval)
+  const { candles, loading: candlesLoading } = useCandles(
+    ticker,
+    duration,
+    interval
+  )
 
   // Client-side event detection — only for non-latest modes.
   const events = useMemo(() => {
@@ -70,11 +78,6 @@ export default function StockDetailPage() {
     events,
     intervalSec
   )
-
-  useEffect(() => {
-    setSelectedEventTSec(null)
-    setHoveredEventTSec(null)
-  }, [range])
 
   // Per-event sentiment info for the timeline tooltip
   const eventInfoByTSec = useMemo(() => {
@@ -101,7 +104,8 @@ export default function StockDetailPage() {
   }, [activeEventTSec, eventSourceMap])
 
   const isLoading = fetchLoading && !data
-  const isSentimentLoading = range !== "latest" && (candlesLoading || eventSentimentLoading)
+  const isSentimentLoading =
+    range !== "latest" && (candlesLoading || eventSentimentLoading)
 
   if (isLoading) {
     return <div className="p-8">Loading data...</div>
@@ -142,12 +146,20 @@ export default function StockDetailPage() {
             type="single"
             value={range}
             onValueChange={(v) => {
-              if (v) setRange(v as RangeKey)
+              if (v) {
+                setRange(v as RangeKey)
+                setSelectedEventTSec(null)
+                setHoveredEventTSec(null)
+              }
             }}
             className="self-start"
           >
             {RANGES.map(({ label, value }) => (
-              <ToggleGroupItem key={value} value={value} className="px-4 text-sm">
+              <ToggleGroupItem
+                key={value}
+                value={value}
+                className="px-4 text-sm"
+              >
                 {label}
               </ToggleGroupItem>
             ))}
@@ -186,7 +198,8 @@ export default function StockDetailPage() {
             </h2>
             {range !== "latest" && (
               <p className="text-sm text-muted-foreground">
-                Hover an event pin to preview its articles. Click to lock the selection; click elsewhere to clear it.
+                Hover an event pin to preview its articles. Click to lock the
+                selection; click elsewhere to clear it.
               </p>
             )}
             {isSentimentLoading ? (

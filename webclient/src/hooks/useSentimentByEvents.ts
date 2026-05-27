@@ -3,7 +3,10 @@ import { toast } from "sonner"
 import { readStream } from "@/lib/stream"
 import { getApiTickersTickerIdSentiment } from "@/api/generated/sentimentSearchAPI.gen"
 import type { PriceEvent } from "@/lib/events"
-import type { TickerResult, TickerResultSourcesItem } from "@/api/generated/dtos"
+import type {
+  TickerResult,
+  TickerResultSourcesItem,
+} from "@/api/generated/dtos"
 
 export function useSentimentByEvents(
   ticker: string | undefined,
@@ -16,23 +19,25 @@ export function useSentimentByEvents(
   loading: boolean
   error: string | null
 } {
-  const [eventSourceMap, setEventSourceMap] = useState<Map<number, TickerResult>>(new Map())
+  const [eventSourceMap, setEventSourceMap] = useState<
+    Map<number, TickerResult>
+  >(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const eventTSecs = useMemo(() => events.map((e) => e.tSec), [events])
 
   useEffect(() => {
-    if (!ticker || eventTSecs.length === 0 || intervalSec == null) {
-      setLoading(false)
-      setError(null)
-      return
-    }
-
     const abortController = new AbortController()
     const signal = abortController.signal
 
     async function load() {
+      if (!ticker || eventTSecs.length === 0 || intervalSec == null) {
+        setLoading(false)
+        setError(null)
+        return
+      }
+
       setLoading(true)
       setError(null)
 

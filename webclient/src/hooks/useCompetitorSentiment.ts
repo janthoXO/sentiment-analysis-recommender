@@ -75,11 +75,7 @@ export function useCompetitorSentiment(ticker: string | undefined): {
   const loadSentiment = useCallback(
     (t: string) => {
       // No-op if already loaded or loading
-      if (
-        resultsByTicker[t] !== undefined ||
-        loadingByTicker[t]
-      )
-        return
+      if (resultsByTicker[t] !== undefined || loadingByTicker[t]) return
       pendingRef.current.add(t)
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = setTimeout(flushPending, 50)
@@ -131,7 +127,10 @@ export function useCompetitorSentiment(ticker: string | undefined): {
             if (!("error" in parsedObj)) {
               const r = parsedObj as TickerResult
               setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
-              setLoadingByTicker((prev) => ({ ...prev, [r.stock.ticker]: false }))
+              setLoadingByTicker((prev) => ({
+                ...prev,
+                [r.stock.ticker]: false,
+              }))
             }
           })
         }
@@ -140,7 +139,8 @@ export function useCompetitorSentiment(ticker: string | undefined): {
         // Mark eager tickers that returned no result as done
         setResultsByTicker((prev) => {
           const next = { ...prev }
-          for (const t of eagerTickers) if (next[t] === undefined) next[t] = null
+          for (const t of eagerTickers)
+            if (next[t] === undefined) next[t] = null
           return next
         })
         setLoadingByTicker((prev) => {

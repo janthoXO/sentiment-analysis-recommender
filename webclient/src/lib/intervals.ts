@@ -11,7 +11,9 @@ export type RangePresetKey = keyof typeof RANGE_PRESETS
 
 export type CandleDuration = RangePresetKey | "today"
 
-export function pickIntervalForDuration(duration: CandleDuration): CandleInterval {
+export function pickIntervalForDuration(
+  duration: CandleDuration
+): CandleInterval {
   if (duration === "today" || duration === "1D") return "5m"
   if (duration === "1W") return "30m"
   return "1d"

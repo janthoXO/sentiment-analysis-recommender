@@ -18,7 +18,10 @@ export function parseSentimentLabel(score: number): {
   }
 }
 
-export function parseHeadline(snippet: string): { headline: string; body: string } {
+export function parseHeadline(snippet: string): {
+  headline: string
+  body: string
+} {
   const idx = snippet.indexOf("\n")
   if (idx === -1) return { headline: snippet, body: "" }
   return {

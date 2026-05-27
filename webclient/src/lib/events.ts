@@ -57,9 +57,8 @@ export function detectEvents(
     const lastSameKind = events.findLast((e) => e.kind === kind)
     if (
       lastSameKind !== undefined &&
-      Math.abs(
-        candles.findIndex((c) => c.tSec === lastSameKind.tSec) - i
-      ) <= windowBars
+      Math.abs(candles.findIndex((c) => c.tSec === lastSameKind.tSec) - i) <=
+        windowBars
     )
       continue
 

@@ -47,8 +47,14 @@ function formatTick(tSec: number, interval: CandleInterval | null): string {
   return format(new Date(tSec * 1000), TICK_FORMAT[interval ?? "5m"] ?? "HH:mm")
 }
 
-function formatTooltipLabel(tSec: number, interval: CandleInterval | null): string {
-  return format(new Date(tSec * 1000), TOOLTIP_FORMAT[interval ?? "5m"] ?? "HH:mm")
+function formatTooltipLabel(
+  tSec: number,
+  interval: CandleInterval | null
+): string {
+  return format(
+    new Date(tSec * 1000),
+    TOOLTIP_FORMAT[interval ?? "5m"] ?? "HH:mm"
+  )
 }
 
 export function StockTimeline({
@@ -111,7 +117,7 @@ export function StockTimeline({
     <div className="relative w-full">
       {/* Floating event sentiment tooltip */}
       {mode === "events" && activeTSec != null && (
-        <div className="absolute right-2 top-2 z-10 rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
+        <div className="absolute top-2 right-2 z-10 rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
           <p className="font-semibold text-foreground">
             {formatTooltipLabel(activeTSec, interval)}
           </p>
@@ -126,7 +132,9 @@ export function StockTimeline({
             )
           })()}
           {selectedEventTSec != null && (
-            <p className="mt-1 text-muted-foreground">Click elsewhere to unlock</p>
+            <p className="mt-1 text-muted-foreground">
+              Click elsewhere to unlock
+            </p>
           )}
         </div>
       )}

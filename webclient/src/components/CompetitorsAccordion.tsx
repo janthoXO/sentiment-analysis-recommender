@@ -33,7 +33,7 @@ function PeerRow({ stock, result, isLoading }: PeerRowProps) {
       <div className="flex min-w-0 flex-col gap-0.5">
         <Link
           to={`/stock/${stock.ticker}`}
-          className="truncate text-sm font-semibold leading-snug hover:underline"
+          className="truncate text-sm leading-snug font-semibold hover:underline"
         >
           {stock.name}
         </Link>

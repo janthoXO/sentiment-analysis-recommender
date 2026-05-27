@@ -25,7 +25,9 @@ export function useTickerSentiment(ticker: string | undefined): {
       setData(null)
 
       try {
-        const res = await getApiTickersTickerIdSentiment(ticker!, undefined, { signal })
+        const res = await getApiTickersTickerIdSentiment(ticker!, undefined, {
+          signal,
+        })
         if (signal.aborted) return
 
         if (res.status !== 200) {
@@ -43,7 +45,9 @@ export function useTickerSentiment(ticker: string | undefined): {
         if (signal.aborted) return
         const msg = e instanceof Error ? e.message : "Unknown error"
         setError(msg)
-        toast.error(`Could not load sentiment for ${ticker}`, { description: msg })
+        toast.error(`Could not load sentiment for ${ticker}`, {
+          description: msg,
+        })
       } finally {
         if (!signal.aborted) setLoading(false)
       }

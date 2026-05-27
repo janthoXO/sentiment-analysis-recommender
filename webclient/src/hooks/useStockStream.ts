@@ -27,7 +27,10 @@ export function useStockStream() {
 
     try {
       // 3. Initiate the Fetch
-      const response = await getApiTickersSentiment({ q: query }, { signal: abortController.signal })
+      const response = await getApiTickersSentiment(
+        { q: query },
+        { signal: abortController.signal }
+      )
 
       if (response.status !== 200) {
         throw new Error("Failed to fetch stream")
