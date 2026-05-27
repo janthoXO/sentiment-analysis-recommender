@@ -62,7 +62,7 @@ services:
       - "traefik.http.routers.client.middlewares=client-compress"
 
   test-analyzer:
-    image: ghcr.io/janthoxo/sentiment-analysis-recommender/test-analyzer:latest
+    image: ghcr.io/janthoxo/sentiment-analysis-recommender/testanalyzer:latest
     environment:
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
     depends_on:
