@@ -52,6 +52,7 @@ jobs:
             echo "webclient=true" >> $GITHUB_OUTPUT
             echo "core=true" >> $GITHUB_OUTPUT
             echo "test-analyzer=true" >> $GITHUB_OUTPUT
+            echo "analyzer=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -151,7 +152,6 @@ jobs:
         with:
           tag_name: v${{ needs.versioning.outputs.version }}
           name: Release v${{ needs.versioning.outputs.version }}
-          files: ./artifacts/**/*.tar
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
