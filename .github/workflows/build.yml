@@ -1,0 +1,67 @@
+name: Build Gate
+
+on:
+  pull_request:
+    branches-ignore:
+      - main  # PRs to main are covered by pr-gate, which runs build via the package chain
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      webclient: ${{ steps.filter.outputs.webclient }}
+      core: ${{ steps.filter.outputs.core }}
+      test-analyzer: ${{ steps.filter.outputs.test-analyzer }}
+      analyzer: ${{ steps.filter.outputs.analyzer }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Detect changed services
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            webclient:
+              - 'webclient/**'
+              - '.github/workflows/build.webclient.yml'
+            core:
+              - 'core/**'
+              - '.github/workflows/build.core.yml'
+            test-analyzer:
+              - 'test-analyzer/**'
+              - '.github/workflows/build.testanalyzer.yml'
+            analyzer:
+              - 'analyzer/**'
+              - '.github/workflows/build.analyzer.yml'
+
+  build-webclient:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.webclient == 'true'
+    uses: ./.github/workflows/build.webclient.yml
+
+  build-core:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.core == 'true'
+    uses: ./.github/workflows/build.core.yml
+
+  build-test-analyzer:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.test-analyzer == 'true'
+    uses: ./.github/workflows/build.testanalyzer.yml
+
+  build-analyzer:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.analyzer == 'true'
+    uses: ./.github/workflows/build.analyzer.yml
+
+  ci-gate:
+    needs: [build-webclient, build-core, build-test-analyzer, build-analyzer]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all build jobs passed or were skipped
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            exit 1
+          fi

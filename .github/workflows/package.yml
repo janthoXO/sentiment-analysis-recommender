@@ -1,0 +1,71 @@
+name: Package Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      webclient: ${{ steps.filter.outputs.webclient }}
+      core: ${{ steps.filter.outputs.core }}
+      test-analyzer: ${{ steps.filter.outputs.test-analyzer }}
+      analyzer: ${{ steps.filter.outputs.analyzer }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Detect changed services
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            webclient:
+              - 'webclient/**'
+              - '.github/workflows/build.webclient.yml'
+              - '.github/workflows/package.webclient.yml'
+            core:
+              - 'core/**'
+              - '.github/workflows/build.core.yml'
+              - '.github/workflows/package.core.yml'
+            test-analyzer:
+              - 'test-analyzer/**'
+              - '.github/workflows/build.testanalyzer.yml'
+              - '.github/workflows/package.testanalyzer.yml'
+            analyzer:
+              - 'analyzer/**'
+              - '.github/workflows/build.analyzer.yml'
+              - '.github/workflows/package.analyzer.yml'
+
+  package-webclient:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.webclient == 'true'
+    uses: ./.github/workflows/package.webclient.yml
+
+  package-core:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.core == 'true'
+    uses: ./.github/workflows/package.core.yml
+
+  package-test-analyzer:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.test-analyzer == 'true'
+    uses: ./.github/workflows/package.testanalyzer.yml
+
+  package-analyzer:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.analyzer == 'true'
+    uses: ./.github/workflows/package.analyzer.yml
+
+  ci-gate:
+    needs: [package-webclient, package-core, package-test-analyzer, package-analyzer]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all package jobs passed or were skipped
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            exit 1
+          fi
