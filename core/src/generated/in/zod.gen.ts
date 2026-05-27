@@ -36,9 +36,115 @@ export const zTickerResultRoot = z.object({
     avgScore: z.number().gte(-1).lte(1)
 });
 
+export const zAddListItemRequest = z.object({
+    ticker: z.string()
+});
+
+export const zRenameListRequest = z.object({
+    name: z.string()
+});
+
+export const zCreateListRequest = z.object({
+    name: z.string()
+});
+
+export const zListSummary = z.object({
+    id: z.string(),
+    name: z.string()
+});
+
+export const zListItem = z.object({
+    ticker: z.string()
+});
+
+export const zList = z.object({
+    id: z.string(),
+    name: z.string(),
+    items: z.array(zListItem)
+});
+
+export const zAuthResponse = z.object({
+    token: z.string()
+});
+
+export const zAuthRequest = z.object({
+    username: z.string(),
+    password: z.string()
+});
+
 export const zSearchError = z.object({
     error: z.string().optional()
 });
+
+export const zPostApiAuthRegisterBody = zAuthRequest;
+
+/**
+ * Registration successful
+ */
+export const zPostApiAuthRegisterResponse = zAuthResponse;
+
+export const zPostApiAuthLoginBody = zAuthRequest;
+
+/**
+ * Login successful
+ */
+export const zPostApiAuthLoginResponse = zAuthResponse;
+
+/**
+ * The user's lists
+ */
+export const zGetApiListsResponse = z.array(zList);
+
+export const zPostApiListsBody = zCreateListRequest;
+
+/**
+ * Created list
+ */
+export const zPostApiListsResponse = zList;
+
+export const zDeleteApiListsByIdPath = z.object({
+    id: z.string()
+});
+
+export const zPatchApiListsByIdBody = zRenameListRequest;
+
+export const zPatchApiListsByIdPath = z.object({
+    id: z.string()
+});
+
+/**
+ * Renamed list
+ */
+export const zPatchApiListsByIdResponse = zListSummary;
+
+export const zPostApiListsByIdItemsBody = zAddListItemRequest;
+
+export const zPostApiListsByIdItemsPath = z.object({
+    id: z.string()
+});
+
+export const zDeleteApiListsByIdItemsByTickerPath = z.object({
+    id: z.string(),
+    ticker: z.string()
+});
+
+export const zGetApiListsStreamQuery = z.object({
+    token: z.string().optional()
+});
+
+/**
+ * SSE stream of sentiment update events (use EventSource, not fetch)
+ */
+export const zGetApiListsStreamResponse = z.string();
+
+export const zGetApiTickersQuery = z.object({
+    tickers: z.string()
+});
+
+/**
+ * Array of analyzed ticker results
+ */
+export const zGetApiTickersResponse = z.array(zTickerResultRoot);
 
 export const zGetApiSearchQuery = z.object({
     q: z.string().optional()

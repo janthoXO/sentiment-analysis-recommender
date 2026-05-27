@@ -1,0 +1,206 @@
+import { useRef, useState } from "react"
+import { Link, useNavigate, useLocation } from "react-router-dom"
+import { Search, Popcorn, Bell, UserCircle, LogOut, X } from "lucide-react"
+import { useAuth } from "@/context/auth-provider"
+import { useWatchlistContext } from "@/context/watchlist-provider"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+export function AppHeader() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { isAuthenticated, logout, requireAuth } = useAuth()
+  const { events } = useWatchlistContext()
+
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const openSearch = () => {
+    setSearchOpen(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  const closeSearch = () => {
+    setSearchOpen(false)
+    setSearchQuery("")
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const q = searchQuery.trim()
+    if (!q) return
+    navigate(`/search?q=${encodeURIComponent(q)}`)
+    closeSearch()
+  }
+
+  const handleWatchlistClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    requireAuth(() => navigate("/watchlist"))()
+  }
+
+  const handleNotificationsClick = () => {
+    if (!isAuthenticated) {
+      navigate("/login", { state: { backgroundLocation: location } })
+    }
+  }
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-14 items-center gap-2 px-4">
+        {/* Left: brand + search */}
+        <div className="flex items-center gap-2">
+          <Link
+            to="/"
+            className="text-sm font-semibold tracking-tight text-primary transition-opacity hover:opacity-80"
+          >
+            Sentinel Finance
+          </Link>
+
+          {searchOpen ? (
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex items-center gap-1"
+            >
+              <Input
+                ref={inputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Ticker, e.g. AAPL"
+                className="h-8 w-48 text-sm"
+                onKeyDown={(e) => e.key === "Escape" && closeSearch()}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2"
+              >
+                <Search className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2"
+                onClick={closeSearch}
+              >
+                <X className="size-4" />
+              </Button>
+            </form>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={openSearch}
+              aria-label="Open search"
+            >
+              <Search className="size-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Right: watchlist, notifications, profile */}
+        <div className="ml-auto flex items-center gap-1">
+          {/* Watchlist */}
+          <Button variant="ghost" size="sm" asChild className="gap-1.5">
+            <a href="/watchlist" onClick={handleWatchlistClick}>
+              <Popcorn className="size-4" />
+              <span className="hidden md:inline">Watchlist</span>
+            </a>
+          </Button>
+
+          {/* Notifications */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Notifications"
+                className="relative"
+                onClick={handleNotificationsClick}
+              >
+                <Bell className="size-4" />
+                {isAuthenticated && events.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                    {events.length > 9 ? "9+" : events.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            {isAuthenticated && (
+              <PopoverContent
+                align="end"
+                className="max-h-96 w-80 overflow-y-auto"
+              >
+                <h4 className="mb-2 font-semibold">Recent Alerts</h4>
+                {events.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No recent alerts
+                  </p>
+                ) : null}
+                <div className="flex flex-col gap-2">
+                  {events.map((ev, i) => (
+                    <div
+                      key={i}
+                      className="border-b pb-2 text-sm last:border-b-0"
+                    >
+                      <span className="block font-bold">
+                        {ev.result.stock.ticker}
+                      </span>
+                      <span className="text-muted-foreground">
+                        Score: {ev.result.avgScore.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            )}
+          </Popover>
+
+          {/* Profile */}
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label="Account">
+                  <UserCircle className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="cursor-pointer gap-2"
+                >
+                  <LogOut className="size-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Log in"
+              onClick={() =>
+                navigate("/login", { state: { backgroundLocation: location } })
+              }
+            >
+              <UserCircle className="size-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </header>
+  )
+}

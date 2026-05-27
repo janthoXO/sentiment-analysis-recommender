@@ -3,6 +3,9 @@ import morgan from "morgan";
 import cors from "cors";
 
 import searchRouter from "@/01search/search.router.js";
+import tickersRouter from "@/01search/tickers.router.js";
+import { authRouter } from "@/auth/auth.router.js";
+import { listsRouter } from "@/03watchlist/watchlist.router.js";
 import { env } from "@/env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -14,6 +17,9 @@ export function initRouter(): Promise<void> {
   });
 
   apiRouter.use("/search", searchRouter);
+  apiRouter.use("/tickers", tickersRouter);
+  apiRouter.use("/auth", authRouter);
+  apiRouter.use("/lists", listsRouter);
 
   const app = express();
 

@@ -44,9 +44,293 @@ export type StockRoot = {
     name: string;
 };
 
+export type AddListItemRequest = {
+    ticker: string;
+};
+
+export type RenameListRequest = {
+    name: string;
+};
+
+export type CreateListRequest = {
+    name: string;
+};
+
+export type ListSummary = {
+    id: string;
+    name: string;
+};
+
+export type List = {
+    id: string;
+    name: string;
+    items: Array<ListItem>;
+};
+
+export type ListItem = {
+    ticker: string;
+};
+
+export type AuthResponse = {
+    token: string;
+};
+
+export type AuthRequest = {
+    username: string;
+    password: string;
+};
+
 export type SearchError = {
     error?: string;
 };
+
+export type PostApiAuthRegisterData = {
+    body: AuthRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/register';
+};
+
+export type PostApiAuthRegisterErrors = {
+    /**
+     * Username already taken
+     */
+    400: unknown;
+};
+
+export type PostApiAuthRegisterResponses = {
+    /**
+     * Registration successful
+     */
+    200: AuthResponse;
+};
+
+export type PostApiAuthRegisterResponse = PostApiAuthRegisterResponses[keyof PostApiAuthRegisterResponses];
+
+export type PostApiAuthLoginData = {
+    body: AuthRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/login';
+};
+
+export type PostApiAuthLoginErrors = {
+    /**
+     * Invalid credentials
+     */
+    401: unknown;
+};
+
+export type PostApiAuthLoginResponses = {
+    /**
+     * Login successful
+     */
+    200: AuthResponse;
+};
+
+export type PostApiAuthLoginResponse = PostApiAuthLoginResponses[keyof PostApiAuthLoginResponses];
+
+export type GetApiListsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/lists';
+};
+
+export type GetApiListsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type GetApiListsResponses = {
+    /**
+     * The user's lists
+     */
+    200: Array<List>;
+};
+
+export type GetApiListsResponse = GetApiListsResponses[keyof GetApiListsResponses];
+
+export type PostApiListsData = {
+    body: CreateListRequest;
+    path?: never;
+    query?: never;
+    url: '/api/lists';
+};
+
+export type PostApiListsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type PostApiListsResponses = {
+    /**
+     * Created list
+     */
+    200: List;
+};
+
+export type PostApiListsResponse = PostApiListsResponses[keyof PostApiListsResponses];
+
+export type DeleteApiListsByIdData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/lists/{id}';
+};
+
+export type DeleteApiListsByIdErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type DeleteApiListsByIdResponses = {
+    /**
+     * Deleted
+     */
+    200: unknown;
+};
+
+export type PatchApiListsByIdData = {
+    body: RenameListRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/lists/{id}';
+};
+
+export type PatchApiListsByIdErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * List not found
+     */
+    404: unknown;
+};
+
+export type PatchApiListsByIdResponses = {
+    /**
+     * Renamed list
+     */
+    200: ListSummary;
+};
+
+export type PatchApiListsByIdResponse = PatchApiListsByIdResponses[keyof PatchApiListsByIdResponses];
+
+export type PostApiListsByIdItemsData = {
+    body: AddListItemRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/lists/{id}/items';
+};
+
+export type PostApiListsByIdItemsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+};
+
+export type PostApiListsByIdItemsResponses = {
+    /**
+     * Added
+     */
+    200: unknown;
+};
+
+export type DeleteApiListsByIdItemsByTickerData = {
+    body?: never;
+    path: {
+        id: string;
+        ticker: string;
+    };
+    query?: never;
+    url: '/api/lists/{id}/items/{ticker}';
+};
+
+export type DeleteApiListsByIdItemsByTickerErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Forbidden
+     */
+    403: unknown;
+};
+
+export type DeleteApiListsByIdItemsByTickerResponses = {
+    /**
+     * Removed
+     */
+    200: unknown;
+};
+
+export type GetApiListsStreamData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * JWT token (alternative to Authorization header, required for EventSource)
+         */
+        token?: string;
+    };
+    url: '/api/lists/stream';
+};
+
+export type GetApiListsStreamErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type GetApiListsStreamResponses = {
+    /**
+     * SSE stream of sentiment update events (use EventSource, not fetch)
+     */
+    200: string;
+};
+
+export type GetApiListsStreamResponse = GetApiListsStreamResponses[keyof GetApiListsStreamResponses];
+
+export type GetApiTickersData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Comma-separated list of ticker symbols (e.g. AAPL,MSFT). Max 50.
+         */
+        tickers: string;
+    };
+    url: '/api/tickers';
+};
+
+export type GetApiTickersResponses = {
+    /**
+     * Array of analyzed ticker results
+     */
+    200: Array<TickerResultRoot>;
+};
+
+export type GetApiTickersResponse = GetApiTickersResponses[keyof GetApiTickersResponses];
 
 export type GetApiSearchData = {
     body?: never;

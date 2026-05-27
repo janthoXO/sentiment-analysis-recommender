@@ -6,7 +6,16 @@
  * OpenAPI spec version: 1.0.0
  */
 import type {
+  AddListItemRequest,
+  AuthRequest,
+  AuthResponse,
+  CreateListRequest,
+  GetApiListsStreamParams,
   GetApiSearchParams,
+  GetApiTickersParams,
+  List,
+  ListSummary,
+  RenameListRequest,
   SearchError,
   TickerResult
 } from './dtos';
@@ -15,6 +24,539 @@ import type {
 interface TypedResponse<T> extends Response {
   json(): Promise<T>;
 }
+
+export type postApiAuthRegisterResponse200 = {
+  data: AuthResponse
+  status: 200
+}
+
+export type postApiAuthRegisterResponse400 = {
+  data: void
+  status: 400
+}
+
+export type postApiAuthRegisterResponseSuccess = (postApiAuthRegisterResponse200) & {
+  headers: Headers;
+};
+export type postApiAuthRegisterResponseError = (postApiAuthRegisterResponse400) & {
+  headers: Headers;
+};
+
+export type postApiAuthRegisterResponse = (postApiAuthRegisterResponseSuccess | postApiAuthRegisterResponseError)
+
+export const getPostApiAuthRegisterUrl = () => {
+
+
+
+
+  return `/api/auth/register`
+}
+
+/**
+ * @summary Register a new user
+ */
+export const postApiAuthRegister = async (authRequest: AuthRequest, options?: RequestInit): Promise<postApiAuthRegisterResponse> => {
+
+  const res = await fetch(getPostApiAuthRegisterUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      authRequest,)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: postApiAuthRegisterResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as postApiAuthRegisterResponse
+}
+
+
+
+export type postApiAuthLoginResponse200 = {
+  data: AuthResponse
+  status: 200
+}
+
+export type postApiAuthLoginResponse401 = {
+  data: void
+  status: 401
+}
+
+export type postApiAuthLoginResponseSuccess = (postApiAuthLoginResponse200) & {
+  headers: Headers;
+};
+export type postApiAuthLoginResponseError = (postApiAuthLoginResponse401) & {
+  headers: Headers;
+};
+
+export type postApiAuthLoginResponse = (postApiAuthLoginResponseSuccess | postApiAuthLoginResponseError)
+
+export const getPostApiAuthLoginUrl = () => {
+
+
+
+
+  return `/api/auth/login`
+}
+
+/**
+ * @summary Login to an existing user
+ */
+export const postApiAuthLogin = async (authRequest: AuthRequest, options?: RequestInit): Promise<postApiAuthLoginResponse> => {
+
+  const res = await fetch(getPostApiAuthLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      authRequest,)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: postApiAuthLoginResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as postApiAuthLoginResponse
+}
+
+
+
+export type getApiListsResponse200 = {
+  data: List[]
+  status: 200
+}
+
+export type getApiListsResponse401 = {
+  data: void
+  status: 401
+}
+
+export type getApiListsResponseSuccess = (getApiListsResponse200) & {
+  headers: Headers;
+};
+export type getApiListsResponseError = (getApiListsResponse401) & {
+  headers: Headers;
+};
+
+export type getApiListsResponse = (getApiListsResponseSuccess | getApiListsResponseError)
+
+export const getGetApiListsUrl = () => {
+
+
+
+
+  return `/api/lists`
+}
+
+/**
+ * @summary Get all user lists with their items
+ */
+export const getApiLists = async ( options?: RequestInit): Promise<getApiListsResponse> => {
+
+  const res = await fetch(getGetApiListsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiListsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getApiListsResponse
+}
+
+
+
+export type postApiListsResponse200 = {
+  data: List
+  status: 200
+}
+
+export type postApiListsResponse401 = {
+  data: void
+  status: 401
+}
+
+export type postApiListsResponseSuccess = (postApiListsResponse200) & {
+  headers: Headers;
+};
+export type postApiListsResponseError = (postApiListsResponse401) & {
+  headers: Headers;
+};
+
+export type postApiListsResponse = (postApiListsResponseSuccess | postApiListsResponseError)
+
+export const getPostApiListsUrl = () => {
+
+
+
+
+  return `/api/lists`
+}
+
+/**
+ * @summary Create a new list
+ */
+export const postApiLists = async (createListRequest: CreateListRequest, options?: RequestInit): Promise<postApiListsResponse> => {
+
+  const res = await fetch(getPostApiListsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createListRequest,)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: postApiListsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as postApiListsResponse
+}
+
+
+
+export type patchApiListsIdResponse200 = {
+  data: ListSummary
+  status: 200
+}
+
+export type patchApiListsIdResponse401 = {
+  data: void
+  status: 401
+}
+
+export type patchApiListsIdResponse404 = {
+  data: void
+  status: 404
+}
+
+export type patchApiListsIdResponseSuccess = (patchApiListsIdResponse200) & {
+  headers: Headers;
+};
+export type patchApiListsIdResponseError = (patchApiListsIdResponse401 | patchApiListsIdResponse404) & {
+  headers: Headers;
+};
+
+export type patchApiListsIdResponse = (patchApiListsIdResponseSuccess | patchApiListsIdResponseError)
+
+export const getPatchApiListsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/lists/${id}`
+}
+
+/**
+ * @summary Rename a list
+ */
+export const patchApiListsId = async (id: string,
+    renameListRequest: RenameListRequest, options?: RequestInit): Promise<patchApiListsIdResponse> => {
+
+  const res = await fetch(getPatchApiListsIdUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      renameListRequest,)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: patchApiListsIdResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as patchApiListsIdResponse
+}
+
+
+
+export type deleteApiListsIdResponse200 = {
+  data: void
+  status: 200
+}
+
+export type deleteApiListsIdResponse401 = {
+  data: void
+  status: 401
+}
+
+export type deleteApiListsIdResponseSuccess = (deleteApiListsIdResponse200) & {
+  headers: Headers;
+};
+export type deleteApiListsIdResponseError = (deleteApiListsIdResponse401) & {
+  headers: Headers;
+};
+
+export type deleteApiListsIdResponse = (deleteApiListsIdResponseSuccess | deleteApiListsIdResponseError)
+
+export const getDeleteApiListsIdUrl = (id: string,) => {
+
+
+
+
+  return `/api/lists/${id}`
+}
+
+/**
+ * @summary Delete a list
+ */
+export const deleteApiListsId = async (id: string, options?: RequestInit): Promise<deleteApiListsIdResponse> => {
+
+  const res = await fetch(getDeleteApiListsIdUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deleteApiListsIdResponse['data'] = body ? JSON.parse(body) : undefined
+  return { data, status: res.status, headers: res.headers } as deleteApiListsIdResponse
+}
+
+
+
+export type postApiListsIdItemsResponse200 = {
+  data: void
+  status: 200
+}
+
+export type postApiListsIdItemsResponse401 = {
+  data: void
+  status: 401
+}
+
+export type postApiListsIdItemsResponse403 = {
+  data: void
+  status: 403
+}
+
+export type postApiListsIdItemsResponseSuccess = (postApiListsIdItemsResponse200) & {
+  headers: Headers;
+};
+export type postApiListsIdItemsResponseError = (postApiListsIdItemsResponse401 | postApiListsIdItemsResponse403) & {
+  headers: Headers;
+};
+
+export type postApiListsIdItemsResponse = (postApiListsIdItemsResponseSuccess | postApiListsIdItemsResponseError)
+
+export const getPostApiListsIdItemsUrl = (id: string,) => {
+
+
+
+
+  return `/api/lists/${id}/items`
+}
+
+/**
+ * @summary Add a ticker to a list
+ */
+export const postApiListsIdItems = async (id: string,
+    addListItemRequest: AddListItemRequest, options?: RequestInit): Promise<postApiListsIdItemsResponse> => {
+
+  const res = await fetch(getPostApiListsIdItemsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      addListItemRequest,)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: postApiListsIdItemsResponse['data'] = body ? JSON.parse(body) : undefined
+  return { data, status: res.status, headers: res.headers } as postApiListsIdItemsResponse
+}
+
+
+
+export type deleteApiListsIdItemsTickerResponse200 = {
+  data: void
+  status: 200
+}
+
+export type deleteApiListsIdItemsTickerResponse401 = {
+  data: void
+  status: 401
+}
+
+export type deleteApiListsIdItemsTickerResponse403 = {
+  data: void
+  status: 403
+}
+
+export type deleteApiListsIdItemsTickerResponseSuccess = (deleteApiListsIdItemsTickerResponse200) & {
+  headers: Headers;
+};
+export type deleteApiListsIdItemsTickerResponseError = (deleteApiListsIdItemsTickerResponse401 | deleteApiListsIdItemsTickerResponse403) & {
+  headers: Headers;
+};
+
+export type deleteApiListsIdItemsTickerResponse = (deleteApiListsIdItemsTickerResponseSuccess | deleteApiListsIdItemsTickerResponseError)
+
+export const getDeleteApiListsIdItemsTickerUrl = (id: string,
+    ticker: string,) => {
+
+
+
+
+  return `/api/lists/${id}/items/${ticker}`
+}
+
+/**
+ * @summary Remove a ticker from a list
+ */
+export const deleteApiListsIdItemsTicker = async (id: string,
+    ticker: string, options?: RequestInit): Promise<deleteApiListsIdItemsTickerResponse> => {
+
+  const res = await fetch(getDeleteApiListsIdItemsTickerUrl(id,ticker),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deleteApiListsIdItemsTickerResponse['data'] = body ? JSON.parse(body) : undefined
+  return { data, status: res.status, headers: res.headers } as deleteApiListsIdItemsTickerResponse
+}
+
+
+
+export type getApiListsStreamResponse200 = {
+  data: string
+  status: 200
+}
+
+export type getApiListsStreamResponse401 = {
+  data: void
+  status: 401
+}
+
+export type getApiListsStreamResponseSuccess = (getApiListsStreamResponse200) & {
+  headers: Headers;
+};
+export type getApiListsStreamResponseError = (getApiListsStreamResponse401) & {
+  headers: Headers;
+};
+
+export type getApiListsStreamResponse = (getApiListsStreamResponseSuccess | getApiListsStreamResponseError)
+
+export const getGetApiListsStreamUrl = (params?: GetApiListsStreamParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/lists/stream?${stringifiedParams}` : `/api/lists/stream`
+}
+
+/**
+ * Server-Sent Events stream. Each `data:` line is a JSON-encoded `SentimentStreamEvent`. The client is responsible for deciding whether a score change warrants an alert. Pass the JWT via the `token` query parameter when using the browser `EventSource` API (which cannot set custom headers).
+
+ * @summary Stream sentiment updates for user's watchlist tickers (SSE)
+ */
+export const getApiListsStream = async (params?: GetApiListsStreamParams, options?: RequestInit): Promise<getApiListsStreamResponse> => {
+
+  const res = await fetch(getGetApiListsStreamUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiListsStreamResponse['data'] = body !== null ? body : ''
+  return { data, status: res.status, headers: res.headers } as getApiListsStreamResponse
+}
+
+
+
+export type getApiTickersResponse200 = {
+  data: TickerResult[]
+  status: 200
+}
+
+export type getApiTickersResponseSuccess = (getApiTickersResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getApiTickersResponse = (getApiTickersResponseSuccess)
+
+export const getGetApiTickersUrl = (params: GetApiTickersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tickers?${stringifiedParams}` : `/api/tickers`
+}
+
+/**
+ * @summary Get TickerResult for a batch of tickers
+ */
+export const getApiTickers = async (params: GetApiTickersParams, options?: RequestInit): Promise<getApiTickersResponse> => {
+
+  const res = await fetch(getGetApiTickersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiTickersResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getApiTickersResponse
+}
+
+
 
 export type getApiSearchResponse200 = {
   stream: TypedResponse<TickerResult | SearchError>

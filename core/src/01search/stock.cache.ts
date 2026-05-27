@@ -1,25 +1,45 @@
-import { zStockRoot } from "@/generated/in/zod.gen.js";
+import { zRoot, zStockRoot } from "@/generated/in/zod.gen.js";
 import { getRedis } from "@/cache.repo.js";
-import type { StockRoot } from "@/generated/in/index.js";
+import type { Root, StockRoot } from "@/generated/in/index.js";
+import { env } from "@/env.js";
 
-const queryStockCache = (query: string) => `query-stock:${query}`;
+const queryStockKey = (query: string) => `query-stock:${query}`;
+const tickerArticlesKey = (ticker: string) => `ticker-articles:${ticker}`;
 
 export async function getQueryStockCache(
   query: string
 ): Promise<StockRoot[] | null> {
-  const key = queryStockCache(query);
-  const data = await getRedis().get(key);
+  const data = await getRedis().get(queryStockKey(query));
   return data ? zStockRoot.array().parse(JSON.parse(data)) : null;
 }
 
-/**
- * Sets the stock cache for a given query.
- * Only updates the cache if the new stock data is more recent than the existing cached data.
- */
 export async function setQueryStockCache(
   query: string,
-  stockData: StockRoot[]
-) {
-  const key = queryStockCache(query);
-  await getRedis().set(key, JSON.stringify(stockData));
+  stocks: StockRoot[]
+): Promise<void> {
+  await getRedis().set(
+    queryStockKey(query),
+    JSON.stringify(stocks),
+    "EX",
+    env.CACHE_TTL_QUERY_SEC
+  );
+}
+
+export async function getTickerArticlesCache(
+  ticker: string
+): Promise<Root[] | null> {
+  const data = await getRedis().get(tickerArticlesKey(ticker));
+  return data ? zRoot.array().parse(JSON.parse(data)) : null;
+}
+
+export async function setTickerArticlesCache(
+  ticker: string,
+  articles: Root[]
+): Promise<void> {
+  await getRedis().set(
+    tickerArticlesKey(ticker),
+    JSON.stringify(articles),
+    "EX",
+    env.CACHE_TTL_ARTICLES_SEC
+  );
 }
