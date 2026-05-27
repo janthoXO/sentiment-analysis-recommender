@@ -1,10 +1,14 @@
 import { env } from "@/env.js";
 import type { SourceRoot } from "@/generated/in/index.js";
+import * as cheerio from "cheerio";
 import { format, getUnixTime, subDays } from "date-fns";
+import YahooFinance from "yahoo-finance2";
 import z from "zod";
 
 const MIN_ARTICLES = 5;
 const TOP_X_ARTICLES = 10;
+
+const yf = new YahooFinance();
 
 const zFinnhubNews = z.object({
   headline: z.string(),
@@ -12,6 +16,25 @@ const zFinnhubNews = z.object({
   summary: z.string(),
   datetime: z.number(), // unix timestamp (seconds)
 });
+
+async function scrapeArticleSnippet(
+  url: string,
+  fallbackTitle: string
+): Promise<string> {
+  try {
+    const html = await fetch(url, {
+      headers: { "user-agent": "Mozilla/5.0" },
+    }).then((r) => r.text());
+    const $ = cheerio.load(html);
+    const meta =
+      $('meta[property="og:description"]').attr("content") ??
+      $('meta[name="description"]').attr("content") ??
+      $("article p").first().text().trim();
+    return meta ? `${fallbackTitle}\n${meta}` : fallbackTitle;
+  } catch {
+    return fallbackTitle;
+  }
+}
 
 export async function getArticlesByTickerTime(
   ticker: string,
@@ -44,6 +67,22 @@ export async function getArticlesByTickerTime(
   }
 }
 
+async function getArticlesByTickerLatest(
+  ticker: string,
+  limit: number,
+  now: Date
+): Promise<SourceRoot[]> {
+  const res = await yf.search(ticker, { newsCount: limit, quotesCount: 0 });
+  return Promise.all(
+    res.news.map(async (n) => ({
+      url: n.link,
+      snippet: await scrapeArticleSnippet(n.link, n.title),
+      scrapedAtSec: getUnixTime(now),
+      updatedAtSec: getUnixTime(n.providerPublishTime),
+    }))
+  );
+}
+
 export interface GetArticlesOptions {
   ticker: string;
   /** Upper bound of the article window (Unix seconds). Defaults to now. */
@@ -61,8 +100,11 @@ export interface GetArticlesOptions {
 }
 
 /**
- * Unified article fetcher. Uses a fixed window when fromSec or intervalSec is given,
- * otherwise exponentially walks back from toSec until minArticles is reached.
+ * Unified article fetcher.
+ *
+ * Fixed window (fromSec or intervalSec given) → Finnhub only (supports time range).
+ * Latest news (no window) → Yahoo first (globally relevant, ranked by relevance);
+ *   falls back to Finnhub exponential walk-back only if Yahoo returns 0 results.
  */
 export async function getArticles(
   opts: GetArticlesOptions
@@ -92,7 +134,13 @@ export async function getArticles(
     );
   }
 
-  // Exponential walk-back from toSec.
+  // Latest news: Yahoo first; Finnhub walk-back only when Yahoo returns nothing.
+  const yahooArticles = await getArticlesByTickerLatest(ticker, limit, now);
+  if (yahooArticles.length > 0) {
+    return yahooArticles;
+  }
+
+  // Finnhub exponential walk-back fallback.
   const stepNow = new Date(toSec * 1000);
   let articles: SourceRoot[] = [];
   for (let i = 0; articles.length < minArticles && i < maxBackoffSteps; i++) {
