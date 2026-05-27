@@ -102,7 +102,7 @@ export async function getCompanyPeers(ticker: string): Promise<string[]> {
   try {
     const rec = await yf.recommendationsBySymbol(ticker);
     const upper = ticker.toUpperCase();
-    
+
     return dedupe(
       rec.recommendedSymbols
         .map((r) => r.symbol.split(".")[0]!.toUpperCase())
