@@ -59,3 +59,37 @@ class SentimentScorer:
         score = pos_entail - neg_entail
 
         return max(-1.0, min(1.0, score))
+
+    def score_batch(self, texts: list[str]) -> list[float]:
+        """Score multiple texts in a single NLI pass.
+
+        Builds 2N pairs interleaved as [t0_pos, t0_neg, t1_pos, t1_neg, ...]
+        and calls the model once, which is significantly faster than calling
+        ``score()`` N times for large batches.
+
+        Empty or whitespace-only texts receive a score of 0.0 and are excluded
+        from the model call to avoid wasting compute.
+        """
+        if not texts:
+            return []
+
+        pairs: list[tuple[str, str]] = []
+        # Track which indices in `texts` are non-empty so we can map results back
+        valid_indices: list[int] = []
+
+        for i, text in enumerate(texts):
+            if text and text.strip():
+                pairs.append((text, self.h_pos))
+                pairs.append((text, self.h_neg))
+                valid_indices.append(i)
+
+        scores = [0.0] * len(texts)
+
+        if pairs:
+            probs = np.asarray(self.model.predict(pairs, apply_softmax=True))
+            for batch_pos, text_idx in enumerate(valid_indices):
+                pos_entail = float(probs[batch_pos * 2, self.entail_idx])
+                neg_entail = float(probs[batch_pos * 2 + 1, self.entail_idx])
+                scores[text_idx] = max(-1.0, min(1.0, pos_entail - neg_entail))
+
+        return scores
