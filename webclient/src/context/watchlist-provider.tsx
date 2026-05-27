@@ -71,18 +71,9 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      if (!isAuthenticated) {
-        setLists([])
-        return
-      }
-      try {
-        const res = await getApiLists({ headers: authHeaders() })
-        if (res.data) setLists(res.data)
-      } catch (err) {
-        console.error("Failed to fetch lists:", err)
-      }
+      refresh()
     })()
-  }, [isAuthenticated, authHeaders])
+  }, [refresh])
 
   // Hydrate tickerResults whenever lists change
   useEffect(() => {

@@ -1,3 +1,4 @@
+import z from "zod";
 import { zRoot, zStockRoot } from "@/generated/in/zod.gen.js";
 import { getRedis } from "@/cache.repo.js";
 import type { Root, StockRoot } from "@/generated/in/index.js";
@@ -41,5 +42,24 @@ export async function setTickerArticlesCache(
     JSON.stringify(articles),
     "EX",
     env.CACHE_TTL_ARTICLES_SEC
+  );
+}
+
+const peersKey = (ticker: string) => `peers:${ticker}`;
+
+export async function getPeersCache(ticker: string): Promise<string[] | null> {
+  const data = await getRedis().get(peersKey(ticker));
+  return data ? z.array(z.string()).parse(JSON.parse(data)) : null;
+}
+
+export async function setPeersCache(
+  ticker: string,
+  peers: string[]
+): Promise<void> {
+  await getRedis().set(
+    peersKey(ticker),
+    JSON.stringify(peers),
+    "EX",
+    env.CACHE_TTL_PEERS_SEC
   );
 }

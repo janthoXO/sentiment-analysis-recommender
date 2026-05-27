@@ -15,8 +15,12 @@ import {
   getListOwner,
 } from "./watchlist.repo.js";
 import { saveTracker } from "../01tracker/tracker.service.js";
-import { upsertTickerStock } from "../01search/ticker-stock.repo.js";
+import {
+  getTickerStock,
+  upsertTickerStock,
+} from "../01search/ticker-stock.repo.js";
 import { sentimentEmitter, type SentimentChangeEvent } from "../events.js";
+import { searchTickers } from "@/stocks/stocks.api.js";
 
 export const listsRouter = Router();
 
@@ -133,16 +137,30 @@ listsRouter.post(
         res.status(400).json({ error: "ticker required" });
         return;
       }
+
       const owner = await getListOwner(req.params.id as string);
       if (owner !== req.user!.userId) {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
+
       const normalizedTicker = ticker.toUpperCase().trim();
-      await upsertTickerStock({
-        ticker: normalizedTicker,
-        name: normalizedTicker,
-      });
+      let stock = await getTickerStock(normalizedTicker);
+      if (!stock) {
+        stock = await searchTickers(normalizedTicker).then(
+          (results) =>
+            results.find((s) => s.ticker.toUpperCase() === normalizedTicker) ??
+            null
+        );
+
+        if (!stock) {
+          res.status(400).json({ error: "Ticker not found" });
+          return;
+        }
+
+        await upsertTickerStock(stock);
+      }
+
       await saveTracker(normalizedTicker, normalizedTicker, 1, 3600000, null);
       await addListItem(req.params.id as string, normalizedTicker);
       res.json({ message: "Added" });
@@ -163,10 +181,12 @@ listsRouter.delete(
         res.status(403).json({ error: "Forbidden" });
         return;
       }
+
       await removeListItem(
         req.params.id as string,
         req.params.ticker as string
       );
+
       res.json({ message: "Removed" });
     } catch (err) {
       console.error("Remove list item error:", err);

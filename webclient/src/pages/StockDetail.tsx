@@ -1,4 +1,4 @@
-import { useParams, useLocation } from "react-router-dom"
+import { useParams, useLocation, Link } from "react-router-dom"
 import { useState, useEffect } from "react"
 import { ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -7,6 +7,7 @@ import { AddToListButton } from "@/components/AddToListButton"
 import { cn } from "@/lib/utils"
 import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
 import { useStockStream } from "@/hooks/useStockStream"
+import { usePeers } from "@/hooks/usePeers"
 
 function parseSentimentLabel(score: number): {
   label: string
@@ -45,6 +46,7 @@ export default function StockDetailPage() {
     location.state?.tickerResult || null
   )
   const { results, loading, search } = useStockStream()
+  const { peers, loading: peersLoading } = usePeers(ticker)
 
   useEffect(() => {
     if (!data && ticker) {
@@ -131,6 +133,58 @@ export default function StockDetailPage() {
                   <p className="text-sm text-muted-foreground">{body}</p>
                 )}
               </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="flex flex-col gap-4">
+        <h2 className="text-2xl font-semibold">
+          Competitors{" "}
+          {peers.length > 0 && (
+            <span className="text-base font-normal text-muted-foreground">
+              ({peers.length})
+            </span>
+          )}
+        </h2>
+        {peersLoading && peers.length === 0 && (
+          <p className="text-sm text-muted-foreground">Loading competitors…</p>
+        )}
+        <div className="flex flex-col gap-2">
+          {peers.map(({ stock, result }) => {
+            const sentiment = result
+              ? parseSentimentLabel(result.avgScore)
+              : null
+            return (
+              <Link
+                key={stock.ticker}
+                to={`/stock/${stock.ticker}`}
+                className="flex items-center justify-between rounded-xl border p-4 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <p className="leading-snug font-semibold">{stock.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {stock.ticker}
+                  </p>
+                </div>
+                {sentiment ? (
+                  <Badge
+                    variant="outline"
+                    className={cn("shrink-0 font-bold", sentiment.className)}
+                  >
+                    {sentiment.label} · {result!.avgScore.toFixed(2)}
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 font-bold text-muted-foreground"
+                  >
+                    —
+                  </Badge>
+                )}
+              </Link>
             )
           })}
         </div>

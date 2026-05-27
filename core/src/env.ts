@@ -16,6 +16,7 @@ export const EnvSchema = z.object({
   CACHE_TTL_SECONDS: z.coerce.number().default(900),
   CACHE_TTL_QUERY_SEC: z.coerce.number().default(86400),
   CACHE_TTL_ARTICLES_SEC: z.coerce.number().default(3600),
+  CACHE_TTL_PEERS_SEC: z.coerce.number().int().positive().default(86400),
   CACHE_MIN_SOURCES: z.coerce.number().default(3),
   GROUP_TIMEOUT_MS: z.coerce.number().default(15000),
 

@@ -28,7 +28,7 @@ export async function processStock(
 
   const result = await (jobId
     ? analyzeService.addSubscriber(jobId)
-    : analyzeService.requestAnalysis(stock.ticker, 4));
+    : analyzeService.requestAnalysis(stock, 4));
 
   if (result === null) {
     throw new Error(`Failed to get analysis result for ${stock.ticker}`);
