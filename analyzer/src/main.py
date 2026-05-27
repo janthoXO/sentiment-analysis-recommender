@@ -6,7 +6,7 @@ from typing import Optional
 from .cache import AnalyzerCache
 from .config import Config, load_config
 from .mq import MqClient
-from .scorer import SentimentScorer
+from .scorer import BaseScorer, build_scorer
 
 
 def _setup_logging(level: str) -> None:
@@ -16,7 +16,7 @@ def _setup_logging(level: str) -> None:
     )
 
 
-def _build_handler(scorer: SentimentScorer, cache: AnalyzerCache):
+def _build_handler(scorer: BaseScorer, cache: AnalyzerCache):
     log = logging.getLogger("analyzer.handler")
 
     def handle(task: dict) -> Optional[dict]:
@@ -35,7 +35,7 @@ def _build_handler(scorer: SentimentScorer, cache: AnalyzerCache):
         # If another batch for the same ticker is already being processed
         # (e.g. two workers pulled the same ticker, or prefetch_count > 1),
         # try to resolve this batch entirely from the article cache so we
-        # don't run duplicate NLI inference.
+        # don't run duplicate inference.
         if cache.is_inflight(ticker):
             log.warning(
                 "Ticker %s already in-flight; attempting full cache resolution "
@@ -51,7 +51,7 @@ def _build_handler(scorer: SentimentScorer, cache: AnalyzerCache):
                 else:
                     break  # at least one source is missing — fall through
             else:
-                # All sources resolved from cache: skip NLI entirely
+                # All sources resolved from cache: skip inference entirely
                 log.info(
                     "Skipped duplicate in-flight task for %s "
                     "(%d source(s) resolved from cache)",
@@ -76,7 +76,7 @@ def _build_handler(scorer: SentimentScorer, cache: AnalyzerCache):
             else:
                 to_score_indices.append(i)
 
-        # ── NLI inference for cache misses ─────────────────────────────────
+        # ── Inference for cache misses ─────────────────────────────────────
         cache.mark_inflight(ticker)
         try:
             if to_score_indices:
@@ -104,13 +104,15 @@ def main() -> None:
     _setup_logging(cfg.log_level)
     log = logging.getLogger("analyzer.main")
     log.info(
-        "Starting analyzer (model=%s, queue=%s, cache_ttl=%ds)",
+        "Starting analyzer (scorer=%s, model=%s, queue=%s, cache_ttl=%ds)",
+        cfg.scorer_type,
         cfg.model_name,
         cfg.mq_task_queue,
         cfg.cache_ttl_seconds,
     )
 
-    scorer = SentimentScorer(
+    scorer = build_scorer(
+        scorer_type=cfg.scorer_type,
         model_name=cfg.model_name,
         hypothesis_positive=cfg.hypothesis_positive,
         hypothesis_negative=cfg.hypothesis_negative,
