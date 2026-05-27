@@ -164,7 +164,7 @@ docker compose up -d rabbitmq      # start the broker
 docker compose up --build analyzer # build the analyzer image and run it
 ```
 
-The first build downloads the selected Hugging Face model into the `hfcache` named volume; subsequent runs reuse it. Logs:
+The Docker image installs the CPU-only PyTorch wheel to avoid bundling unused CUDA libraries. The first run downloads the selected Hugging Face model into the `hfcache` named volume; subsequent runs reuse it. Logs:
 
 ```bash
 docker compose logs -f analyzer
