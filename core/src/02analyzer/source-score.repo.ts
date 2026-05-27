@@ -76,7 +76,10 @@ export interface FreshWindow {
   intervalSec?: number;
 }
 
-function resolveFreshWindow(win?: FreshWindow): { fromSec: number; toSec: number } {
+function resolveFreshWindow(win?: FreshWindow): {
+  fromSec: number;
+  toSec: number;
+} {
   const nowSec = getUnixTime(new Date());
   const toSec = win?.toSec ?? nowSec;
 

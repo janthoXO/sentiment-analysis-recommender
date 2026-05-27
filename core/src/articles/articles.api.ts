@@ -64,7 +64,9 @@ export interface GetArticlesOptions {
  * Unified article fetcher. Uses a fixed window when fromSec or intervalSec is given,
  * otherwise exponentially walks back from toSec until minArticles is reached.
  */
-export async function getArticles(opts: GetArticlesOptions): Promise<SourceRoot[]> {
+export async function getArticles(
+  opts: GetArticlesOptions
+): Promise<SourceRoot[]> {
   const {
     ticker,
     fromSec,
@@ -81,7 +83,13 @@ export async function getArticles(opts: GetArticlesOptions): Promise<SourceRoot[
     return getArticlesByTickerTime(ticker, fromSec, toSec, limit, now);
   }
   if (intervalSec !== undefined) {
-    return getArticlesByTickerTime(ticker, toSec - intervalSec, toSec, limit, now);
+    return getArticlesByTickerTime(
+      ticker,
+      toSec - intervalSec,
+      toSec,
+      limit,
+      now
+    );
   }
 
   // Exponential walk-back from toSec.

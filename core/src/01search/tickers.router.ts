@@ -23,14 +23,21 @@ tickersRouter.get(
     try {
       const parsed = zGetApiTickersSentimentQuery.safeParse(req.query);
       if (!parsed.success) {
-        res.status(400).json({ error: "Invalid query parameters", details: parsed.error.issues });
+        res
+          .status(400)
+          .json({
+            error: "Invalid query parameters",
+            details: parsed.error.issues,
+          });
         return;
       }
 
       const { q, tickerIds } = parsed.data;
 
       if (!q && (!tickerIds || tickerIds.length === 0)) {
-        res.status(400).json({ error: "Either q or tickerIds must be provided" });
+        res
+          .status(400)
+          .json({ error: "Either q or tickerIds must be provided" });
         return;
       }
 
@@ -38,8 +45,9 @@ tickersRouter.get(
       res.setHeader("Transfer-Encoding", "chunked");
       res.setHeader("Cache-Control", "no-cache");
 
-      const input: Parameters<typeof streamSentiment>[0] =
-        q ? { q } : { tickerIds: tickerIds! };
+      const input: Parameters<typeof streamSentiment>[0] = q
+        ? { q }
+        : { tickerIds: tickerIds! };
 
       for await (const chunk of streamSentiment(input)) {
         res.write(JSON.stringify(chunk) + "\n");
@@ -62,29 +70,43 @@ tickersRouter.get(
   "/:tickerId/sentiment",
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const ticker = String(req.params["tickerId"] ?? "").toUpperCase().trim();
+      const ticker = String(req.params["tickerId"] ?? "")
+        .toUpperCase()
+        .trim();
       if (!ticker) {
         res.status(400).json({ error: "tickerId is required" });
         return;
       }
 
       // Query params arrive as strings; coerce numeric fields before Zod validation.
-      const rawQ = req.query as Record<string, string | string[]>
+      const rawQ = req.query as Record<string, string | string[]>;
       const coercedQuery = {
-        eventTSec: rawQ["eventTSec"] != null
-          ? ([] as string[]).concat(rawQ["eventTSec"] as string | string[]).map(Number)
-          : undefined,
-        intervalSec: rawQ["intervalSec"] != null ? Number(rawQ["intervalSec"]) : undefined,
-      }
-      const parsed = zGetApiTickersByTickerIdSentimentQuery.safeParse(coercedQuery);
+        eventTSec:
+          rawQ["eventTSec"] != null
+            ? ([] as string[])
+                .concat(rawQ["eventTSec"] as string | string[])
+                .map(Number)
+            : undefined,
+        intervalSec:
+          rawQ["intervalSec"] != null ? Number(rawQ["intervalSec"]) : undefined,
+      };
+      const parsed =
+        zGetApiTickersByTickerIdSentimentQuery.safeParse(coercedQuery);
       if (!parsed.success) {
-        res.status(400).json({ error: "Invalid query parameters", details: parsed.error.issues });
+        res
+          .status(400)
+          .json({
+            error: "Invalid query parameters",
+            details: parsed.error.issues,
+          });
         return;
       }
 
       const { eventTSec, intervalSec } = parsed.data;
-      const stock: StockRoot =
-        (await getTickerStock(ticker)) ?? { ticker, name: ticker };
+      const stock: StockRoot = (await getTickerStock(ticker)) ?? {
+        ticker,
+        name: ticker,
+      };
 
       res.contentType("application/x-ndjson");
       res.setHeader("Transfer-Encoding", "chunked");
@@ -92,16 +114,22 @@ tickersRouter.get(
 
       if (eventTSec?.length) {
         const promises = eventTSec.map((t) =>
-          analyzeStock({ stock, eventTSec: t, intervalSec, priority: 3 }).catch((e) => {
-            console.error(`Error analyzing ${ticker} at event ${t}:`, e);
-            return null;
-          })
+          analyzeStock({ stock, eventTSec: t, intervalSec, priority: 3 }).catch(
+            (e) => {
+              console.error(`Error analyzing ${ticker} at event ${t}:`, e);
+              return null;
+            }
+          )
         );
         for await (const result of yieldAsResolved(promises)) {
           if (result !== null) res.write(JSON.stringify(result) + "\n");
         }
       } else {
-        const result = await analyzeStock({ stock, intervalSec, priority: 4 }).catch((e) => {
+        const result = await analyzeStock({
+          stock,
+          intervalSec,
+          priority: 4,
+        }).catch((e) => {
           console.error(`Error analyzing ${ticker}:`, e);
           return null;
         });

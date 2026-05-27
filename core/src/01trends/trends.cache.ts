@@ -1,10 +1,17 @@
 import { getRedis } from "@/cache.repo.js";
-import type { CandleSeries, CandleInterval, CandleDuration } from "./trends.api.js";
+import type {
+  CandleSeries,
+  CandleInterval,
+  CandleDuration,
+} from "./trends.api.js";
 
 const TTL = 300;
 
-const cacheKey = (ticker: string, duration: CandleDuration, interval: CandleInterval) =>
-  `candles:${ticker}:${duration}:${interval}`;
+const cacheKey = (
+  ticker: string,
+  duration: CandleDuration,
+  interval: CandleInterval
+) => `candles:${ticker}:${duration}:${interval}`;
 
 export async function getCandlesCache(
   ticker: string,
@@ -22,5 +29,10 @@ export async function setCandlesCache(
   series: CandleSeries
 ): Promise<void> {
   if (series.candles.length === 0) return;
-  await getRedis().set(cacheKey(ticker, duration, interval), JSON.stringify(series), "EX", TTL);
+  await getRedis().set(
+    cacheKey(ticker, duration, interval),
+    JSON.stringify(series),
+    "EX",
+    TTL
+  );
 }

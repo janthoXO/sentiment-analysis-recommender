@@ -1,4 +1,8 @@
-import type { SourceRoot, StockRoot, TickerResultRoot } from "@/generated/in/index.js";
+import type {
+  SourceRoot,
+  StockRoot,
+  TickerResultRoot,
+} from "@/generated/in/index.js";
 import * as analyzeService from "@/02analyzer/analyzer.service.js";
 import {
   countFreshSourceScoresForTicker,
@@ -48,7 +52,11 @@ async function fetchArticlesWithCache(opts: {
   if (eventTSec !== undefined) {
     // event-articles cache; use 0 as the interval sentinel for backoff-mode
     const cacheInterval = intervalSec ?? 0;
-    let articles = await getEventArticlesCache(ticker, eventTSec, cacheInterval);
+    let articles = await getEventArticlesCache(
+      ticker,
+      eventTSec,
+      cacheInterval
+    );
     if (articles === null) {
       articles = await getArticles({ ticker, toSec: eventTSec, intervalSec });
       await setEventArticlesCache(ticker, eventTSec, cacheInterval, articles);
@@ -64,7 +72,9 @@ async function fetchArticlesWithCache(opts: {
       await setTickerArticlesCache(ticker, articles);
     }
   } else {
-    console.debug(`Article cache hit for ${ticker} (${articles.length} sources)`);
+    console.debug(
+      `Article cache hit for ${ticker} (${articles.length} sources)`
+    );
   }
   return articles;
 }
@@ -80,12 +90,18 @@ export async function analyzeStock(
     intervalSec,
   });
   if (count >= env.CACHE_MIN_SOURCES) {
-    console.debug(`Source score cache sufficient for ${stock.ticker} (${count} entries)`);
+    console.debug(
+      `Source score cache sufficient for ${stock.ticker} (${count} entries)`
+    );
     const sources = await listFreshSourceScoresForTicker(stock.ticker, {
       toSec: eventTSec,
       intervalSec,
     });
-    return tag(eventTSec, { stock, sources, avgScore: calculateAverageScore(sources) });
+    return tag(eventTSec, {
+      stock,
+      sources,
+      avgScore: calculateAverageScore(sources),
+    });
   }
 
   const articles = await fetchArticlesWithCache({
@@ -95,7 +111,11 @@ export async function analyzeStock(
   });
   if (articles.length === 0) return null;
 
-  const result = await analyzeService.analyzeArticles(stock, articles, priority);
+  const result = await analyzeService.analyzeArticles(
+    stock,
+    articles,
+    priority
+  );
   if (result === null) {
     throw new Error(`Analysis failed for ${stock.ticker}`);
   }
@@ -119,12 +139,12 @@ function tag(
 export async function* yieldAsResolved<T>(
   promises: Promise<T>[]
 ): AsyncGenerator<T> {
-  const pending = new Map<
-    number,
-    Promise<{ index: number; value: T }>
-  >();
+  const pending = new Map<number, Promise<{ index: number; value: T }>>();
   promises.forEach((p, i) => {
-    pending.set(i, p.then((value) => ({ index: i, value })));
+    pending.set(
+      i,
+      p.then((value) => ({ index: i, value }))
+    );
   });
   while (pending.size > 0) {
     const { index, value } = await Promise.race(pending.values());

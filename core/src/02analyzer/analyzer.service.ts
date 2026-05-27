@@ -25,15 +25,26 @@ const inFlightToJobId = new Map<string, string>();
 const jobIdToKey = new Map<string, string>(); // reverse of inFlightToJobId for O(1) cleanup
 
 function hashArticleUrls(articles: SourceRoot[]): string {
-  const sorted = articles.map((a) => a.url).sort().join("\n");
+  const sorted = articles
+    .map((a) => a.url)
+    .sort()
+    .join("\n");
   return createHash("sha256").update(sorted).digest("hex");
 }
 
-function inFlightKey(ticker: string, urlHash: string, priority: number): string {
+function inFlightKey(
+  ticker: string,
+  urlHash: string,
+  priority: number
+): string {
   return `${ticker}:${urlHash}:${priority}`;
 }
 
-export function getInFlightJobId(ticker: string, urlHash: string, priority: number): string | undefined {
+export function getInFlightJobId(
+  ticker: string,
+  urlHash: string,
+  priority: number
+): string | undefined {
   return inFlightToJobId.get(inFlightKey(ticker, urlHash, priority));
 }
 
