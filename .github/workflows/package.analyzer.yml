@@ -1,0 +1,37 @@
+name: Package Analyzer
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: false
+        type: string
+        default: 'latest'
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.analyzer.yml
+
+  package:
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: analyzer
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build Docker Image
+        run: docker build -t analyzer:${{ inputs.version || 'latest' }} .
+
+      - name: Save Docker Image
+        run: docker save analyzer:${{ inputs.version || 'latest' }} -o analyzer-${{ inputs.version || 'latest' }}.tar
+
+      - name: Upload Docker Image
+        uses: actions/upload-artifact@v6
+        with:
+          name: docker-image-analyzer-${{ inputs.version || 'latest' }}
+          path: analyzer/analyzer-${{ inputs.version || 'latest' }}.tar
+          if-no-files-found: error

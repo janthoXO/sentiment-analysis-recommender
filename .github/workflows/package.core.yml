@@ -1,13 +1,6 @@
 name: Package Core
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "core/**"
-      - ".github/workflows/build.core.yml"
-      - ".github/workflows/package.core.yml"
   workflow_call:
     inputs:
       version:
