@@ -1,0 +1,44 @@
+name: Contracts Gate
+
+on:
+  pull_request:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      contracts: ${{ steps.filter.outputs.contracts }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Detect contract changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            contracts:
+              - 'contracts/**'
+              - '.github/workflows/contracts.core.yml'
+              - '.github/workflows/contracts.webclient.yml'
+
+  check-contracts-core:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.contracts == 'true'
+    uses: ./.github/workflows/contracts.core.yml
+
+  check-contracts-webclient:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.contracts == 'true'
+    uses: ./.github/workflows/contracts.webclient.yml
+
+  ci-gate:
+    needs: [check-contracts-core, check-contracts-webclient]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all contract jobs passed or were skipped
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            exit 1
+          fi

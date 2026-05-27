@@ -1,0 +1,28 @@
+name: Build Analyzer
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: analyzer
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: analyzer/requirements.txt
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Check syntax
+        run: python -m py_compile src/__init__.py src/cache.py src/config.py src/main.py src/mq.py src/scorer.py
