@@ -1,12 +1,6 @@
 name: Build Test analyzer
 
 on:
-  pull_request:
-    branches-ignore:
-      - main
-    paths:
-      - "test-analyzer/**"
-      - ".github/workflows/build.testanalyzer.yml"
   workflow_call:
 
 jobs:

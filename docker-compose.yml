@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     environment:
       PORT: 3001
-      CACHE_URL: redis://core-redis:6379
+      CACHE_URL: redis://default:${REDIS_PASSWORD:-sentinel}@core-redis:6379
       DB_URL: postgresql://${CORE_DB_USER:-sentinel}:${CORE_DB_PASSWORD:-sentinel}@core-postgres:5432/${CORE_DB_NAME:-sentinel}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-sentinel}:${RABBITMQ_PASSWORD:-sentinel}@rabbitmq:5672
       FINNHUB_API_KEY: ${FINNHUB_API_KEY}
@@ -43,7 +43,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     networks:
       - sentinel-net
     healthcheck:
@@ -55,9 +55,11 @@ services:
   core-redis:
     image: redis:8.6.2-alpine
     container_name: core-redis
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-sentinel}
     ports:
       - "6379:6379"
-    command: redis-server --save 60 1 --loglevel warning
+    command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD:-sentinel}
     networks:
       - sentinel-net
     healthcheck:
@@ -84,9 +86,24 @@ services:
     networks:
       - sentinel-net
 
+  analyzer:
+    build: ./analyzer
+    environment:
+      RABBITMQ_URL: amqp://sentinel:sentinel@rabbitmq:5672
+      LOG_LEVEL: INFO
+      SCORER_TYPE: ${SCORER_TYPE:-finbert}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - hfcache:/root/.cache/huggingface
+    networks:
+      - sentinel-net
+
 volumes:
   pgdata:
   rmqdata:
+  hfcache:
 
 networks:
   sentinel-net:
