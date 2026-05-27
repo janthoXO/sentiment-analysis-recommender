@@ -15,13 +15,12 @@ class MqClient:
 
     Consumes `AnalyzerTask` messages from the task queue and publishes
     `AnalyzerResult` messages to the same exchange under the result
-    routing key, mirroring the topology declared by the tracker.
+    routing key, mirroring the topology declared by core (mq.repo.ts).
     """
 
-    # Routing key the tracker publishes tasks under (see tracker/src/03repo/mq.repo.ts).
-    # The queue name (e.g. "tasks.high") and the routing key ("task.high") differ
-    # by design in the tracker, so we hard-bind them here.
-    TASK_ROUTING_KEY = "task.high"
+    # Routing key core publishes tasks under (see core/src/mq.repo.ts).
+    # After PR #14 the queue name and routing key are both "tasks".
+    TASK_ROUTING_KEY = "tasks"
 
     def __init__(
         self,
@@ -44,7 +43,7 @@ class MqClient:
         self.connection = pika.BlockingConnection(params)
         self.channel = self.connection.channel()
 
-        # Match the topology asserted by the tracker (mq.repo.ts) so
+        # Match the topology asserted by core (mq.repo.ts) so
         # re-declarations are idempotent rather than a parameter clash.
         self.channel.exchange_declare(
             exchange=self.exchange, exchange_type="direct", durable=True
