@@ -1,10 +1,7 @@
 name: Check Core Contracts
 
 on:
-  pull_request:
-    paths:
-      - "contracts/**"
-      - ".github/workflows/contracts.core.yml"
+  workflow_call:
 
 jobs:
   check-contracts:

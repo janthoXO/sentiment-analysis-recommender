@@ -34,6 +34,7 @@ jobs:
             echo "DOMAIN=${{ vars.PUBLIC_IP }}.nip.io" >> .env.prod
             echo "CORE_DB_USER=${{ secrets.CORE_DB_USER }}" >> .env.prod
             echo "CORE_DB_PASSWORD=${{ secrets.CORE_DB_PASSWORD }}" >> .env.prod
+            echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> .env.prod
             echo "RABBITMQ_USER=${{ secrets.RABBITMQ_USER }}" >> .env.prod
             echo "RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}" >> .env.prod
             echo "FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}" >> .env.prod

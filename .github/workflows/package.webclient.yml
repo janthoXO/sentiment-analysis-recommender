@@ -1,13 +1,6 @@
 name: Package Web Client
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "webclient/**"
-      - ".github/workflows/build.webclient.yml"
-      - ".github/workflows/package.webclient.yml"
   workflow_call:
     inputs:
       version:
