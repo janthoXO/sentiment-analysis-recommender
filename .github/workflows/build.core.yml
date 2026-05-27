@@ -1,12 +1,6 @@
 name: Build Core
 
 on:
-  pull_request:
-    branches-ignore:
-      - main
-    paths:
-      - "core/**"
-      - ".github/workflows/build.core.yml"
   workflow_call:
 
 jobs:
