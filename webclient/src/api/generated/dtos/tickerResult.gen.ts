@@ -16,4 +16,6 @@ export interface TickerResult {
      * @maximum 1
      */
   avgScore: number;
+  /** The timestamp (in seconds) of the associated event. */
+  eventTSec?: number;
 }

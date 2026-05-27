@@ -1,7 +1,7 @@
 import z from "zod";
-import { zRoot, zStockRoot } from "@/generated/in/zod.gen.js";
+import { zSourceRoot, zStockRoot } from "@/generated/in/zod.gen.js";
 import { getRedis } from "@/cache.repo.js";
-import type { Root, StockRoot } from "@/generated/in/index.js";
+import type { SourceRoot, StockRoot } from "@/generated/in/index.js";
 import { env } from "@/env.js";
 
 const queryStockKey = (query: string) => `query-stock:${query}`;
@@ -28,14 +28,14 @@ export async function setQueryStockCache(
 
 export async function getTickerArticlesCache(
   ticker: string
-): Promise<Root[] | null> {
+): Promise<SourceRoot[] | null> {
   const data = await getRedis().get(tickerArticlesKey(ticker));
-  return data ? zRoot.array().parse(JSON.parse(data)) : null;
+  return data ? zSourceRoot.array().parse(JSON.parse(data)) : null;
 }
 
 export async function setTickerArticlesCache(
   ticker: string,
-  articles: Root[]
+  articles: SourceRoot[]
 ): Promise<void> {
   await getRedis().set(
     tickerArticlesKey(ticker),

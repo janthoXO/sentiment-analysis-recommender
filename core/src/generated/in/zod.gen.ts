@@ -5,7 +5,7 @@ import * as z from 'zod';
 /**
  * Source
  */
-export const zRoot = z.object({
+export const zSourceRoot = z.object({
     url: z.url(),
     snippet: z.string(),
     updatedAtSec: z.number().gte(0),
@@ -15,7 +15,7 @@ export const zRoot = z.object({
 /**
  * SourceResult
  */
-export const zSourceResultRoot = zRoot.and(z.object({
+export const zSourceResultRoot = zSourceRoot.and(z.object({
     score: z.number().gte(-1).lte(1)
 }));
 
@@ -33,7 +33,20 @@ export const zStockRoot = z.object({
 export const zTickerResultRoot = z.object({
     stock: zStockRoot,
     sources: z.array(zSourceResultRoot),
-    avgScore: z.number().gte(-1).lte(1)
+    avgScore: z.number().gte(-1).lte(1),
+    eventTSec: z.int().optional()
+});
+
+/**
+ * Candle
+ */
+export const zRoot = z.object({
+    tSec: z.int(),
+    open: z.number(),
+    high: z.number(),
+    low: z.number(),
+    close: z.number(),
+    volume: z.number().optional()
 });
 
 export const zAddListItemRequest = z.object({
@@ -72,9 +85,79 @@ export const zAuthRequest = z.object({
     password: z.string()
 });
 
-export const zSearchError = z.object({
-    error: z.string().optional()
+export const zCandleSeries = z.object({
+    ticker: z.string(),
+    interval: z.enum([
+        '5m',
+        '30m',
+        '1d'
+    ]),
+    candles: z.array(zRoot)
 });
+
+export const zSearchError = z.object({
+    error: z.string()
+});
+
+export const zGetApiTickersSentimentQuery = z.object({
+    q: z.string().optional(),
+    tickerIds: z.array(z.string()).optional()
+});
+
+/**
+ * NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
+ */
+export const zGetApiTickersSentimentResponse = z.union([
+    zTickerResultRoot,
+    zSearchError
+]);
+
+export const zGetApiTickersByTickerIdSentimentPath = z.object({
+    tickerId: z.string()
+});
+
+export const zGetApiTickersByTickerIdSentimentQuery = z.object({
+    eventTSec: z.array(z.int()).optional(),
+    intervalSec: z.int().gte(1).optional()
+});
+
+/**
+ * NDJSON stream — one TickerResult per line (one per eventTSec, or a single result when no events given).
+ */
+export const zGetApiTickersByTickerIdSentimentResponse = zTickerResultRoot;
+
+export const zGetApiTickersByTickerIdCandlesPath = z.object({
+    tickerId: z.string()
+});
+
+export const zGetApiTickersByTickerIdCandlesQuery = z.object({
+    duration: z.enum([
+        '1D',
+        '1W',
+        '1M',
+        '1Y',
+        'today'
+    ]),
+    interval: z.enum([
+        '5m',
+        '30m',
+        '1d'
+    ])
+});
+
+/**
+ * OHLC candle series
+ */
+export const zGetApiTickersByTickerIdCandlesResponse = zCandleSeries;
+
+export const zGetApiTickersByTickerIdPeersPath = z.object({
+    tickerId: z.string()
+});
+
+/**
+ * List of peer stocks (same country + sector/industry)
+ */
+export const zGetApiTickersByTickerIdPeersResponse = z.array(zStockRoot);
 
 export const zPostApiAuthRegisterBody = zAuthRequest;
 
@@ -136,33 +219,3 @@ export const zGetApiListsStreamQuery = z.object({
  * SSE stream of sentiment update events (use EventSource, not fetch)
  */
 export const zGetApiListsStreamResponse = z.string();
-
-export const zGetApiTickersQuery = z.object({
-    tickers: z.string()
-});
-
-/**
- * Array of analyzed ticker results
- */
-export const zGetApiTickersResponse = z.array(zTickerResultRoot);
-
-export const zGetApiTickersByTickerIdPeersPath = z.object({
-    tickerId: z.string()
-});
-
-/**
- * List of peer stocks (same country + sector/industry)
- */
-export const zGetApiTickersByTickerIdPeersResponse = z.array(zStockRoot);
-
-export const zGetApiSearchQuery = z.object({
-    q: z.string().optional()
-});
-
-/**
- * A stream of analyzed stock results.
- */
-export const zGetApiSearchResponse = z.union([
-    zTickerResultRoot,
-    zSearchError
-]);

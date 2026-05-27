@@ -1,4 +1,4 @@
-import { getApiSearch } from "@/api/generated/sentimentSearchAPI.gen"
+import { getApiTickersSentiment } from "@/api/generated/sentimentSearchAPI.gen"
 import { useState, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { readStream } from "@/lib/stream"
@@ -27,7 +27,7 @@ export function useStockStream() {
 
     try {
       // 3. Initiate the Fetch
-      const response = await getApiSearch({ q: query })
+      const response = await getApiTickersSentiment({ q: query }, { signal: abortController.signal })
 
       if (response.status !== 200) {
         throw new Error("Failed to fetch stream")
@@ -36,23 +36,22 @@ export function useStockStream() {
       // 4. Consume the stream using the Orval utility
       await readStream(response.stream, (parsedObj) => {
         // Defensive check just in case the backend streams an error object
-        if ("error" in parsedObj && parsedObj.error) {
-          throw new Error(String(parsedObj.error))
+        if ("error" in parsedObj) {
+          throw new Error(String((parsedObj as { error: string }).error))
         }
 
-        if ("avgScore" in parsedObj) {
-          setResults((prev) => {
-            const index = prev.findIndex(
-              (p) => p.stock?.ticker === parsedObj.stock?.ticker
-            )
-            if (index >= 0) {
-              const newRes = [...prev]
-              newRes[index] = parsedObj
-              return newRes
-            }
-            return [...prev, parsedObj]
-          })
-        }
+        const result = parsedObj as TickerResult
+        setResults((prev) => {
+          const index = prev.findIndex(
+            (p) => p.stock?.ticker === result.stock?.ticker
+          )
+          if (index >= 0) {
+            const newRes = [...prev]
+            newRes[index] = result
+            return newRes
+          }
+          return [...prev, result]
+        })
       })
     } catch (e: unknown) {
       // Silently ignore user-triggered aborts
@@ -61,7 +60,7 @@ export function useStockStream() {
       console.error("Stream error:", e)
       const msg = e instanceof Error ? e.message : "Unknown error occurred"
       setError(msg)
-      toast.error(msg)
+      toast.error("Search failed", { description: msg })
     } finally {
       // Only disable loading if a new search hasn't already started
       if (abortControllerRef.current === abortController) {

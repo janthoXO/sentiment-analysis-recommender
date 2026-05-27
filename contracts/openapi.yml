@@ -5,6 +5,135 @@ info:
   description: Core API for handling user searches and delegating tracking tasks.
 
 paths:
+  /api/tickers/sentiment:
+    get:
+      summary: Stream ticker sentiment as NDJSON. Accepts either a search query or a list of ticker IDs.
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search query (company name, sector). Mutually exclusive with tickerIds.
+        - in: query
+          name: tickerIds
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: Repeat the param (?tickerIds=AAPL&tickerIds=MSFT). Mutually exclusive with q.
+      responses:
+        "200":
+          description: NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
+          content:
+            application/x-ndjson:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TickerResult"
+                  - $ref: "#/components/schemas/SearchError"
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/tickers/{tickerId}/sentiment:
+    get:
+      summary: Stream sentiment for a single ticker as NDJSON. Optionally pin to one or more event timestamps.
+      parameters:
+        - in: path
+          name: tickerId
+          required: true
+          schema:
+            type: string
+          description: Ticker symbol (e.g. AAPL)
+        - in: query
+          name: eventTSec
+          schema:
+            type: array
+            items:
+              type: integer
+          style: form
+          explode: true
+          description: Optional. Per-event timestamps (Unix seconds). Repeat the param. Each produces one TickerResult line.
+        - in: query
+          name: intervalSec
+          schema:
+            type: integer
+            minimum: 1
+          description: Optional. Article-window size in seconds (fromSec = eventTSec - intervalSec, or now - intervalSec for no-event call).
+      responses:
+        "200":
+          description: NDJSON stream — one TickerResult per line (one per eventTSec, or a single result when no events given).
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: "#/components/schemas/TickerResult"
+        "503":
+          description: Sentiment data unavailable
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/tickers/{tickerId}/candles:
+    get:
+      summary: Get OHLC price candles for a ticker
+      parameters:
+        - in: path
+          name: tickerId
+          required: true
+          schema:
+            type: string
+          description: Ticker symbol (e.g. AAPL)
+        - in: query
+          name: duration
+          required: true
+          schema:
+            type: string
+            enum: [1D, 1W, 1M, 1Y, today]
+          description: Lookback window. `today` starts at UTC midnight; others go back from now.
+        - in: query
+          name: interval
+          required: true
+          schema:
+            type: string
+            enum: [5m, 30m, 1d]
+          description: Candle interval.
+      responses:
+        "200":
+          description: OHLC candle series
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandleSeries"
+        "503":
+          description: Price data unavailable
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/tickers/{tickerId}/peers:
+    get:
+      summary: Get peer companies for a ticker
+      parameters:
+        - in: path
+          name: tickerId
+          required: true
+          schema:
+            type: string
+          description: Ticker symbol to find peers for (e.g. AAPL)
+      responses:
+        "200":
+          description: List of peer stocks (same country + sector/industry)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stock"
+      tags:
+        - webclient-out
+        - core-in
+
   /api/auth/register:
     post:
       summary: Register a new user
@@ -212,74 +341,6 @@ paths:
         - webclient-out
         - core-in
 
-  /api/tickers:
-    get:
-      summary: Get TickerResult for a batch of tickers
-      parameters:
-        - in: query
-          name: tickers
-          required: true
-          schema:
-            type: string
-          description: Comma-separated list of ticker symbols (e.g. AAPL,MSFT). Max 50.
-      responses:
-        "200":
-          description: Array of analyzed ticker results
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TickerResult"
-      tags:
-        - webclient-out
-        - core-in
-
-  /api/tickers/{tickerId}/peers:
-    get:
-      summary: Get peer companies for a ticker
-      parameters:
-        - in: path
-          name: tickerId
-          required: true
-          schema:
-            type: string
-          description: Ticker symbol to find peers for (e.g. AAPL)
-      responses:
-        "200":
-          description: List of peer stocks (same country + sector/industry)
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Stock"
-      tags:
-        - webclient-out
-        - core-in
-
-  /api/search:
-    get:
-      summary: Search for stock sentiment (ndJSON Stream)
-      parameters:
-        - in: query
-          name: q
-          schema:
-            type: string
-          description: Search query (e.g. company name, ticker, or sector).
-      responses:
-        "200":
-          description: A stream of analyzed stock results.
-          content:
-            application/x-ndjson:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/TickerResult"
-                  - $ref: "#/components/schemas/SearchError"
-      tags:
-        - webclient-out
-        - core-in
-
 components:
   schemas:
     Stock:
@@ -288,11 +349,33 @@ components:
     TickerResult:
       $ref: "./schemas/TickerResult.json"
 
+    Candle:
+      $ref: "./schemas/Candle.json"
+
+    SourceResult:
+      $ref: "./schemas/SourceResult.json"
+
     SearchError:
       type: object
       properties:
         error:
           type: string
+      required:
+        - error
+
+    CandleSeries:
+      type: object
+      required: [ticker, interval, candles]
+      properties:
+        ticker:
+          type: string
+        interval:
+          type: string
+          enum: [5m, 30m, 1d]
+        candles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Candle"
 
     AuthRequest:
       type: object

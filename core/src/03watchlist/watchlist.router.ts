@@ -21,6 +21,7 @@ import {
 } from "../01search/ticker-stock.repo.js";
 import { sentimentEmitter, type SentimentChangeEvent } from "../events.js";
 import { searchTickers } from "@/stocks/stocks.api.js";
+import { getUnixTime } from "date-fns";
 
 export const listsRouter = Router();
 
@@ -77,7 +78,7 @@ listsRouter.post("/", async (req: AuthenticatedRequest, res): Promise<void> => {
       req.user!.userId,
       uuidv4(),
       name.trim(),
-      Math.floor(Date.now() / 1000)
+      getUnixTime(new Date())
     );
     res.json(list);
   } catch (err) {

@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Candle",
+  "type": "object",
+  "required": ["tSec", "open", "high", "low", "close"],
+  "properties": {
+    "tSec": { "type": "integer" },
+    "open": { "type": "number" },
+    "high": { "type": "number" },
+    "low": { "type": "number" },
+    "close": { "type": "number" },
+    "volume": { "type": "number" }
+  }
+}

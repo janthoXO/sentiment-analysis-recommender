@@ -1,76 +1,120 @@
-import { useParams, useLocation, Link } from "react-router-dom"
-import { useState, useEffect } from "react"
-import { ExternalLink } from "lucide-react"
+import { useParams, useLocation } from "react-router-dom"
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { AddToListButton } from "@/components/AddToListButton"
+import { StockTimeline } from "@/components/StockTimeline"
+import { ArticleList } from "@/components/ArticleList"
+import { CompetitorsAccordion } from "@/components/CompetitorsAccordion"
 import { cn } from "@/lib/utils"
+import { parseSentimentLabel } from "@/lib/sentiment"
+import {
+  pickIntervalForDuration,
+  intervalToSec,
+  type CandleDuration,
+  type RangePresetKey,
+} from "@/lib/intervals"
+import { detectEvents } from "@/lib/events"
 import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
-import { useStockStream } from "@/hooks/useStockStream"
-import { usePeers } from "@/hooks/usePeers"
+import { useTickerSentiment } from "@/hooks/useTickerSentiment"
+import { useCandles } from "@/hooks/useCandles"
+import { useSentimentByEvents } from "@/hooks/useSentimentByEvents"
 
-function parseSentimentLabel(score: number): {
-  label: string
-  className: string
-} {
-  if (score > 0.2)
-    return {
-      label: "Bullish",
-      className: "border-green-400 bg-green-50 text-green-700",
-    }
-  if (score < -0.2)
-    return {
-      label: "Bearish",
-      className: "border-red-400 bg-red-50 text-red-700",
-    }
-  return {
-    label: "Neutral",
-    className: "border-gray-200 bg-gray-50 text-gray-700",
-  }
-}
+type RangeKey = "latest" | RangePresetKey
 
-function parseHeadline(snippet: string): { headline: string; body: string } {
-  const idx = snippet.indexOf("\n")
-  if (idx === -1) return { headline: snippet, body: "" }
-  return {
-    headline: snippet.slice(0, idx).trim(),
-    body: snippet.slice(idx + 1).trim(),
-  }
-}
+const RANGES: { label: string; value: RangeKey }[] = [
+  { label: "Latest", value: "latest" },
+  { label: "1D", value: "1D" },
+  { label: "1W", value: "1W" },
+  { label: "1M", value: "1M" },
+  { label: "1Y", value: "1Y" },
+]
 
 export default function StockDetailPage() {
   const { ticker } = useParams()
   const location = useLocation()
 
-  const [data, setData] = useState<TickerResult | null>(
-    location.state?.tickerResult || null
+  const preloaded = (location.state as { tickerResult?: TickerResult } | null)?.tickerResult ?? null
+
+  const [range, setRange] = useState<RangeKey>("latest")
+  const [selectedEventTSec, setSelectedEventTSec] = useState<number | null>(null)
+  const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
+  // Fetch per-ticker sentiment only when not preloaded from router state
+  const { data: fetched, loading: fetchLoading } = useTickerSentiment(
+    preloaded ? undefined : ticker
   )
-  const { results, loading, search } = useStockStream()
-  const { peers, loading: peersLoading } = usePeers(ticker)
+
+  const data: TickerResult | null = preloaded ?? fetched
+
+  const duration: CandleDuration = range === "latest" ? "today" : range
+  const interval = pickIntervalForDuration(duration)
+
+  const { candles, loading: candlesLoading } = useCandles(ticker, duration, interval)
+
+  // Client-side event detection — only for non-latest modes.
+  const events = useMemo(() => {
+    if (range === "latest" || candles.length === 0) return []
+    return detectEvents(candles, [])
+  }, [range, candles])
+
+  const intervalSec = interval != null ? intervalToSec(interval) : undefined
+
+  const {
+    eventSourceMap,
+    allSources,
+    loading: eventSentimentLoading,
+  } = useSentimentByEvents(
+    range !== "latest" ? ticker : undefined,
+    events,
+    intervalSec
+  )
 
   useEffect(() => {
-    if (!data && ticker) {
-      void search(ticker)
+    setSelectedEventTSec(null)
+    setHoveredEventTSec(null)
+  }, [range])
+
+  // Per-event sentiment info for the timeline tooltip
+  const eventInfoByTSec = useMemo(() => {
+    const map = new Map<number, { avgScore: number }>()
+    for (const [tSec, result] of eventSourceMap) {
+      map.set(tSec, { avgScore: result.avgScore })
     }
-  }, [data, ticker, search])
+    return map
+  }, [eventSourceMap])
 
-  useEffect(() => {
-    if (!data && ticker && results.length > 0) {
-      const found = results.find((r) => r.stock.ticker === ticker)
-      if (found) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setData(found)
-      }
-    }
-  }, [results, data, ticker])
+  const articles = range === "latest" ? (data?.sources ?? []) : allSources
 
-  if (loading && !data) return <div className="p-8">Loading data...</div>
-  if (!data) return <div className="p-8">No data found for {ticker}</div>
+  // Header avgScore always anchored to the latest sentiment
+  const avgScore = data?.avgScore
 
-  const overall = parseSentimentLabel(data.avgScore)
+  const activeEventTSec = selectedEventTSec ?? hoveredEventTSec
+
+  const highlightedUrls = useMemo((): Set<string> | undefined => {
+    if (!activeEventTSec) return undefined
+    const result = eventSourceMap.get(activeEventTSec)
+    return result && result.sources.length > 0
+      ? new Set<string>(result.sources.map((s) => s.url))
+      : undefined
+  }, [activeEventTSec, eventSourceMap])
+
+  const isLoading = fetchLoading && !data
+  const isSentimentLoading = range !== "latest" && (candlesLoading || eventSentimentLoading)
+
+  if (isLoading) {
+    return <div className="p-8">Loading data...</div>
+  }
+  if (!data) {
+    return <div className="p-8">No data found for {ticker}</div>
+  }
+
+  const overall = parseSentimentLabel(avgScore ?? data.avgScore)
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold">{data.stock.name || ticker}</h1>
@@ -81,7 +125,7 @@ export default function StockDetailPage() {
             variant="outline"
             className={cn("px-4 py-2 text-base font-bold", overall.className)}
           >
-            {overall.label} · {data.avgScore.toFixed(2)}
+            {overall.label} · {(avgScore ?? data.avgScore).toFixed(2)}
           </Badge>
           <AddToListButton ticker={ticker!} />
         </div>
@@ -89,104 +133,81 @@ export default function StockDetailPage() {
 
       <Separator />
 
-      <div className="flex flex-col gap-4">
-        <h2 className="text-2xl font-semibold">
-          News &amp; Articles{" "}
-          <span className="text-base font-normal text-muted-foreground">
-            ({data.sources.length})
-          </span>
-        </h2>
+      {/* Two-column layout: main + competitors */}
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Left column: timeline + articles */}
         <div className="flex flex-col gap-4">
-          {data.sources.map((source, i) => {
-            const { headline, body } = parseHeadline(source.snippet || "")
-            const articleSentiment = parseSentimentLabel(source.score)
-            return (
-              <div
-                key={i}
-                className="flex flex-col gap-2 rounded-xl border p-4"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <p className="text-base leading-snug font-semibold">
-                      {headline || source.url}
-                    </p>
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1 truncate text-sm text-muted-foreground hover:underline"
-                    >
-                      {source.url} <ExternalLink className="size-3 shrink-0" />
-                    </a>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "shrink-0 font-bold",
-                      articleSentiment.className
-                    )}
-                  >
-                    {source.score.toFixed(2)}
-                  </Badge>
-                </div>
-                {body && (
-                  <p className="text-sm text-muted-foreground">{body}</p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+          {/* Range selector */}
+          <ToggleGroup
+            type="single"
+            value={range}
+            onValueChange={(v) => {
+              if (v) setRange(v as RangeKey)
+            }}
+            className="self-start"
+          >
+            {RANGES.map(({ label, value }) => (
+              <ToggleGroupItem key={value} value={value} className="px-4 text-sm">
+                {label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
 
-      <Separator />
-
-      <div className="flex flex-col gap-4">
-        <h2 className="text-2xl font-semibold">
-          Competitors{" "}
-          {peers.length > 0 && (
-            <span className="text-base font-normal text-muted-foreground">
-              ({peers.length})
-            </span>
+          {/* Price chart */}
+          {candlesLoading ? (
+            <Skeleton className="h-56 w-full rounded-xl" />
+          ) : (
+            <div>
+              <StockTimeline
+                candles={candles}
+                interval={interval ?? null}
+                mode={range === "latest" ? "latest" : "events"}
+                events={events}
+                eventInfoByTSec={eventInfoByTSec}
+                selectedEventTSec={selectedEventTSec}
+                hoveredEventTSec={hoveredEventTSec}
+                onSelectEvent={setSelectedEventTSec}
+                onHoverEvent={setHoveredEventTSec}
+              />
+            </div>
           )}
-        </h2>
-        {peersLoading && peers.length === 0 && (
-          <p className="text-sm text-muted-foreground">Loading competitors…</p>
-        )}
-        <div className="flex flex-col gap-2">
-          {peers.map(({ stock, result }) => {
-            const sentiment = result
-              ? parseSentimentLabel(result.avgScore)
-              : null
-            return (
-              <Link
-                key={stock.ticker}
-                to={`/stock/${stock.ticker}`}
-                className="flex items-center justify-between rounded-xl border p-4 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex flex-col gap-0.5">
-                  <p className="leading-snug font-semibold">{stock.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {stock.ticker}
-                  </p>
-                </div>
-                {sentiment ? (
-                  <Badge
-                    variant="outline"
-                    className={cn("shrink-0 font-bold", sentiment.className)}
-                  >
-                    {sentiment.label} · {result!.avgScore.toFixed(2)}
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="outline"
-                    className="shrink-0 font-bold text-muted-foreground"
-                  >
-                    —
-                  </Badge>
-                )}
-              </Link>
-            )
-          })}
+
+          <Separator />
+
+          {/* Article list */}
+          <div className="flex flex-col gap-4">
+            <h2 className="text-2xl font-semibold">
+              News &amp; Articles{" "}
+              <span className="text-base font-normal text-muted-foreground">
+                {highlightedUrls
+                  ? `(${highlightedUrls.size} of ${articles.length})`
+                  : `(${articles.length})`}
+              </span>
+            </h2>
+            {range !== "latest" && (
+              <p className="text-sm text-muted-foreground">
+                Hover an event pin to preview its articles. Click to lock the selection; click elsewhere to clear it.
+              </p>
+            )}
+            {isSentimentLoading ? (
+              <div className="flex flex-col gap-3">
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+              </div>
+            ) : (
+              <ArticleList
+                articles={articles}
+                highlightedUrls={highlightedUrls}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Right column: competitors */}
+        <div className="flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold">Competitors</h2>
+          <CompetitorsAccordion ticker={ticker!} />
         </div>
       </div>
     </div>

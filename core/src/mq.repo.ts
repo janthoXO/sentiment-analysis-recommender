@@ -3,7 +3,7 @@ import { env } from "./env.js";
 import * as inFlight from "@/02analyzer/analyzer.service.js";
 import { zSourceResultRoot } from "./generated/in/zod.gen.js";
 import z from "zod";
-import type { Root } from "./generated/in/index.js";
+import type { SourceRoot } from "./generated/in/index.js";
 
 let channel: amqplib.Channel;
 
@@ -50,7 +50,7 @@ export async function connectMq() {
 export const publishAnalysisTask = (
   ticker: string,
   jobId: string,
-  sources: Root[],
+  sources: SourceRoot[],
   priority: number
 ) => {
   if (!channel) throw new Error("MQ channel not initialized");

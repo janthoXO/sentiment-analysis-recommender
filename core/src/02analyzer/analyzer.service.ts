@@ -1,16 +1,13 @@
+import { createHash } from "crypto";
 import type {
   SourceResultRoot,
+  SourceRoot,
   StockRoot,
   TickerResultRoot,
 } from "@/generated/in/index.js";
 import { getSourceScore, upsertManySourceScores } from "./source-score.repo.js";
 import { upsertTickerStock } from "@/01search/ticker-stock.repo.js";
-import {
-  getTickerArticlesCache,
-  setTickerArticlesCache,
-} from "@/01search/stock.cache.js";
 import { publishAnalysisTask } from "@/mq.repo.js";
-import { getArticlesByTicker } from "@/articles/articles.api.js";
 import { calculateAverageScore } from "./score.util.js";
 import { sentimentEmitter } from "../events.js";
 
@@ -24,63 +21,65 @@ export type InFlightJob = {
 };
 
 const jobs = new Map<string, InFlightJob>();
-const highPriorityTickerToJobId = new Map<string, string>();
+const inFlightToJobId = new Map<string, string>();
+const jobIdToKey = new Map<string, string>(); // reverse of inFlightToJobId for O(1) cleanup
 
-export async function requestAnalysis(
+function hashArticleUrls(articles: SourceRoot[]): string {
+  const sorted = articles.map((a) => a.url).sort().join("\n");
+  return createHash("sha256").update(sorted).digest("hex");
+}
+
+function inFlightKey(ticker: string, urlHash: string, priority: number): string {
+  return `${ticker}:${urlHash}:${priority}`;
+}
+
+export function getInFlightJobId(ticker: string, urlHash: string, priority: number): string | undefined {
+  return inFlightToJobId.get(inFlightKey(ticker, urlHash, priority));
+}
+
+export async function analyzeArticles(
   stock: StockRoot,
+  articles: SourceRoot[],
   priority: number
 ): Promise<TickerResultRoot | null> {
-  // ensure ticker_stock row exists so source_score FK is satisfied
+  if (articles.length === 0) return null;
+
   await upsertTickerStock(stock);
 
-  // check article cache before hitting Finnhub
-  let sources = await getTickerArticlesCache(stock.ticker);
-  if (sources === null) {
-    sources = await getArticlesByTicker(stock.ticker);
-    console.debug(`Scraped ${sources.length} sources for ${stock.ticker}`);
-    if (sources.length > 0) {
-      await setTickerArticlesCache(stock.ticker, sources);
-    }
-  } else {
-    console.debug(
-      `Article cache hit for ${stock.ticker} (${sources.length} sources)`
-    );
-  }
-
-  if (sources.length === 0) {
-    return null;
-  }
-
-  // check Postgres source_score for already-scored sources
   const cachedScores = await Promise.all(
-    sources.map((s) => getSourceScore(stock.ticker, s.url))
+    articles.map((s) => getSourceScore(stock.ticker, s.url))
   ).then((results) => results.filter((r) => r !== null));
   console.debug(
-    `Source score cache hit for ${cachedScores.length} out of ${sources.length} sources for ${stock.ticker}`
+    `Source score cache hit for ${cachedScores.length} out of ${articles.length} sources for ${stock.ticker}`
   );
 
-  if (cachedScores.length === sources.length) {
+  if (cachedScores.length === articles.length) {
     return {
-      stock: stock,
+      stock,
       avgScore: calculateAverageScore(cachedScores),
       sources: cachedScores,
     };
+  }
+
+  const urlHash = hashArticleUrls(articles);
+  const key = inFlightKey(stock.ticker, urlHash, priority);
+  const existingJobId = inFlightToJobId.get(key);
+  if (existingJobId) {
+    return addSubscriber(existingJobId);
   }
 
   const jobId = `${stock.ticker}-${Date.now()}`;
 
   return new Promise((resolve, reject) => {
     jobs.set(jobId, {
-      stock: stock,
+      stock,
       subscribers: [{ resolve, reject }],
       cachedResults: cachedScores,
     });
+    inFlightToJobId.set(key, jobId);
+    jobIdToKey.set(jobId, key);
 
-    if (priority === 4) {
-      highPriorityTickerToJobId.set(stock.ticker, jobId);
-    }
-
-    const uncachedSources = sources.filter(
+    const uncachedSources = articles.filter(
       (s) => !cachedScores.some((cs) => cs.url === s.url)
     );
 
@@ -113,8 +112,10 @@ export async function receiveResult(
   await upsertManySourceScores(job.stock.ticker, results);
 
   jobs.delete(jobId);
-  if (highPriorityTickerToJobId.get(job.stock.ticker) === jobId) {
-    highPriorityTickerToJobId.delete(job.stock.ticker);
+  const key = jobIdToKey.get(jobId);
+  if (key) {
+    inFlightToJobId.delete(key);
+    jobIdToKey.delete(jobId);
   }
 
   const allResults = [...job.cachedResults, ...results];
@@ -132,8 +133,4 @@ export async function receiveResult(
     ticker: job.stock.ticker,
     result: queryResult,
   });
-}
-
-export function getInFlightJobId(ticker: string): string | undefined {
-  return highPriorityTickerToJobId.get(ticker);
 }

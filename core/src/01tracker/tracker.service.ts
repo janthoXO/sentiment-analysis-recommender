@@ -1,8 +1,10 @@
 import { getTopTickers } from "../stocks/stocks.api.js";
+import { analyzeArticles } from "../02analyzer/analyzer.service.js";
 import {
-  getInFlightJobId,
-  requestAnalysis,
-} from "../02analyzer/analyzer.service.js";
+  getTickerArticlesCache,
+  setTickerArticlesCache,
+} from "../01search/stock.cache.js";
+import { getArticles } from "../articles/articles.api.js";
 import type { Tracker } from "./tracker.js";
 import {
   getAllTrackers,
@@ -41,12 +43,21 @@ function track(tracker: Tracker) {
     return;
   }
 
-  const jobId = getInFlightJobId(tracker.ticker);
-  if (!jobId) {
-    requestAnalysis(tracker, tracker.priority).catch((err) => {
-      console.error(`Error requesting analysis for ${tracker.ticker}:`, err);
-    });
+  async function runAnalysis() {
+    let articles = await getTickerArticlesCache(tracker.ticker);
+    if (articles === null) {
+      articles = await getArticles({ ticker: tracker.ticker });
+      if (articles.length > 0) {
+        await setTickerArticlesCache(tracker.ticker, articles);
+      }
+    }
+    if (articles.length > 0) {
+      await analyzeArticles(tracker, articles, tracker.priority);
+    }
   }
+  runAnalysis().catch((err: unknown) => {
+    console.error(`Error requesting analysis for ${tracker.ticker}:`, err);
+  });
 
   // update lastTriggeredAt
   tracker.lastTriggeredAt = now;

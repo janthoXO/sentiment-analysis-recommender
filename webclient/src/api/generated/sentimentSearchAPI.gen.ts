@@ -9,10 +9,12 @@ import type {
   AddListItemRequest,
   AuthRequest,
   AuthResponse,
+  CandleSeries,
   CreateListRequest,
   GetApiListsStreamParams,
-  GetApiSearchParams,
-  GetApiTickersParams,
+  GetApiTickersSentimentParams,
+  GetApiTickersTickerIdCandlesParams,
+  GetApiTickersTickerIdSentimentParams,
   List,
   ListSummary,
   RenameListRequest,
@@ -25,6 +27,225 @@ import type {
 interface TypedResponse<T> extends Response {
   json(): Promise<T>;
 }
+
+export type getApiTickersSentimentResponse200 = {
+  stream: TypedResponse<TickerResult | SearchError>
+  status: 200
+}
+
+export type getApiTickersSentimentResponseSuccess = (getApiTickersSentimentResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getApiTickersSentimentResponse = (getApiTickersSentimentResponseSuccess)
+
+export const getGetApiTickersSentimentUrl = (params?: GetApiTickersSentimentParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["tickerIds"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : v.toString());
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tickers/sentiment?${stringifiedParams}` : `/api/tickers/sentiment`
+}
+
+/**
+ * @summary Stream ticker sentiment as NDJSON. Accepts either a search query or a list of ticker IDs.
+ */
+export const getApiTickersSentiment = async (params?: GetApiTickersSentimentParams, options?: RequestInit): Promise<getApiTickersSentimentResponse> => {
+
+    const stream = await fetch(getGetApiTickersSentimentUrl(params),
+  {
+    ...options,
+    method: 'GET',
+    headers: { Accept: 'application/x-ndjson', ...options?.headers }
+
+  }
+);
+
+  return { status: stream.status, stream, headers: stream.headers } as getApiTickersSentimentResponse
+  }
+
+
+
+export type getApiTickersTickerIdSentimentResponse200 = {
+  stream: TypedResponse<TickerResult>
+  status: 200
+}
+
+export type getApiTickersTickerIdSentimentResponse503 = {
+  data: void
+  status: 503
+}
+
+export type getApiTickersTickerIdSentimentResponseSuccess = (getApiTickersTickerIdSentimentResponse200) & {
+  headers: Headers;
+};
+export type getApiTickersTickerIdSentimentResponseError = (getApiTickersTickerIdSentimentResponse503) & {
+  headers: Headers;
+};
+
+export type getApiTickersTickerIdSentimentResponse = (getApiTickersTickerIdSentimentResponseSuccess | getApiTickersTickerIdSentimentResponseError)
+
+export const getGetApiTickersTickerIdSentimentUrl = (tickerId: string,
+    params?: GetApiTickersTickerIdSentimentParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["eventTSec"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : v.toString());
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tickers/${tickerId}/sentiment?${stringifiedParams}` : `/api/tickers/${tickerId}/sentiment`
+}
+
+/**
+ * @summary Stream sentiment for a single ticker as NDJSON. Optionally pin to one or more event timestamps.
+ */
+export const getApiTickersTickerIdSentiment = async (tickerId: string,
+    params?: GetApiTickersTickerIdSentimentParams, options?: RequestInit): Promise<getApiTickersTickerIdSentimentResponse> => {
+
+    const stream = await fetch(getGetApiTickersTickerIdSentimentUrl(tickerId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);
+
+  return { status: stream.status, stream, headers: stream.headers } as getApiTickersTickerIdSentimentResponse
+  }
+
+
+
+export type getApiTickersTickerIdCandlesResponse200 = {
+  data: CandleSeries
+  status: 200
+}
+
+export type getApiTickersTickerIdCandlesResponse503 = {
+  data: void
+  status: 503
+}
+
+export type getApiTickersTickerIdCandlesResponseSuccess = (getApiTickersTickerIdCandlesResponse200) & {
+  headers: Headers;
+};
+export type getApiTickersTickerIdCandlesResponseError = (getApiTickersTickerIdCandlesResponse503) & {
+  headers: Headers;
+};
+
+export type getApiTickersTickerIdCandlesResponse = (getApiTickersTickerIdCandlesResponseSuccess | getApiTickersTickerIdCandlesResponseError)
+
+export const getGetApiTickersTickerIdCandlesUrl = (tickerId: string,
+    params: GetApiTickersTickerIdCandlesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tickers/${tickerId}/candles?${stringifiedParams}` : `/api/tickers/${tickerId}/candles`
+}
+
+/**
+ * @summary Get OHLC price candles for a ticker
+ */
+export const getApiTickersTickerIdCandles = async (tickerId: string,
+    params: GetApiTickersTickerIdCandlesParams, options?: RequestInit): Promise<getApiTickersTickerIdCandlesResponse> => {
+
+  const res = await fetch(getGetApiTickersTickerIdCandlesUrl(tickerId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiTickersTickerIdCandlesResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getApiTickersTickerIdCandlesResponse
+}
+
+
+
+export type getApiTickersTickerIdPeersResponse200 = {
+  data: Stock[]
+  status: 200
+}
+
+export type getApiTickersTickerIdPeersResponseSuccess = (getApiTickersTickerIdPeersResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getApiTickersTickerIdPeersResponse = (getApiTickersTickerIdPeersResponseSuccess)
+
+export const getGetApiTickersTickerIdPeersUrl = (tickerId: string,) => {
+
+
+
+
+  return `/api/tickers/${tickerId}/peers`
+}
+
+/**
+ * @summary Get peer companies for a ticker
+ */
+export const getApiTickersTickerIdPeers = async (tickerId: string, options?: RequestInit): Promise<getApiTickersTickerIdPeersResponse> => {
+
+  const res = await fetch(getGetApiTickersTickerIdPeersUrl(tickerId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiTickersTickerIdPeersResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getApiTickersTickerIdPeersResponse
+}
+
+
 
 export type postApiAuthRegisterResponse200 = {
   data: AuthResponse
@@ -506,142 +727,3 @@ export const getApiListsStream = async (params?: GetApiListsStreamParams, option
   const data: getApiListsStreamResponse['data'] = body !== null ? body : ''
   return { data, status: res.status, headers: res.headers } as getApiListsStreamResponse
 }
-
-
-
-export type getApiTickersResponse200 = {
-  data: TickerResult[]
-  status: 200
-}
-
-export type getApiTickersResponseSuccess = (getApiTickersResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getApiTickersResponse = (getApiTickersResponseSuccess)
-
-export const getGetApiTickersUrl = (params: GetApiTickersParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/tickers?${stringifiedParams}` : `/api/tickers`
-}
-
-/**
- * @summary Get TickerResult for a batch of tickers
- */
-export const getApiTickers = async (params: GetApiTickersParams, options?: RequestInit): Promise<getApiTickersResponse> => {
-
-  const res = await fetch(getGetApiTickersUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getApiTickersResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getApiTickersResponse
-}
-
-
-
-export type getApiTickersTickerIdPeersResponse200 = {
-  data: Stock[]
-  status: 200
-}
-
-export type getApiTickersTickerIdPeersResponseSuccess = (getApiTickersTickerIdPeersResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getApiTickersTickerIdPeersResponse = (getApiTickersTickerIdPeersResponseSuccess)
-
-export const getGetApiTickersTickerIdPeersUrl = (tickerId: string,) => {
-
-
-
-
-  return `/api/tickers/${tickerId}/peers`
-}
-
-/**
- * @summary Get peer companies for a ticker
- */
-export const getApiTickersTickerIdPeers = async (tickerId: string, options?: RequestInit): Promise<getApiTickersTickerIdPeersResponse> => {
-
-  const res = await fetch(getGetApiTickersTickerIdPeersUrl(tickerId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getApiTickersTickerIdPeersResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getApiTickersTickerIdPeersResponse
-}
-
-
-
-export type getApiSearchResponse200 = {
-  stream: TypedResponse<TickerResult | SearchError>
-  status: 200
-}
-
-export type getApiSearchResponseSuccess = (getApiSearchResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getApiSearchResponse = (getApiSearchResponseSuccess)
-
-export const getGetApiSearchUrl = (params?: GetApiSearchParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/search?${stringifiedParams}` : `/api/search`
-}
-
-/**
- * @summary Search for stock sentiment (ndJSON Stream)
- */
-export const getApiSearch = async (params?: GetApiSearchParams, options?: RequestInit): Promise<getApiSearchResponse> => {
-
-    const stream = await fetch(getGetApiSearchUrl(params),
-  {
-    ...options,
-    method: 'GET',
-    headers: { Accept: 'application/x-ndjson', ...options?.headers }
-
-  }
-);
-
-  return { status: stream.status, stream, headers: stream.headers } as getApiSearchResponse
-  }
