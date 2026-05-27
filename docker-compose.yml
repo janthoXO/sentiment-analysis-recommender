@@ -40,11 +40,10 @@ services:
       POSTGRES_USER: ${CORE_DB_USER:-sentinel}
       POSTGRES_PASSWORD: ${CORE_DB_PASSWORD:-sentinel}
       POSTGRES_DB: ${CORE_DB_NAME:-sentinel}
-      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     networks:
       - sentinel-net
     healthcheck:
