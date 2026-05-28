@@ -47,6 +47,18 @@ type ThemeQueryResponse = z.infer<typeof ThemeQueryResponseSchema>;
 
 const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/;
 
+class GeminiRequestError extends Error {
+  constructor(
+    readonly status: number,
+    statusText: string
+  ) {
+    super(
+      `Gemini request failed (${status}${statusText ? ` ${statusText}` : ""})`
+    );
+    this.name = "GeminiRequestError";
+  }
+}
+
 export function isExplicitTickerQuery(query: string): boolean {
   const trimmed = query.trim();
   return (
@@ -93,7 +105,16 @@ export async function resolveThemeQueryStocks(
 
     return validStocks.length > 0 ? validStocks : null;
   } catch (e) {
-    console.warn("Gemini theme query failed; falling back to ticker search", e);
+    if (e instanceof GeminiRequestError && e.status === 429) {
+      console.warn(
+        "Gemini theme query rate-limited (429); falling back to ticker search"
+      );
+    } else {
+      console.warn(
+        "Gemini theme query failed; falling back to ticker search",
+        e
+      );
+    }
     return null;
   }
 }
@@ -132,7 +153,7 @@ async function requestGeminiThemeTickers(
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini request failed (${response.status})`);
+      throw new GeminiRequestError(response.status, response.statusText);
     }
 
     const payload = GeminiResponseSchema.parse(await response.json());

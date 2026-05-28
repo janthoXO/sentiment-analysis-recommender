@@ -32,6 +32,7 @@ import {
 import { searchTickers } from "@/stocks/stocks.api.js";
 import { env } from "@/env.js";
 import { sanitizeError, errorCode } from "@/middleware/httpError.js";
+import { dedupe } from "@/utils/depupe.js";
 
 // ---------------------------------------------------------------------------
 // Core per-stock analysis
@@ -209,8 +210,9 @@ async function* streamByQuery(
 ): AsyncGenerator<TickerResultRoot | StreamError> {
   const qTrim = q.trim();
   const qUpper = qTrim.toUpperCase();
+  const isExplicitQuery = isExplicitTickerQuery(qTrim);
 
-  if (isExplicitTickerQuery(qTrim)) {
+  if (isExplicitQuery) {
     const directHit = await getTickerStock(qUpper);
     if (directHit) {
       console.debug(`Direct ticker cache hit for ${qUpper}`);
@@ -234,12 +236,24 @@ async function* streamByQuery(
   }
 
   let usedThemeResolver = false;
-  let stocks = await getQueryStockCache(qTrim);
+  const cacheKeys = getQueryCacheKeys(qTrim, isExplicitQuery);
+  let stocks: StockRoot[] | null = null;
+
+  for (const cacheKey of cacheKeys) {
+    stocks = await getQueryStockCache(cacheKey);
+    if (stocks !== null) {
+      console.debug(
+        `Query cache hit for "${cacheKey}" (${stocks.length} tickers)`
+      );
+      break;
+    }
+  }
+
   if (stocks !== null) {
-    console.debug(`Query cache hit for "${qTrim}" (${stocks.length} tickers)`);
+    // cached stocks are ready to analyze
   } else {
     try {
-      const themeStocks = isExplicitTickerQuery(qTrim)
+      const themeStocks = isExplicitQuery
         ? null
         : await resolveThemeQueryStocks(qTrim);
       if (themeStocks) {
@@ -270,11 +284,39 @@ async function* streamByQuery(
     const isDirectTickerQuery =
       stocks.length === 1 && stocks[0]!.ticker.toUpperCase() === qUpper;
     if (usedThemeResolver || !isDirectTickerQuery) {
-      await setQueryStockCache(qTrim, stocks);
+      const stocksToCache = stocks;
+      await Promise.all(
+        cacheKeys.map((cacheKey) => setQueryStockCache(cacheKey, stocksToCache))
+      );
     }
   }
 
   yield* analyzeStocks(stocks);
+}
+
+function getQueryCacheKeys(query: string, isExplicitQuery: boolean): string[] {
+  if (isExplicitQuery) return [query];
+
+  const normalized = normalizeThemeQueryCacheKey(query);
+  return dedupe(
+    [query, normalized, toTitleCase(normalized)].filter(Boolean),
+    (cacheKey) => cacheKey
+  );
+}
+
+function normalizeThemeQueryCacheKey(query: string): string {
+  return query.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function toTitleCase(query: string): string {
+  return query
+    .split(" ")
+    .map((word) =>
+      word.length === 0
+        ? word
+        : word[0]!.toUpperCase() + word.slice(1).toLowerCase()
+    )
+    .join(" ");
 }
 
 async function* streamByTickerIds(
