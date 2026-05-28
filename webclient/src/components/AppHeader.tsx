@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { Search, Popcorn, Bell, UserCircle, LogOut, X } from "lucide-react"
+import { Search, Bell, UserCircle, LogOut, X, Eye } from "lucide-react"
 import { useAuth } from "@/context/auth-provider"
 import { useWatchlistContext } from "@/context/watchlist-provider"
 import { Button } from "@/components/ui/button"
@@ -63,9 +63,16 @@ export function AppHeader() {
         <div className="flex items-center gap-2">
           <Link
             to="/"
-            className="text-sm font-semibold tracking-tight text-primary transition-opacity hover:opacity-80"
+            className="flex items-center gap-1.5 transition-opacity hover:opacity-80"
           >
-            Sentinel Finance
+            <img
+              src="/icon.png"
+              alt="Sentinel Finance"
+              className="size-6 rounded-md"
+            />
+            <span className="text-sm font-semibold tracking-tight text-primary">
+              Sentinel Finance
+            </span>
           </Link>
 
           {searchOpen ? (
@@ -116,7 +123,7 @@ export function AppHeader() {
           {/* Watchlist */}
           <Button variant="ghost" size="sm" asChild className="gap-1.5">
             <a href="/watchlist" onClick={handleWatchlistClick}>
-              <Popcorn className="size-4" />
+              <Eye className="size-4" />
               <span className="hidden md:inline">Watchlist</span>
             </a>
           </Button>
