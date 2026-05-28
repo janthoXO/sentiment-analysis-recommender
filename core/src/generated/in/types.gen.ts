@@ -131,6 +131,22 @@ export type GetApiTickersSentimentResponses = {
 
 export type GetApiTickersSentimentResponse = GetApiTickersSentimentResponses[keyof GetApiTickersSentimentResponses];
 
+export type GetApiTickersTrendingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/tickers/trending';
+};
+
+export type GetApiTickersTrendingResponses = {
+    /**
+     * List of trending stocks
+     */
+    200: Array<StockRoot>;
+};
+
+export type GetApiTickersTrendingResponse = GetApiTickersTrendingResponses[keyof GetApiTickersTrendingResponses];
+
 export type GetApiTickersByTickerIdSentimentData = {
     body?: never;
     path: {

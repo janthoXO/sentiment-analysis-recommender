@@ -14,6 +14,7 @@ import { getCompanyPeers, searchTickers } from "@/stocks/stocks.api.js";
 import { getPeersCache, setPeersCache } from "./stock.cache.js";
 import { getTickerStock, upsertTickerStock } from "./ticker-stock.repo.js";
 import type { StockRoot } from "@/generated/in/index.js";
+import { getTrackersByPriority } from "@/01tracker/tracker.repo.js";
 
 const tickersRouter = Router();
 
@@ -184,6 +185,23 @@ tickersRouter.get(
       res.json(enriched.filter((s) => !!s));
     } catch (e) {
       console.error("Peers router error:", e);
+      res.status(500).json({ error: "Internal error" });
+    }
+  }
+);
+
+tickersRouter.get(
+  "/trending",
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const trackers = await getTrackersByPriority(2);
+      const stocks: StockRoot[] = trackers.map((t) => ({
+        ticker: t.ticker,
+        name: t.name,
+      }));
+      res.json(stocks);
+    } catch (e) {
+      console.error("Trending router error:", e);
       res.status(500).json({ error: "Internal error" });
     }
   }

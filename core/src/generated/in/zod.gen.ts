@@ -112,6 +112,11 @@ export const zGetApiTickersSentimentResponse = z.union([
     zSearchError
 ]);
 
+/**
+ * List of trending stocks
+ */
+export const zGetApiTickersTrendingResponse = z.array(zStockRoot);
+
 export const zGetApiTickersByTickerIdSentimentPath = z.object({
     tickerId: z.string()
 });

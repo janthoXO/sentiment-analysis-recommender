@@ -22,6 +22,7 @@ import {
 import { sentimentEmitter, type SentimentChangeEvent } from "../events.js";
 import { searchTickers } from "@/stocks/stocks.api.js";
 import { getUnixTime } from "date-fns";
+import { env } from "@/env.js";
 
 export const listsRouter = Router();
 
@@ -162,7 +163,13 @@ listsRouter.post(
         await upsertTickerStock(stock);
       }
 
-      await saveTracker(normalizedTicker, normalizedTicker, 1, 3600000, null);
+      await saveTracker(
+        normalizedTicker,
+        normalizedTicker,
+        1,
+        env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000,
+        null
+      );
       await addListItem(req.params.id as string, normalizedTicker);
       res.json({ message: "Added" });
     } catch (err) {

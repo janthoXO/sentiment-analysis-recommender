@@ -4,6 +4,8 @@ import { toast } from "sonner"
 import { readStream } from "@/lib/stream"
 import type { TickerResult } from "@/api/generated/dtos"
 
+type StreamArgs = { q: string } | { tickerIds: string[] }
+
 export function useStockStream() {
   const [results, setResults] = useState<TickerResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -11,7 +13,7 @@ export function useStockStream() {
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  const search = useCallback(async (query: string) => {
+  const search = useCallback(async (args: StreamArgs) => {
     // 1. Cleanup previous requests
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -27,10 +29,9 @@ export function useStockStream() {
 
     try {
       // 3. Initiate the Fetch
-      const response = await getApiTickersSentiment(
-        { q: query },
-        { signal: abortController.signal }
-      )
+      const response = await getApiTickersSentiment(args, {
+        signal: abortController.signal,
+      })
 
       if (response.status !== 200) {
         throw new Error("Failed to fetch stream")
