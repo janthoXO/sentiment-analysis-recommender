@@ -8,10 +8,7 @@ import {
 } from "@/api/generated/sentimentSearchAPI.gen"
 import { assertStreamOk, toastApiError } from "@/lib/api-error"
 import type { Stock } from "@/api/generated/dtos/stock.gen"
-import type { TickerArticles } from "@/api/generated/dtos/tickerArticles.gen"
 import type { TickerArticlesSourcesItem } from "@/api/generated/dtos/tickerArticlesSourcesItem.gen"
-import type { SourceResult } from "@/api/generated/dtos/sourceResult.gen"
-import type { SearchError } from "@/api/generated/dtos/searchError.gen"
 
 export type TickerStage = "stock" | "articles" | "sentiment" | "done"
 
@@ -100,92 +97,81 @@ export function useSearchPipeline(): {
             return next
           })
 
-          await readStream(
-            (artRes as unknown as { stream: Response }).stream,
-            (parsed) => {
-              if (ctrl.signal.aborted || runIdRef.current !== runId) return
-              if ("error" in parsed) {
-                const err = parsed as SearchError
-                if (err.ticker || !("ticker" in parsed)) {
+          await readStream(artRes.stream, (articleChunk) => {
+            if (ctrl.signal.aborted || runIdRef.current !== runId) return
+            if ("error" in articleChunk) {
+              if (articleChunk.ticker || !("ticker" in articleChunk)) {
+                setResultsByTicker((prev) => {
+                  const next = new Map(prev)
+                  const s = next.get(ticker)
+                  if (s)
+                    next.set(ticker, {
+                      ...s,
+                      stage: "done",
+                      error: articleChunk.error,
+                    })
+                  return next
+                })
+              }
+              return
+            }
+
+            const sources = articleChunk.sources
+
+            setResultsByTicker((prev) => {
+              const next = new Map(prev)
+              const s = next.get(ticker)
+              if (s)
+                next.set(ticker, {
+                  ...s,
+                  articles: sources,
+                  stage: sources.length === 0 ? "done" : "sentiment",
+                })
+              return next
+            })
+
+            if (sources.length === 0) return
+
+            // Stage 3: sentiment for this article batch (fire-and-forget per chunk)
+            void (async () => {
+              try {
+                const sentRes = await getApiTickersTickerIdArticlesSentiment(
+                  ticker,
+                  { articleUrl: sources.map((s) => s.url) },
+                  { signal: ctrl.signal }
+                )
+                if (ctrl.signal.aborted || runIdRef.current !== runId) return
+                if (sentRes.status !== 200) return
+
+                await readStream(sentRes.stream, (sr) => {
+                  if (ctrl.signal.aborted || runIdRef.current !== runId) return
+                  if ("error" in sr) return
+
                   setResultsByTicker((prev) => {
                     const next = new Map(prev)
                     const s = next.get(ticker)
-                    if (s)
+                    if (!s) return prev
+                    const newScores = new Map(s.scoresByUrl)
+                    newScores.set(sr.url, sr.score)
+                    const allScored =
+                      s.articles && newScores.size >= s.articles.length
+                    return (
                       next.set(ticker, {
                         ...s,
-                        stage: "done",
-                        error: err.error,
-                      })
-                    return next
+                        scoresByUrl: newScores,
+                        avgScore: computeAvg(newScores),
+                        stage: allScored ? "done" : "sentiment",
+                      }),
+                      next
+                    )
                   })
-                }
-                return
+                })
+              } catch (e) {
+                if (e instanceof DOMException && e.name === "AbortError") return
+                toastApiError(`Sentiment failed for ${ticker}`, e)
               }
-
-              const ta = parsed as TickerArticles
-              const sources = ta.sources
-
-              setResultsByTicker((prev) => {
-                const next = new Map(prev)
-                const s = next.get(ticker)
-                if (s)
-                  next.set(ticker, {
-                    ...s,
-                    articles: sources,
-                    stage: sources.length === 0 ? "done" : "sentiment",
-                  })
-                return next
-              })
-
-              if (sources.length === 0) return
-
-              // Stage 3: sentiment for this article batch (fire-and-forget per chunk)
-              void (async () => {
-                try {
-                  const sentRes = await getApiTickersTickerIdArticlesSentiment(
-                    ticker,
-                    { articleUrl: sources.map((s) => s.url) },
-                    { signal: ctrl.signal }
-                  )
-                  if (ctrl.signal.aborted || runIdRef.current !== runId) return
-                  if (sentRes.status !== 200) return
-
-                  await readStream(
-                    (sentRes as unknown as { stream: Response }).stream,
-                    (parsed) => {
-                      if (ctrl.signal.aborted || runIdRef.current !== runId)
-                        return
-                      if ("error" in parsed) return
-                      const sr = parsed as SourceResult
-
-                      setResultsByTicker((prev) => {
-                        const next = new Map(prev)
-                        const s = next.get(ticker)
-                        if (!s) return prev
-                        const newScores = new Map(s.scoresByUrl)
-                        newScores.set(sr.url, sr.score)
-                        const allScored =
-                          s.articles && newScores.size >= s.articles.length
-                        return (
-                          next.set(ticker, {
-                            ...s,
-                            scoresByUrl: newScores,
-                            avgScore: computeAvg(newScores),
-                            stage: allScored ? "done" : "sentiment",
-                          }),
-                          next
-                        )
-                      })
-                    }
-                  )
-                } catch (e) {
-                  if (e instanceof DOMException && e.name === "AbortError")
-                    return
-                  toastApiError(`Sentiment failed for ${ticker}`, e)
-                }
-              })()
-            }
-          )
+            })()
+          })
         } catch (e) {
           if (e instanceof DOMException && e.name === "AbortError") return
           toastApiError(`Articles failed for ${ticker}`, e)
@@ -214,15 +200,14 @@ export function useSearchPipeline(): {
 
         await readStream(
           (stocksRes as unknown as { stream: Response }).stream,
-          (parsed) => {
+          (stockChunk) => {
             if (ctrl.signal.aborted || runIdRef.current !== runId) return
-            if ("error" in parsed) {
-              const err = parsed as SearchError
-              if (!err.ticker) setError(err.error)
+            if ("error" in stockChunk) {
+              if (!stockChunk.ticker) setError(stockChunk.error)
               return
             }
             // Each stock immediately kicks stages 2 and 3
-            startTickerPipeline(parsed as Stock)
+            startTickerPipeline(stockChunk)
           }
         )
       } catch (e) {

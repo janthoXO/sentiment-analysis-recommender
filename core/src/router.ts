@@ -13,6 +13,7 @@ export function initApp({
   trendsRouter,
   watchlistRouter,
   authRouter,
+  notificationRouter,
 }: {
   stocksRouter: Router;
   candlesRouter: Router;
@@ -21,6 +22,7 @@ export function initApp({
   trendsRouter: Router;
   watchlistRouter: Router;
   authRouter: Router;
+  notificationRouter: Router;
 }): void {
   const apiRouter = express.Router();
 
@@ -37,6 +39,7 @@ export function initApp({
 
   apiRouter.use("/auth", authRouter);
   apiRouter.use("/lists", watchlistRouter);
+  apiRouter.use("/notifications", notificationRouter);
 
   const app = express();
   app.use(express.json());

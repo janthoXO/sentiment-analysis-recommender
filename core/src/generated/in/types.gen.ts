@@ -55,6 +55,24 @@ export type Root = {
     volume?: number;
 };
 
+/**
+ * Emitted after the debounce window when new sentiment data arrives for a watched ticker.
+ */
+export type NotificationEvent = {
+    /**
+     * The ticker symbol that was updated.
+     */
+    ticker: string;
+    /**
+     * Top-N SourceResults scored before the user last viewed the ticker (baseline).
+     */
+    before: Array<SourceResultRoot>;
+    /**
+     * Top-N most recent SourceResults for this ticker (current state).
+     */
+    latest: Array<SourceResultRoot>;
+};
+
 export type AddListItemRequest = {
     ticker: string;
 };
@@ -157,40 +175,6 @@ export type GetApiTickersResponses = {
 };
 
 export type GetApiTickersResponse = GetApiTickersResponses[keyof GetApiTickersResponses];
-
-export type GetApiTickersArticlesData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * Repeat the param (?tickerIds=AAPL&tickerIds=MSFT).
-         */
-        tickerIds: Array<string>;
-    };
-    url: '/api/tickers/articles';
-};
-
-export type GetApiTickersArticlesErrors = {
-    /**
-     * Missing or invalid query parameters
-     */
-    400: HttpError;
-    /**
-     * Internal server error
-     */
-    500: HttpError;
-};
-
-export type GetApiTickersArticlesError = GetApiTickersArticlesErrors[keyof GetApiTickersArticlesErrors];
-
-export type GetApiTickersArticlesResponses = {
-    /**
-     * NDJSON stream — one TickerArticles per ticker (or a SearchError line).
-     */
-    200: TickerArticlesRoot | SearchError;
-};
-
-export type GetApiTickersArticlesResponse = GetApiTickersArticlesResponses[keyof GetApiTickersArticlesResponses];
 
 export type GetApiTickersTrendingData = {
     body?: never;
@@ -639,32 +623,27 @@ export type DeleteApiListsByIdItemsByTickerResponses = {
     200: unknown;
 };
 
-export type GetApiListsStreamData = {
+export type GetApiNotificationsStreamData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * JWT token (alternative to Authorization header, required for EventSource)
-         */
-        token?: string;
-    };
-    url: '/api/lists/stream';
+    query?: never;
+    url: '/api/notifications/stream';
 };
 
-export type GetApiListsStreamErrors = {
+export type GetApiNotificationsStreamErrors = {
     /**
      * Unauthorized
      */
     401: HttpError;
 };
 
-export type GetApiListsStreamError = GetApiListsStreamErrors[keyof GetApiListsStreamErrors];
+export type GetApiNotificationsStreamError = GetApiNotificationsStreamErrors[keyof GetApiNotificationsStreamErrors];
 
-export type GetApiListsStreamResponses = {
+export type GetApiNotificationsStreamResponses = {
     /**
-     * SSE stream of sentiment update events (use EventSource, not fetch)
+     * NDJSON stream — one NotificationEvent per line, emitted after the debounce window when sentiment changes.
      */
-    200: string;
+    200: NotificationEvent;
 };
 
-export type GetApiListsStreamResponse = GetApiListsStreamResponses[keyof GetApiListsStreamResponses];
+export type GetApiNotificationsStreamResponse = GetApiNotificationsStreamResponses[keyof GetApiNotificationsStreamResponses];

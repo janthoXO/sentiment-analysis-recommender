@@ -7,9 +7,6 @@ import {
 import type { WatchlistRepo } from "./watchlist.repo.js";
 import type { TrackerService } from "../tracker/tracker.service.js";
 import type { TickerStockRepo } from "../stocks/ticker-stock.repo.js";
-import { sentimentEmitter, type SourceUpdateEvent } from "../utils/events.js";
-import type { SourceScoreRepo } from "../sentiment/source-score.repo.js";
-import { calculateAverageScore } from "../sentiment/score.util.js";
 import { getUnixTime } from "date-fns";
 import { env } from "../env.js";
 import { asyncHandler, HttpError } from "../middleware/httpError.js";
@@ -18,13 +15,11 @@ export function makeWatchlistRouter({
   watchlistRepo,
   trackerService,
   tickerStockRepo,
-  sourceScoreRepo,
   searchTickers,
 }: {
   watchlistRepo: WatchlistRepo;
   trackerService: TrackerService;
   tickerStockRepo: TickerStockRepo;
-  sourceScoreRepo: SourceScoreRepo;
   searchTickers: (
     query: string
   ) => Promise<import("../generated/in/index.js").StockRoot[]>;
@@ -40,41 +35,6 @@ export function makeWatchlistRouter({
       res.json(lists);
     })
   );
-
-  listsRouter.get("/stream", (req: AuthenticatedRequest, res) => {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders();
-
-    res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
-
-    const userId = req.user!.userId;
-
-    const handleSourceUpdate = async (event: SourceUpdateEvent) => {
-      const tickers = await watchlistRepo.getAllTickersForUser(userId);
-      if (!tickers.includes(event.ticker)) return;
-      const fresh = await sourceScoreRepo.listFreshSourceScoresForTicker(
-        event.ticker
-      );
-      const avgScore = calculateAverageScore(fresh);
-      res.write(
-        `data: ${JSON.stringify({
-          type: "SOURCE_UPDATE",
-          ticker: event.ticker,
-          source: event.source,
-          avgScore,
-        })}\n\n`
-      );
-    };
-
-    sentimentEmitter.on("source-update", handleSourceUpdate);
-
-    req.on("close", () => {
-      sentimentEmitter.off("source-update", handleSourceUpdate);
-      res.end();
-    });
-  });
 
   listsRouter.post(
     "/",

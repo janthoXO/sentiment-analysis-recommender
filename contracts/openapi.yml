@@ -49,46 +49,7 @@ paths:
       tags:
         - webclient-out
         - core-in
-
-  /api/tickers/articles:
-    get:
-      summary: Stream articles for a list of tickers as NDJSON.
-      parameters:
-        - in: query
-          name: tickerIds
-          required: true
-          schema:
-            type: array
-            items:
-              type: string
-          style: form
-          explode: true
-          description: Repeat the param (?tickerIds=AAPL&tickerIds=MSFT).
-      responses:
-        "200":
-          description: NDJSON stream — one TickerArticles per ticker (or a SearchError line).
-          content:
-            application/x-ndjson:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/TickerArticles"
-                  - $ref: "#/components/schemas/SearchError"
-        "400":
-          description: Missing or invalid query parameters
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HttpError"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HttpError"
-      tags:
-        - webclient-out
-        - core-in
-
+        
   /api/tickers/trending:
     get:
       summary: Stream the current trending US tickers as NDJSON
@@ -583,29 +544,22 @@ paths:
         - webclient-out
         - core-in
 
-  /api/lists/stream:
+  /api/notifications/stream:
     get:
-      summary: Stream per-article sentiment updates for user's watchlist tickers (SSE)
+      summary: Stream sentiment divergence notifications for watched tickers as NDJSON
       description: >
-        Server-Sent Events stream. Each `data:` line is a JSON-encoded
-        `SentimentStreamEvent`. On each scored article for a watched ticker the
-        server emits a `SOURCE_UPDATE` event containing the article's SourceResult
-        and the recomputed ticker avgScore. Pass the JWT via the `token` query
-        parameter when using the browser `EventSource` API (which cannot set
-        custom headers).
-      parameters:
-        - in: query
-          name: token
-          schema:
-            type: string
-          description: JWT token (alternative to Authorization header, required for EventSource)
+        Long-lived NDJSON stream. Each line is a JSON-encoded `NotificationEvent`
+        containing two arrays of SourceResults: `before` (scored before the user
+        last viewed the ticker) and `latest` (the current top-N scores). The
+        client computes avgScore for each array and notifies on divergence.
+        Pass the JWT via the Authorization header (Bearer token) or ?token= query param.
       responses:
         "200":
-          description: SSE stream of sentiment update events (use EventSource, not fetch)
+          description: NDJSON stream — one NotificationEvent per line, emitted after the debounce window when sentiment changes.
           content:
-            text/event-stream:
+            application/x-ndjson:
               schema:
-                type: string
+                $ref: "#/components/schemas/NotificationEvent"
         "401":
           description: Unauthorized
           content:
@@ -629,9 +583,6 @@ components:
 
     Candle:
       $ref: "./schemas/Candle.json"
-
-    SourceSchema:
-      $ref: "./schemas/Source.json"
 
     HttpError:
       type: object
@@ -753,32 +704,25 @@ components:
       required:
         - ticker
 
-    SentimentStreamEvent:
-      oneOf:
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [connected]
-          required:
-            - type
-        - type: object
-          description: Emitted for each newly scored article for a watched ticker.
-          properties:
-            type:
-              type: string
-              enum: [SOURCE_UPDATE]
-            ticker:
-              type: string
-            source:
-              $ref: "#/components/schemas/SourceResult"
-            avgScore:
-              type: number
-              minimum: -1.0
-              maximum: 1.0
-              description: Recomputed average score for this ticker across all fresh source_score rows.
-          required:
-            - type
-            - ticker
-            - source
-            - avgScore
+    NotificationEvent:
+      type: object
+      description: Emitted after the debounce window when new sentiment data arrives for a watched ticker.
+      properties:
+        ticker:
+          type: string
+          description: The ticker symbol that was updated.
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceResult"
+          description: Top-N SourceResults scored before the user last viewed the ticker (baseline).
+        latest:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceResult"
+          description: Top-N most recent SourceResults for this ticker (current state).
+      required:
+        - ticker
+        - before
+        - latest
+

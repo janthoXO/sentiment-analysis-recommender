@@ -1,8 +1,7 @@
-import { and, between, eq, inArray, isNull, sql, count } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, desc } from "drizzle-orm";
 import type { Db } from "../utils/postgres.repo.js";
 import { sourceScoreSchema } from "./source-score.schema.js";
 import type { SourceResultRoot, SourceRoot } from "../generated/in/index.js";
-import { getUnixTime } from "date-fns";
 
 function rowToSourceResult(
   row: typeof sourceScoreSchema.$inferSelect & { score: number }
@@ -14,11 +13,6 @@ function rowToSourceResult(
     scrapedAtSec: row.scrapedAtSec,
     score: row.score,
   };
-}
-
-export interface FreshWindow {
-  toSec?: number;
-  intervalSec?: number;
 }
 
 export interface SourceScoreRepo {
@@ -41,31 +35,15 @@ export interface SourceScoreRepo {
     urls: string[]
   ): Promise<SourceResultRoot[]>;
   listMissingScoreUrls(ticker: string, urls: string[]): Promise<string[]>;
-  listFreshSourceScoresForTicker(
+  listLatestSourceScoresForTicker(
     ticker: string,
-    win?: FreshWindow
+    limit: number
   ): Promise<SourceResultRoot[]>;
-  countFreshSourceScoresForTicker(
+  listLatestSourceScoresBefore(
     ticker: string,
-    win?: FreshWindow
-  ): Promise<number>;
-}
-
-function resolveFreshWindow(win?: FreshWindow): {
-  fromSec: number;
-  toSec: number;
-} {
-  const nowSec = getUnixTime(new Date());
-  const toSec = win?.toSec ?? nowSec;
-  let intervalSec: number;
-  if (win?.intervalSec !== undefined) {
-    intervalSec = win.intervalSec;
-  } else if (win?.toSec !== undefined) {
-    intervalSec = 86_400;
-  } else {
-    intervalSec = 3_600;
-  }
-  return { fromSec: toSec - intervalSec, toSec };
+    beforeSec: number,
+    limit: number
+  ): Promise<SourceResultRoot[]>;
 }
 
 export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
@@ -201,34 +179,39 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
       return urls.filter((u) => scoredOrNull.has(u) || !inDb.has(u));
     },
 
-    async listFreshSourceScoresForTicker(ticker, win) {
-      const { fromSec, toSec } = resolveFreshWindow(win);
+    async listLatestSourceScoresForTicker(ticker, limit) {
       const rows = await db
         .select()
         .from(sourceScoreSchema)
         .where(
           and(
             eq(sourceScoreSchema.ticker, ticker),
-            between(sourceScoreSchema.updatedAtSec, fromSec, toSec)
+            sql`${sourceScoreSchema.score} IS NOT NULL`
           )
-        );
-      return (rows as (typeof sourceScoreSchema.$inferSelect)[])
-        .filter((r) => r.score != null)
-        .map((r) => rowToSourceResult(r as typeof r & { score: number }));
+        )
+        .orderBy(desc(sourceScoreSchema.updatedAtSec))
+        .limit(limit);
+      return (rows as (typeof sourceScoreSchema.$inferSelect)[]).map((r) =>
+        rowToSourceResult(r as typeof r & { score: number })
+      );
     },
 
-    async countFreshSourceScoresForTicker(ticker, win) {
-      const { fromSec, toSec } = resolveFreshWindow(win);
-      const result = await db
-        .select({ count: count() })
+    async listLatestSourceScoresBefore(ticker, beforeSec, limit) {
+      const rows = await db
+        .select()
         .from(sourceScoreSchema)
         .where(
           and(
             eq(sourceScoreSchema.ticker, ticker),
-            between(sourceScoreSchema.updatedAtSec, fromSec, toSec)
+            sql`${sourceScoreSchema.score} IS NOT NULL`,
+            sql`${sourceScoreSchema.updatedAtSec} <= ${beforeSec}`
           )
-        );
-      return (result[0] as { count: number } | undefined)?.count ?? 0;
+        )
+        .orderBy(desc(sourceScoreSchema.updatedAtSec))
+        .limit(limit);
+      return (rows as (typeof sourceScoreSchema.$inferSelect)[]).map((r) =>
+        rowToSourceResult(r as typeof r & { score: number })
+      );
     },
   };
 }

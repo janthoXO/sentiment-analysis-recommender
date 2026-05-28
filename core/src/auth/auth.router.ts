@@ -53,6 +53,33 @@ export function authMiddleware(
   }
 }
 
+export function optionalAuthMiddleware(
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+): void {
+  const authHeader = req.headers.authorization;
+  let token = authHeader?.split(" ")[1];
+
+  if (!token && req.query.token) {
+    token = req.query.token as string;
+  }
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as {
+        userId: string;
+        username: string;
+      };
+      req.user = decoded;
+    } catch {
+      // ignore invalid tokens — user stays unauthenticated
+    }
+  }
+
+  next();
+}
+
 export function makeAuthRouter({
   db,
   createDefaultListsForUser,

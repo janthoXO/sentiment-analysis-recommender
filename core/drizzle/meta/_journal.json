@@ -29,6 +29,13 @@
       "when": 1748476800000,
       "tag": "0003_tracker_fk_ticker",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779981013946,
+      "tag": "0004_closed_spirit",
+      "breakpoints": true
     }
   ]
 }

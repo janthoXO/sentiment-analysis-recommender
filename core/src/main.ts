@@ -12,6 +12,7 @@ import * as schemas from "./schemas.js";
 
 // repos
 import { makeTickerStockRepo } from "./stocks/ticker-stock.repo.js";
+import { makeUserTickerAccessRepo } from "./stocks/user-ticker-access.repo.js";
 import { makeSourceScoreRepo } from "./sentiment/source-score.repo.js";
 import { makeTrackerRepo } from "./tracker/tracker.repo.js";
 import { makeWatchlistRepo } from "./watchlist/watchlist.repo.js";
@@ -41,6 +42,9 @@ import { makeSentimentRouter } from "./sentiment/sentiment.router.js";
 import { makeTrendsRouter } from "./trends/trends.router.js";
 import { makeWatchlistRouter } from "./watchlist/watchlist.router.js";
 import { makeAuthRouter } from "./auth/auth.router.js";
+import { makeNotificationRouter } from "./notifications/notification.router.js";
+import { makeNotificationService } from "./notifications/notification.service.js";
+import { sentimentEmitter } from "./utils/events.js";
 
 import { initApp } from "./router.js";
 
@@ -60,6 +64,7 @@ async function bootstrap() {
 
   // ── Repos ──────────────────────────────────────────────────────────────────
   const tickerStockRepo = makeTickerStockRepo(db);
+  const userTickerAccessRepo = makeUserTickerAccessRepo(db);
   const sourceScoreRepo = makeSourceScoreRepo(db);
   const trackerRepo = makeTrackerRepo(db);
   const watchlistRepo = makeWatchlistRepo(db);
@@ -131,6 +136,7 @@ async function bootstrap() {
     stocksService,
     stockCache,
     tickerStockRepo,
+    userTickerAccessRepo,
     getCompanyPeers,
     searchTickers,
   });
@@ -144,13 +150,15 @@ async function bootstrap() {
     tickerStockRepo,
   });
 
-  const trendsRouter = makeTrendsRouter({ stockRepo: tickerStockRepo });
+  const trendsRouter = makeTrendsRouter({
+    stockRepo: tickerStockRepo,
+    userTickerAccessRepo,
+  });
 
   const watchlistRouter = makeWatchlistRouter({
     watchlistRepo,
     trackerService,
     tickerStockRepo,
-    sourceScoreRepo,
     searchTickers,
   });
 
@@ -159,6 +167,19 @@ async function bootstrap() {
     createDefaultListsForUser: (userId) =>
       watchlistRepo.createDefaultListsForUser(userId),
   });
+
+  const notificationService = makeNotificationService({
+    watchlistRepo,
+    sourceScoreRepo,
+    userTickerAccessRepo,
+    env,
+  });
+
+  sentimentEmitter.on("source-update", (evt) =>
+    notificationService.onSourceUpdate(evt)
+  );
+
+  const notificationRouter = makeNotificationRouter({ notificationService });
 
   // ── HTTP server ────────────────────────────────────────────────────────────
   initApp({
@@ -169,6 +190,7 @@ async function bootstrap() {
     trendsRouter,
     watchlistRouter,
     authRouter,
+    notificationRouter,
   });
 
   // ── Background trackers ────────────────────────────────────────────────────

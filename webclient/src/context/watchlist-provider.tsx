@@ -4,25 +4,25 @@ import {
   useEffect,
   useState,
   useCallback,
-  useRef,
 } from "react"
 import type { ReactNode } from "react"
 import { useAuth } from "./auth-provider.js"
 import { toast } from "sonner"
 import type { List } from "@/api/generated/dtos/index.js"
-import type { SourceResult } from "@/api/generated/dtos/sourceResult.gen.js"
+import type { NotificationEvent } from "@/api/generated/dtos/notificationEvent.gen.js"
 import {
   getApiLists,
+  getApiNotificationsStream,
   postApiLists,
   patchApiListsId,
   deleteApiListsId,
   postApiListsIdItems,
   deleteApiListsIdItemsTicker,
 } from "@/api/generated/sentimentSearchAPI.gen.js"
+import { readStream } from "@/lib/stream.js"
 import { toastApiError } from "@/lib/api-error.js"
 
 const DIVERGENCE_THRESHOLD = 0.2
-const NOTIFY_INTERVAL_MS = 30_000
 
 export interface WatchlistAlert {
   id: number
@@ -50,14 +50,6 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const { token, isAuthenticated } = useAuth()
   const [lists, setLists] = useState<List[]>([])
   const [alerts, setAlerts] = useState<WatchlistAlert[]>([])
-  const sseErrorToastedRef = useRef(false)
-
-  // ticker → { score, notifiedAt } for throttled alerts
-  const lastNotifiedRef = useRef<
-    Map<string, { score: number; notifiedAt: number }>
-  >(new Map())
-  // ticker → running avg score built from per-article SSE events
-  const tickerScoresRef = useRef<Map<string, Map<string, number>>>(new Map())
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${token}` }),
@@ -87,77 +79,66 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     })()
   }, [refresh])
 
-  // SSE for real-time per-article sentiment updates
+  // NDJSON stream for real-time per-ticker sentiment notifications
   useEffect(() => {
     if (!isAuthenticated || !token) return
-    sseErrorToastedRef.current = false
-    const eventSource = new EventSource(`/api/lists/stream?token=${token}`)
+    const ctrl = new AbortController()
 
-    eventSource.onmessage = (event) => {
+    void (async () => {
       try {
-        const data = JSON.parse(event.data as string) as {
-          type: string
-          ticker?: string
-          source?: SourceResult
-          avgScore?: number
-        }
+        const res = await getApiNotificationsStream({
+          signal: ctrl.signal,
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (ctrl.signal.aborted || res.status !== 200) return
 
-        if (
-          data.type === "SOURCE_UPDATE" &&
-          data.ticker &&
-          data.source != null &&
-          data.avgScore != null
-        ) {
-          const { ticker, source, avgScore } = data as {
-            ticker: string
-            source: SourceResult
-            avgScore: number
+        await readStream(
+          (res as unknown as { stream: Response }).stream,
+          (parsed) => {
+            if (ctrl.signal.aborted) return
+            const event = parsed as NotificationEvent
+            if (!event.ticker || !Array.isArray(event.latest)) return
+
+            const { ticker, before, latest } = event
+            if (latest.length === 0) return
+
+            const avgLatest =
+              latest.reduce((sum, s) => sum + s.score, 0) / latest.length
+            const now = Date.now()
+
+            if (before.length === 0) {
+              toast.message(`Sentiment Alert: ${ticker}`, {
+                description: `Current score: ${avgLatest.toFixed(2)}`,
+              })
+              setAlerts((prev) =>
+                [{ id: now, ticker, avgScore: avgLatest }, ...prev].slice(0, 50)
+              )
+              return
+            }
+
+            const avgBefore =
+              before.reduce((sum, s) => sum + s.score, 0) / before.length
+
+            if (Math.abs(avgLatest - avgBefore) >= DIVERGENCE_THRESHOLD) {
+              toast.message(`Sentiment Alert: ${ticker}`, {
+                description: `Score changed from ${avgBefore.toFixed(2)} to ${avgLatest.toFixed(2)}`,
+              })
+              setAlerts((prev) =>
+                [{ id: now, ticker, avgScore: avgLatest }, ...prev].slice(0, 50)
+              )
+            }
           }
-
-          // Update our running score map
-          const scoreMap =
-            tickerScoresRef.current.get(ticker) ?? new Map<string, number>()
-          scoreMap.set(source.url, source.score)
-          tickerScoresRef.current.set(ticker, scoreMap)
-
-          // Throttled notification: fire only if enough time has passed AND score diff is large
-          const prev = lastNotifiedRef.current.get(ticker)
-          const now = Date.now()
-          if (
-            (!prev || now - prev.notifiedAt >= NOTIFY_INTERVAL_MS) &&
-            (!prev || Math.abs(avgScore - prev.score) >= DIVERGENCE_THRESHOLD)
-          ) {
-            const prevScore = prev?.score
-            toast.message(`Sentiment Alert: ${ticker}`, {
-              description:
-                prevScore != null
-                  ? `Score changed from ${prevScore.toFixed(2)} to ${avgScore.toFixed(2)}`
-                  : `Current score: ${avgScore.toFixed(2)}`,
-            })
-            lastNotifiedRef.current.set(ticker, {
-              score: avgScore,
-              notifiedAt: now,
-            })
-            setAlerts((prev) =>
-              [{ id: now, ticker, avgScore }, ...prev].slice(0, 50)
-            )
-          }
-        }
-      } catch (err) {
-        console.error("SSE parse error", err)
-      }
-    }
-
-    eventSource.onerror = (err) => {
-      console.error("SSE Error:", err)
-      if (!sseErrorToastedRef.current) {
-        sseErrorToastedRef.current = true
+        )
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return
+        console.error("Notification stream error:", e)
         toast.error("Real-time updates disconnected", {
           description: "Sentiment alerts may be delayed.",
         })
       }
-    }
-    return () => eventSource.close()
+    })()
+
+    return () => ctrl.abort()
   }, [isAuthenticated, token])
 
   const createList = useCallback(

@@ -29,6 +29,7 @@ export interface WatchlistRepo {
   removeListItem(listId: string, ticker: string): Promise<void>;
   getListOwner(listId: string): Promise<string | null>;
   createDefaultListsForUser(userId: string): Promise<void>;
+  getUserIdsWatchingTicker(ticker: string): Promise<string[]>;
 }
 
 export function makeWatchlistRepo(db: Db): WatchlistRepo {
@@ -126,6 +127,15 @@ export function makeWatchlistRepo(db: Db): WatchlistRepo {
         { id: uuidv4(), userId, name: "Watchlist", createdAtSec: now },
         { id: uuidv4(), userId, name: "Portfolio", createdAtSec: now + 1 },
       ]);
+    },
+
+    async getUserIdsWatchingTicker(ticker) {
+      const rows = await db
+        .selectDistinct({ userId: listsSchema.userId })
+        .from(listItemsSchema)
+        .innerJoin(listsSchema, eq(listItemsSchema.listId, listsSchema.id))
+        .where(eq(listItemsSchema.ticker, ticker));
+      return (rows as Array<{ userId: string }>).map((r) => r.userId);
     },
   };
 }

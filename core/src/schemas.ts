@@ -7,4 +7,5 @@ export {
   listItemsRelations,
 } from "./watchlist/watchlist.schema.js";
 export { tickerStockSchema } from "./stocks/ticker-stock.schema.js";
+export { userTickerAccessSchema } from "./stocks/user-ticker-access.schema.js";
 export { sourceScoreSchema } from "./sentiment/source-score.schema.js";

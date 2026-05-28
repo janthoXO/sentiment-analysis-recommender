@@ -12,8 +12,6 @@ import type {
   AuthResponse,
   CandleSeries,
   CreateListRequest,
-  GetApiListsStreamParams,
-  GetApiTickersArticlesParams,
   GetApiTickersParams,
   GetApiTickersTickerIdArticlesParams,
   GetApiTickersTickerIdArticlesSentimentParams,
@@ -21,6 +19,7 @@ import type {
   HttpError,
   List,
   ListSummary,
+  NotificationEvent,
   RenameListRequest,
   SearchError,
   SourceResult,
@@ -95,70 +94,6 @@ export const getApiTickers = async (params?: GetApiTickersParams, options?: Requ
 );
 
   return { status: stream.status, stream, headers: stream.headers } as getApiTickersResponse
-  }
-
-
-
-export type getApiTickersArticlesResponse200 = {
-  stream: TypedResponse<TickerArticles | SearchError>
-  status: 200
-}
-
-export type getApiTickersArticlesResponse400 = {
-  data: HttpError
-  status: 400
-}
-
-export type getApiTickersArticlesResponse500 = {
-  data: HttpError
-  status: 500
-}
-
-export type getApiTickersArticlesResponseSuccess = (getApiTickersArticlesResponse200) & {
-  headers: Headers;
-};
-export type getApiTickersArticlesResponseError = (getApiTickersArticlesResponse400 | getApiTickersArticlesResponse500) & {
-  headers: Headers;
-};
-
-export type getApiTickersArticlesResponse = (getApiTickersArticlesResponseSuccess | getApiTickersArticlesResponseError)
-
-export const getGetApiTickersArticlesUrl = (params: GetApiTickersArticlesParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    const explodeParameters = ["tickerIds"];
-
-    if (Array.isArray(value) && explodeParameters.includes(key)) {
-      value.forEach((v) => {
-        normalizedParams.append(key, v === null ? 'null' : v.toString());
-      });
-      return;
-    }
-
-
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/tickers/articles?${stringifiedParams}` : `/api/tickers/articles`
-}
-
-/**
- * @summary Stream articles for a list of tickers as NDJSON.
- */
-export const getApiTickersArticles = async (params: GetApiTickersArticlesParams, options?: RequestInit): Promise<getApiTickersArticlesResponse> => {
-
-    const stream = await fetch(getGetApiTickersArticlesUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);
-
-  return { status: stream.status, stream, headers: stream.headers } as getApiTickersArticlesResponse
   }
 
 
@@ -944,59 +879,48 @@ export const deleteApiListsIdItemsTicker = async (id: string,
 
 
 
-export type getApiListsStreamResponse200 = {
-  data: string
+export type getApiNotificationsStreamResponse200 = {
+  stream: TypedResponse<NotificationEvent>
   status: 200
 }
 
-export type getApiListsStreamResponse401 = {
+export type getApiNotificationsStreamResponse401 = {
   data: HttpError
   status: 401
 }
 
-export type getApiListsStreamResponseSuccess = (getApiListsStreamResponse200) & {
+export type getApiNotificationsStreamResponseSuccess = (getApiNotificationsStreamResponse200) & {
   headers: Headers;
 };
-export type getApiListsStreamResponseError = (getApiListsStreamResponse401) & {
+export type getApiNotificationsStreamResponseError = (getApiNotificationsStreamResponse401) & {
   headers: Headers;
 };
 
-export type getApiListsStreamResponse = (getApiListsStreamResponseSuccess | getApiListsStreamResponseError)
+export type getApiNotificationsStreamResponse = (getApiNotificationsStreamResponseSuccess | getApiNotificationsStreamResponseError)
 
-export const getGetApiListsStreamUrl = (params?: GetApiListsStreamParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getGetApiNotificationsStreamUrl = () => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/lists/stream?${stringifiedParams}` : `/api/lists/stream`
+  return `/api/notifications/stream`
 }
 
 /**
- * Server-Sent Events stream. Each `data:` line is a JSON-encoded `SentimentStreamEvent`. On each scored article for a watched ticker the server emits a `SOURCE_UPDATE` event containing the article's SourceResult and the recomputed ticker avgScore. Pass the JWT via the `token` query parameter when using the browser `EventSource` API (which cannot set custom headers).
+ * Long-lived NDJSON stream. Each line is a JSON-encoded `NotificationEvent` containing two arrays of SourceResults: `before` (scored before the user last viewed the ticker) and `latest` (the current top-N scores). The client computes avgScore for each array and notifies on divergence. Pass the JWT via the Authorization header (Bearer token) or ?token= query param.
 
- * @summary Stream per-article sentiment updates for user's watchlist tickers (SSE)
+ * @summary Stream sentiment divergence notifications for watched tickers as NDJSON
  */
-export const getApiListsStream = async (params?: GetApiListsStreamParams, options?: RequestInit): Promise<getApiListsStreamResponse> => {
+export const getApiNotificationsStream = async ( options?: RequestInit): Promise<getApiNotificationsStreamResponse> => {
 
-  const res = await fetch(getGetApiListsStreamUrl(params),
+    const stream = await fetch(getGetApiNotificationsStreamUrl(),
   {
     ...options,
     method: 'GET'
 
 
   }
-)
+);
 
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getApiListsStreamResponse['data'] = body !== null ? body : ''
-  return { data, status: res.status, headers: res.headers } as getApiListsStreamResponse
-}
+  return { status: stream.status, stream, headers: stream.headers } as getApiNotificationsStreamResponse
+  }
