@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react"
-import { toast } from "sonner"
 import { readStream } from "@/lib/stream"
 import { getApiTickersTickerIdSentiment } from "@/api/generated/sentimentSearchAPI.gen"
 import type { TickerResult } from "@/api/generated/dtos"
+import { assertStreamOk, toastApiError } from "@/lib/api-error"
 
 export function useTickerSentiment(ticker: string | undefined): {
   data: TickerResult | null
@@ -30,24 +30,26 @@ export function useTickerSentiment(ticker: string | undefined): {
         })
         if (signal.aborted) return
 
-        if (res.status !== 200) {
-          throw new Error(`Sentiment request failed: ${res.status}`)
-        }
+        assertStreamOk(res, `Could not load sentiment for ${ticker}`)
 
-        await readStream(res.stream, (parsedObj) => {
+        const streamRes = res as { stream: Response }
+        await readStream(streamRes.stream, (parsedObj) => {
           if ("error" in parsedObj) {
-            throw new Error(String((parsedObj as { error: string }).error))
+            const msg = (parsedObj as { error: string }).error
+            setError(msg)
+            toastApiError(
+              `Could not load sentiment for ${ticker}`,
+              new Error(msg)
+            )
+            return
           }
           setData(parsedObj as TickerResult)
         })
       } catch (e: unknown) {
-        if (e instanceof Error && e.name === "AbortError") return
         if (signal.aborted) return
         const msg = e instanceof Error ? e.message : "Unknown error"
         setError(msg)
-        toast.error(`Could not load sentiment for ${ticker}`, {
-          description: msg,
-        })
+        toastApiError(`Could not load sentiment for ${ticker}`, e)
       } finally {
         if (!signal.aborted) setLoading(false)
       }

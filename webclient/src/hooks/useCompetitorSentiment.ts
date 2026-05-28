@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { toast } from "sonner"
 import {
   getApiTickersTickerIdPeers,
   getApiTickersSentiment,
@@ -7,6 +6,7 @@ import {
 import { readStream } from "@/lib/stream"
 import type { Stock } from "@/api/generated/dtos/stock.gen"
 import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
+import { assertOk, toastApiError } from "@/lib/api-error"
 
 const EAGER_COUNT = 3
 
@@ -14,6 +14,7 @@ export function useCompetitorSentiment(ticker: string | undefined): {
   peers: Stock[]
   resultsByTicker: Record<string, TickerResult | null>
   loadingByTicker: Record<string, boolean>
+  errorsByTicker: Record<string, string>
   peersLoading: boolean
   error: string | null
   loadSentiment: (ticker: string) => void
@@ -25,10 +26,12 @@ export function useCompetitorSentiment(ticker: string | undefined): {
   const [loadingByTicker, setLoadingByTicker] = useState<
     Record<string, boolean>
   >({})
+  const [errorsByTicker, setErrorsByTicker] = useState<Record<string, string>>(
+    {}
+  )
   const [peersLoading, setPeersLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Debounce batch requests: collect tickers for 50ms then fire one request
   const pendingRef = useRef<Set<string>>(new Set())
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -49,19 +52,36 @@ export function useCompetitorSentiment(ticker: string | undefined): {
         if (res.status !== 200) return
 
         await readStream(res.stream, (parsedObj) => {
-          if (!("error" in parsedObj)) {
-            const r = parsedObj as TickerResult
-            setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
-            setLoadingByTicker((prev) => ({ ...prev, [r.stock.ticker]: false }))
+          if ("error" in parsedObj) {
+            const chunk = parsedObj as { error: string; ticker?: string }
+            if (chunk.ticker) {
+              setErrorsByTicker((prev) => ({
+                ...prev,
+                [chunk.ticker!]: chunk.error,
+              }))
+              setResultsByTicker((prev) => ({
+                ...prev,
+                [chunk.ticker!]: null,
+              }))
+              setLoadingByTicker((prev) => ({
+                ...prev,
+                [chunk.ticker!]: false,
+              }))
+            }
+            return
           }
+          const r = parsedObj as TickerResult
+          setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
+          setLoadingByTicker((prev) => ({ ...prev, [r.stock.ticker]: false }))
         })
 
-        // Mark tickers that returned no result as done
         setResultsByTicker((prev) => {
           const next = { ...prev }
           for (const t of tickers) if (next[t] === undefined) next[t] = null
           return next
         })
+      } catch (e) {
+        toastApiError("Could not load competitor sentiment", e)
       } finally {
         setLoadingByTicker((prev) => {
           const next = { ...prev }
@@ -74,7 +94,6 @@ export function useCompetitorSentiment(ticker: string | undefined): {
 
   const loadSentiment = useCallback(
     (t: string) => {
-      // No-op if already loaded or loading
       if (resultsByTicker[t] !== undefined || loadingByTicker[t]) return
       pendingRef.current.add(t)
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
@@ -95,20 +114,20 @@ export function useCompetitorSentiment(ticker: string | undefined): {
       setPeers([])
       setResultsByTicker({})
       setLoadingByTicker({})
+      setErrorsByTicker({})
 
       try {
         const peersRes = await getApiTickersTickerIdPeers(ticker!, { signal })
         if (signal.aborted) return
 
-        const stocks = peersRes.data ?? []
+        const stocks =
+          assertOk<Stock[]>(peersRes, "Could not load competitors") ?? []
         setPeers(stocks)
 
         if (stocks.length === 0) return
 
-        // Eagerly fetch the first EAGER_COUNT peers
         const eagerTickers = stocks.slice(0, EAGER_COUNT).map((s) => s.ticker)
 
-        // Mark eager as loading; rest tickers stay undefined so loadSentiment can fetch them on demand
         const initialResults: Record<string, TickerResult | null> = {}
         const initialLoading: Record<string, boolean> = {}
         for (const t of eagerTickers) initialLoading[t] = true
@@ -124,19 +143,34 @@ export function useCompetitorSentiment(ticker: string | undefined): {
         if (eagerRes.status === 200) {
           await readStream(eagerRes.stream, (parsedObj) => {
             if (signal.aborted) return
-            if (!("error" in parsedObj)) {
-              const r = parsedObj as TickerResult
-              setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
-              setLoadingByTicker((prev) => ({
-                ...prev,
-                [r.stock.ticker]: false,
-              }))
+            if ("error" in parsedObj) {
+              const chunk = parsedObj as { error: string; ticker?: string }
+              if (chunk.ticker) {
+                setErrorsByTicker((prev) => ({
+                  ...prev,
+                  [chunk.ticker!]: chunk.error,
+                }))
+                setResultsByTicker((prev) => ({
+                  ...prev,
+                  [chunk.ticker!]: null,
+                }))
+                setLoadingByTicker((prev) => ({
+                  ...prev,
+                  [chunk.ticker!]: false,
+                }))
+              }
+              return
             }
+            const r = parsedObj as TickerResult
+            setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
+            setLoadingByTicker((prev) => ({
+              ...prev,
+              [r.stock.ticker]: false,
+            }))
           })
         }
 
         if (signal.aborted) return
-        // Mark eager tickers that returned no result as done
         setResultsByTicker((prev) => {
           const next = { ...prev }
           for (const t of eagerTickers)
@@ -149,12 +183,11 @@ export function useCompetitorSentiment(ticker: string | undefined): {
           return next
         })
       } catch (e: unknown) {
-        if (e instanceof Error && e.name === "AbortError") return
         if (signal.aborted) return
         const msg =
           e instanceof Error ? e.message : "Failed to load competitors"
         setError(msg)
-        toast.error("Could not load competitors", { description: msg })
+        toastApiError("Could not load competitors", e)
       } finally {
         if (!signal.aborted) setPeersLoading(false)
       }
@@ -171,6 +204,7 @@ export function useCompetitorSentiment(ticker: string | undefined): {
     peers,
     resultsByTicker,
     loadingByTicker,
+    errorsByTicker,
     peersLoading,
     error,
     loadSentiment,

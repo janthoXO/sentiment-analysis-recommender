@@ -2,6 +2,7 @@ import YahooFinance from "yahoo-finance2";
 import z from "zod";
 import { zRoot, zCandleSeries } from "@/generated/in/zod.gen.js";
 import { getUnixTime } from "date-fns";
+import { HttpError } from "@/middleware/httpError.js";
 
 const yf = new YahooFinance();
 
@@ -25,10 +26,20 @@ async function fetchYahooQuotes(
   period1: Date,
   period2: Date
 ): Promise<Candle[]> {
-  const raw = await yf.chart(ticker, { interval, period1, period2 });
+  let rawResult: unknown;
+  try {
+    rawResult = await yf.chart(ticker, { interval, period1, period2 });
+  } catch (e) {
+    throw HttpError.upstreamUnavailable(
+      `Price data unavailable for ${ticker}`,
+      e
+    );
+  }
+
+  const raw = rawResult as { quotes: unknown[] };
   const quotes = z.array(zYahooQuote).parse(raw.quotes);
 
-  return quotes
+  const candles = quotes
     .filter(
       (q) =>
         q.open != null && q.high != null && q.low != null && q.close != null
@@ -41,6 +52,15 @@ async function fetchYahooQuotes(
       close: q.close!,
       volume: q.volume ?? undefined,
     }));
+
+  if (candles.length === 0) {
+    throw HttpError.notFound(
+      "NO_PRICE_DATA",
+      `No price data available for ${ticker} in this window`
+    );
+  }
+
+  return candles;
 }
 
 export async function fetchCandlesByWindow(

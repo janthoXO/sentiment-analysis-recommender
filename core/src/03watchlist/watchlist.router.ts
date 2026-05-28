@@ -23,23 +23,20 @@ import { sentimentEmitter, type SentimentChangeEvent } from "../events.js";
 import { searchTickers } from "@/stocks/stocks.api.js";
 import { getUnixTime } from "date-fns";
 import { env } from "@/env.js";
+import { asyncHandler, HttpError } from "@/middleware/httpError.js";
 
 export const listsRouter = Router();
 
 listsRouter.use(authMiddleware);
 
-// GET /api/lists — return all lists with their items
-listsRouter.get("/", async (req: AuthenticatedRequest, res) => {
-  try {
+listsRouter.get(
+  "/",
+  asyncHandler(async (req: AuthenticatedRequest, res) => {
     const lists = await getListsForUser(req.user!.userId);
     res.json(lists);
-  } catch (err) {
-    console.error("Get lists error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  })
+);
 
-// GET /api/lists/stream — SSE (must be before /:id to avoid param shadowing)
 listsRouter.get("/stream", (req: AuthenticatedRequest, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -67,13 +64,12 @@ listsRouter.get("/stream", (req: AuthenticatedRequest, res) => {
   });
 });
 
-// POST /api/lists — create a new list
-listsRouter.post("/", async (req: AuthenticatedRequest, res): Promise<void> => {
-  try {
+listsRouter.post(
+  "/",
+  asyncHandler(async (req: AuthenticatedRequest, res): Promise<void> => {
     const { name } = req.body;
     if (!name || typeof name !== "string") {
-      res.status(400).json({ error: "name required" });
-      return;
+      throw HttpError.badRequest("MISSING_FIELD", "name required");
     }
     const list = await createList(
       req.user!.userId,
@@ -82,123 +78,87 @@ listsRouter.post("/", async (req: AuthenticatedRequest, res): Promise<void> => {
       getUnixTime(new Date())
     );
     res.json(list);
-  } catch (err) {
-    console.error("Create list error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  })
+);
 
-// PATCH /api/lists/:id — rename a list
 listsRouter.patch(
   "/:id",
-  async (req: AuthenticatedRequest, res): Promise<void> => {
-    try {
-      const { name } = req.body;
-      if (!name || typeof name !== "string") {
-        res.status(400).json({ error: "name required" });
-        return;
-      }
-      const updated = await renameList(
-        req.user!.userId,
-        req.params.id as string,
-        name.trim()
-      );
-      if (!updated) {
-        res.status(404).json({ error: "List not found" });
-        return;
-      }
-      res.json({ id: updated.id, name: updated.name });
-    } catch (err) {
-      console.error("Rename list error:", err);
-      res.status(500).json({ error: "Internal server error" });
+  asyncHandler(async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { name } = req.body;
+    if (!name || typeof name !== "string") {
+      throw HttpError.badRequest("MISSING_FIELD", "name required");
     }
-  }
+    const updated = await renameList(
+      req.user!.userId,
+      req.params.id as string,
+      name.trim()
+    );
+    if (!updated) {
+      throw HttpError.notFound("LIST_NOT_FOUND", "List not found");
+    }
+    res.json({ id: updated.id, name: updated.name });
+  })
 );
 
-// DELETE /api/lists/:id — delete a list (cascades to items)
 listsRouter.delete(
   "/:id",
-  async (req: AuthenticatedRequest, res): Promise<void> => {
-    try {
-      await deleteList(req.user!.userId, req.params.id as string);
-      res.json({ message: "Deleted" });
-    } catch (err) {
-      console.error("Delete list error:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  }
+  asyncHandler(async (req: AuthenticatedRequest, res): Promise<void> => {
+    await deleteList(req.user!.userId, req.params.id as string);
+    res.json({ message: "Deleted" });
+  })
 );
 
-// POST /api/lists/:id/items — add a ticker to a list
 listsRouter.post(
   "/:id/items",
-  async (req: AuthenticatedRequest, res): Promise<void> => {
-    try {
-      const { ticker } = req.body;
-      if (!ticker || typeof ticker !== "string") {
-        res.status(400).json({ error: "ticker required" });
-        return;
-      }
-
-      const owner = await getListOwner(req.params.id as string);
-      if (owner !== req.user!.userId) {
-        res.status(403).json({ error: "Forbidden" });
-        return;
-      }
-
-      const normalizedTicker = ticker.toUpperCase().trim();
-      let stock = await getTickerStock(normalizedTicker);
-      if (!stock) {
-        stock = await searchTickers(normalizedTicker).then(
-          (results) =>
-            results.find((s) => s.ticker.toUpperCase() === normalizedTicker) ??
-            null
-        );
-
-        if (!stock) {
-          res.status(400).json({ error: "Ticker not found" });
-          return;
-        }
-
-        await upsertTickerStock(stock);
-      }
-
-      await saveTracker(
-        normalizedTicker,
-        normalizedTicker,
-        1,
-        env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000,
-        null
-      );
-      await addListItem(req.params.id as string, normalizedTicker);
-      res.json({ message: "Added" });
-    } catch (err) {
-      console.error("Add list item error:", err);
-      res.status(500).json({ error: "Internal server error" });
+  asyncHandler(async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { ticker } = req.body;
+    if (!ticker || typeof ticker !== "string") {
+      throw HttpError.badRequest("MISSING_FIELD", "ticker required");
     }
-  }
+
+    const owner = await getListOwner(req.params.id as string);
+    if (owner !== req.user!.userId) {
+      throw HttpError.forbidden();
+    }
+
+    const normalizedTicker = ticker.toUpperCase().trim();
+    let stock = await getTickerStock(normalizedTicker);
+    if (!stock) {
+      stock = await searchTickers(normalizedTicker).then(
+        (results) =>
+          results.find((s) => s.ticker.toUpperCase() === normalizedTicker) ??
+          null
+      );
+
+      if (!stock) {
+        throw HttpError.notFound("TICKER_NOT_FOUND", "Ticker not found");
+      }
+
+      await upsertTickerStock(stock);
+    }
+
+    await saveTracker(
+      normalizedTicker,
+      normalizedTicker,
+      1,
+      env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000,
+      null
+    );
+    await addListItem(req.params.id as string, normalizedTicker);
+    res.json({ message: "Added" });
+  })
 );
 
-// DELETE /api/lists/:id/items/:ticker — remove a ticker from a list
 listsRouter.delete(
   "/:id/items/:ticker",
-  async (req: AuthenticatedRequest, res): Promise<void> => {
-    try {
-      const owner = await getListOwner(req.params.id as string);
-      if (owner !== req.user!.userId) {
-        res.status(403).json({ error: "Forbidden" });
-        return;
-      }
-
-      await removeListItem(
-        req.params.id as string,
-        req.params.ticker as string
-      );
-
-      res.json({ message: "Removed" });
-    } catch (err) {
-      console.error("Remove list item error:", err);
-      res.status(500).json({ error: "Internal server error" });
+  asyncHandler(async (req: AuthenticatedRequest, res): Promise<void> => {
+    const owner = await getListOwner(req.params.id as string);
+    if (owner !== req.user!.userId) {
+      throw HttpError.forbidden();
     }
-  }
+
+    await removeListItem(req.params.id as string, req.params.ticker as string);
+
+    res.json({ message: "Removed" });
+  })
 );

@@ -5,9 +5,9 @@ import { connectMq } from "./mq.repo.js";
 import {
   initPersistedTrackers,
   initTopTrackers,
+  initTrendingTickers,
 } from "./01tracker/tracker.service.js";
 import { runMigrations } from "./postgres.repo.js";
-import { initTrendingTickers } from "./01tracker/tracker.service.js";
 
 console.log("Environment variables loaded.", env);
 

@@ -6,12 +6,9 @@
  * OpenAPI spec version: 1.0.0
  */
 
-/**
- * An error chunk emitted mid-stream for a specific ticker (or the whole request).
- */
-export interface SearchError {
+export interface HttpError {
+  /** Human-readable error message safe to display to the user. */
   error: string;
+  /** Machine-readable error code (e.g. UPSTREAM_UNAVAILABLE, USERNAME_TAKEN). */
   code: string;
-  /** Present when the failure is scoped to a single ticker. */
-  ticker?: string;
 }

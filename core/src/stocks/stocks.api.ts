@@ -4,6 +4,7 @@ import type { StockRoot } from "@/generated/in/index.js";
 import * as cheerio from "cheerio";
 import YahooFinance from "yahoo-finance2";
 import { dedupe } from "@/utils/depupe.js";
+import { HttpError } from "@/middleware/httpError.js";
 
 const yf = new YahooFinance();
 
@@ -21,10 +22,24 @@ async function searchTickersFinnhub(query: string): Promise<StockRoot[]> {
   url.searchParams.set("q", query);
   url.searchParams.set("token", env.FINNHUB_API_KEY);
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Tickers for query "${query}"`);
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (e) {
+    throw HttpError.upstreamUnavailable("Stock search unavailable", e);
   }
+
+  if (response.status === 429 || response.status >= 500) {
+    throw HttpError.upstreamUnavailable(
+      `Stock search rate-limited or unavailable (${response.status})`
+    );
+  }
+  if (!response.ok) {
+    throw HttpError.upstreamUnavailable(
+      `Stock search failed (${response.status})`
+    );
+  }
+
   const data = SearchTickersResponse.parse(await response.json());
 
   const tickerSet: Record<string, StockRoot> = {};
@@ -69,8 +84,9 @@ export async function searchTickers(query: string): Promise<StockRoot[]> {
     if (stocks.length > 0) {
       return stocks;
     }
-  } catch {
-    // fall through to Finnhub
+  } catch (e) {
+    if (e instanceof HttpError) throw e;
+    // Yahoo failed — fall through to Finnhub
   }
 
   return searchTickersFinnhub(query);
@@ -80,10 +96,24 @@ const zPeersResponse = z.array(z.string());
 
 async function fetchFinnhubPeers(ticker: string): Promise<string[]> {
   const url = `https://finnhub.io/api/v1/stock/peers?symbol=${encodeURIComponent(ticker)}`;
-  const res = await fetch(url, {
-    headers: { "X-Finnhub-Token": env.FINNHUB_API_KEY },
-  });
-  if (!res.ok) throw new Error(`Finnhub peers ${res.status}`);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "X-Finnhub-Token": env.FINNHUB_API_KEY },
+    });
+  } catch (e) {
+    throw HttpError.upstreamUnavailable("Peer lookup unavailable", e);
+  }
+
+  if (res.status === 429 || res.status >= 500) {
+    throw HttpError.upstreamUnavailable(
+      `Peer lookup rate-limited or unavailable (${res.status})`
+    );
+  }
+  if (!res.ok) {
+    throw HttpError.upstreamUnavailable(`Peer lookup failed (${res.status})`);
+  }
 
   const parsed = zPeersResponse.parse(await res.json());
   const upper = ticker.toUpperCase();
@@ -95,7 +125,16 @@ async function fetchFinnhubPeers(ticker: string): Promise<string[]> {
 }
 
 export async function getCompanyPeers(ticker: string): Promise<string[]> {
-  const finnhubPeers = await fetchFinnhubPeers(ticker);
+  let finnhubPeers: string[] = [];
+  try {
+    finnhubPeers = await fetchFinnhubPeers(ticker);
+  } catch (e) {
+    if (e instanceof HttpError && e.status === 503) {
+      // Finnhub unavailable — try Yahoo fallback below
+    } else {
+      throw e;
+    }
+  }
   if (finnhubPeers.length > 0) return finnhubPeers;
 
   // Yahoo fallback for non-US tickers where Finnhub returns nothing.
@@ -123,7 +162,13 @@ const zTrendingResult = z.object({
 });
 
 export async function getTrendingTickers(): Promise<StockRoot[]> {
-  const raw = await yf.trendingSymbols("US", { count: 20 });
+  let raw: Awaited<ReturnType<typeof yf.trendingSymbols>>;
+  try {
+    raw = await yf.trendingSymbols("US", { count: 20 });
+  } catch (e) {
+    throw HttpError.upstreamUnavailable("Trending feed unavailable", e);
+  }
+
   const parsed = zTrendingResult.parse(raw);
   const symbols = parsed.quotes.map((q) => q.symbol);
 
@@ -137,7 +182,7 @@ export async function getTrendingTickers(): Promise<StockRoot[]> {
         );
         if (match) results.push(match);
       } catch {
-        // skip symbols that fail lookup
+        // skip symbols that fail individual lookup
       }
     })
   );
@@ -148,29 +193,34 @@ export async function getTrendingTickers(): Promise<StockRoot[]> {
 async function fetchSP500(): Promise<StockRoot[]> {
   const url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies";
 
+  let response: Response;
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-    const htmlString = await response.text();
-    const $ = cheerio.load(htmlString);
-    const constituents: StockRoot[] = [];
-
-    $("#constituents tbody tr").each((index, element) => {
-      if (index === 0) return;
-
-      const tds = $(element).find("td");
-
-      if (tds.length >= 7) {
-        const ticker = tds.eq(0).text().trim();
-        const name = tds.eq(1).text().trim();
-        constituents.push({ ticker, name });
-      }
-    });
-
-    return constituents;
-  } catch (error) {
-    console.error("Failed to fetch S&P 500 data:", error);
-    throw error;
+    response = await fetch(url);
+  } catch (e) {
+    throw HttpError.upstreamUnavailable("S&P 500 list unavailable", e);
   }
+
+  if (!response.ok) {
+    throw HttpError.upstreamUnavailable(
+      `S&P 500 list fetch failed (${response.status})`
+    );
+  }
+
+  const htmlString = await response.text();
+  const $ = cheerio.load(htmlString);
+  const constituents: StockRoot[] = [];
+
+  $("#constituents tbody tr").each((index, element) => {
+    if (index === 0) return;
+
+    const tds = $(element).find("td");
+
+    if (tds.length >= 7) {
+      const ticker = tds.eq(0).text().trim();
+      const name = tds.eq(1).text().trim();
+      constituents.push({ ticker, name });
+    }
+  });
+
+  return constituents;
 }

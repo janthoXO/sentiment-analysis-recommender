@@ -19,6 +19,7 @@ export * from './getApiTickersTickerIdCandlesDuration.gen';
 export * from './getApiTickersTickerIdCandlesInterval.gen';
 export * from './getApiTickersTickerIdCandlesParams.gen';
 export * from './getApiTickersTickerIdSentimentParams.gen';
+export * from './httpError.gen';
 export * from './list.gen';
 export * from './listItem.gen';
 export * from './listSummary.gen';

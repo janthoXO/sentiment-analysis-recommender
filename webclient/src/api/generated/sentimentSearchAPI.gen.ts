@@ -15,6 +15,7 @@ import type {
   GetApiTickersSentimentParams,
   GetApiTickersTickerIdCandlesParams,
   GetApiTickersTickerIdSentimentParams,
+  HttpError,
   List,
   ListSummary,
   RenameListRequest,
@@ -33,12 +34,24 @@ export type getApiTickersSentimentResponse200 = {
   status: 200
 }
 
+export type getApiTickersSentimentResponse400 = {
+  data: HttpError
+  status: 400
+}
+
+export type getApiTickersSentimentResponse500 = {
+  data: HttpError
+  status: 500
+}
+
 export type getApiTickersSentimentResponseSuccess = (getApiTickersSentimentResponse200) & {
   headers: Headers;
 };
-;
+export type getApiTickersSentimentResponseError = (getApiTickersSentimentResponse400 | getApiTickersSentimentResponse500) & {
+  headers: Headers;
+};
 
-export type getApiTickersSentimentResponse = (getApiTickersSentimentResponseSuccess)
+export type getApiTickersSentimentResponse = (getApiTickersSentimentResponseSuccess | getApiTickersSentimentResponseError)
 
 export const getGetApiTickersSentimentUrl = (params?: GetApiTickersSentimentParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -71,8 +84,8 @@ export const getApiTickersSentiment = async (params?: GetApiTickersSentimentPara
     const stream = await fetch(getGetApiTickersSentimentUrl(params),
   {
     ...options,
-    method: 'GET',
-    headers: { Accept: 'application/x-ndjson', ...options?.headers }
+    method: 'GET'
+
 
   }
 );
@@ -87,12 +100,19 @@ export type getApiTickersTrendingResponse200 = {
   status: 200
 }
 
+export type getApiTickersTrendingResponse500 = {
+  data: HttpError
+  status: 500
+}
+
 export type getApiTickersTrendingResponseSuccess = (getApiTickersTrendingResponse200) & {
   headers: Headers;
 };
-;
+export type getApiTickersTrendingResponseError = (getApiTickersTrendingResponse500) & {
+  headers: Headers;
+};
 
-export type getApiTickersTrendingResponse = (getApiTickersTrendingResponseSuccess)
+export type getApiTickersTrendingResponse = (getApiTickersTrendingResponseSuccess | getApiTickersTrendingResponseError)
 
 export const getGetApiTickersTrendingUrl = () => {
 
@@ -126,19 +146,24 @@ export const getApiTickersTrending = async ( options?: RequestInit): Promise<get
 
 
 export type getApiTickersTickerIdSentimentResponse200 = {
-  stream: TypedResponse<TickerResult>
+  stream: TypedResponse<TickerResult | SearchError>
   status: 200
 }
 
+export type getApiTickersTickerIdSentimentResponse400 = {
+  data: HttpError
+  status: 400
+}
+
 export type getApiTickersTickerIdSentimentResponse503 = {
-  data: void
+  data: HttpError
   status: 503
 }
 
 export type getApiTickersTickerIdSentimentResponseSuccess = (getApiTickersTickerIdSentimentResponse200) & {
   headers: Headers;
 };
-export type getApiTickersTickerIdSentimentResponseError = (getApiTickersTickerIdSentimentResponse503) & {
+export type getApiTickersTickerIdSentimentResponseError = (getApiTickersTickerIdSentimentResponse400 | getApiTickersTickerIdSentimentResponse503) & {
   headers: Headers;
 };
 
@@ -193,15 +218,25 @@ export type getApiTickersTickerIdCandlesResponse200 = {
   status: 200
 }
 
+export type getApiTickersTickerIdCandlesResponse400 = {
+  data: HttpError
+  status: 400
+}
+
+export type getApiTickersTickerIdCandlesResponse404 = {
+  data: HttpError
+  status: 404
+}
+
 export type getApiTickersTickerIdCandlesResponse503 = {
-  data: void
+  data: HttpError
   status: 503
 }
 
 export type getApiTickersTickerIdCandlesResponseSuccess = (getApiTickersTickerIdCandlesResponse200) & {
   headers: Headers;
 };
-export type getApiTickersTickerIdCandlesResponseError = (getApiTickersTickerIdCandlesResponse503) & {
+export type getApiTickersTickerIdCandlesResponseError = (getApiTickersTickerIdCandlesResponse400 | getApiTickersTickerIdCandlesResponse404 | getApiTickersTickerIdCandlesResponse503) & {
   headers: Headers;
 };
 
@@ -252,12 +287,24 @@ export type getApiTickersTickerIdPeersResponse200 = {
   status: 200
 }
 
+export type getApiTickersTickerIdPeersResponse500 = {
+  data: HttpError
+  status: 500
+}
+
+export type getApiTickersTickerIdPeersResponse503 = {
+  data: HttpError
+  status: 503
+}
+
 export type getApiTickersTickerIdPeersResponseSuccess = (getApiTickersTickerIdPeersResponse200) & {
   headers: Headers;
 };
-;
+export type getApiTickersTickerIdPeersResponseError = (getApiTickersTickerIdPeersResponse500 | getApiTickersTickerIdPeersResponse503) & {
+  headers: Headers;
+};
 
-export type getApiTickersTickerIdPeersResponse = (getApiTickersTickerIdPeersResponseSuccess)
+export type getApiTickersTickerIdPeersResponse = (getApiTickersTickerIdPeersResponseSuccess | getApiTickersTickerIdPeersResponseError)
 
 export const getGetApiTickersTickerIdPeersUrl = (tickerId: string,) => {
 
@@ -296,14 +343,19 @@ export type postApiAuthRegisterResponse200 = {
 }
 
 export type postApiAuthRegisterResponse400 = {
-  data: void
+  data: HttpError
   status: 400
+}
+
+export type postApiAuthRegisterResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type postApiAuthRegisterResponseSuccess = (postApiAuthRegisterResponse200) & {
   headers: Headers;
 };
-export type postApiAuthRegisterResponseError = (postApiAuthRegisterResponse400) & {
+export type postApiAuthRegisterResponseError = (postApiAuthRegisterResponse400 | postApiAuthRegisterResponse500) & {
   headers: Headers;
 };
 
@@ -347,14 +399,19 @@ export type postApiAuthLoginResponse200 = {
 }
 
 export type postApiAuthLoginResponse401 = {
-  data: void
+  data: HttpError
   status: 401
+}
+
+export type postApiAuthLoginResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type postApiAuthLoginResponseSuccess = (postApiAuthLoginResponse200) & {
   headers: Headers;
 };
-export type postApiAuthLoginResponseError = (postApiAuthLoginResponse401) & {
+export type postApiAuthLoginResponseError = (postApiAuthLoginResponse401 | postApiAuthLoginResponse500) & {
   headers: Headers;
 };
 
@@ -398,14 +455,19 @@ export type getApiListsResponse200 = {
 }
 
 export type getApiListsResponse401 = {
-  data: void
+  data: HttpError
   status: 401
+}
+
+export type getApiListsResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type getApiListsResponseSuccess = (getApiListsResponse200) & {
   headers: Headers;
 };
-export type getApiListsResponseError = (getApiListsResponse401) & {
+export type getApiListsResponseError = (getApiListsResponse401 | getApiListsResponse500) & {
   headers: Headers;
 };
 
@@ -447,15 +509,25 @@ export type postApiListsResponse200 = {
   status: 200
 }
 
+export type postApiListsResponse400 = {
+  data: HttpError
+  status: 400
+}
+
 export type postApiListsResponse401 = {
-  data: void
+  data: HttpError
   status: 401
+}
+
+export type postApiListsResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type postApiListsResponseSuccess = (postApiListsResponse200) & {
   headers: Headers;
 };
-export type postApiListsResponseError = (postApiListsResponse401) & {
+export type postApiListsResponseError = (postApiListsResponse400 | postApiListsResponse401 | postApiListsResponse500) & {
   headers: Headers;
 };
 
@@ -498,20 +570,30 @@ export type patchApiListsIdResponse200 = {
   status: 200
 }
 
+export type patchApiListsIdResponse400 = {
+  data: HttpError
+  status: 400
+}
+
 export type patchApiListsIdResponse401 = {
-  data: void
+  data: HttpError
   status: 401
 }
 
 export type patchApiListsIdResponse404 = {
-  data: void
+  data: HttpError
   status: 404
+}
+
+export type patchApiListsIdResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type patchApiListsIdResponseSuccess = (patchApiListsIdResponse200) & {
   headers: Headers;
 };
-export type patchApiListsIdResponseError = (patchApiListsIdResponse401 | patchApiListsIdResponse404) & {
+export type patchApiListsIdResponseError = (patchApiListsIdResponse400 | patchApiListsIdResponse401 | patchApiListsIdResponse404 | patchApiListsIdResponse500) & {
   headers: Headers;
 };
 
@@ -556,14 +638,19 @@ export type deleteApiListsIdResponse200 = {
 }
 
 export type deleteApiListsIdResponse401 = {
-  data: void
+  data: HttpError
   status: 401
+}
+
+export type deleteApiListsIdResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type deleteApiListsIdResponseSuccess = (deleteApiListsIdResponse200) & {
   headers: Headers;
 };
-export type deleteApiListsIdResponseError = (deleteApiListsIdResponse401) & {
+export type deleteApiListsIdResponseError = (deleteApiListsIdResponse401 | deleteApiListsIdResponse500) & {
   headers: Headers;
 };
 
@@ -605,20 +692,30 @@ export type postApiListsIdItemsResponse200 = {
   status: 200
 }
 
+export type postApiListsIdItemsResponse400 = {
+  data: HttpError
+  status: 400
+}
+
 export type postApiListsIdItemsResponse401 = {
-  data: void
+  data: HttpError
   status: 401
 }
 
 export type postApiListsIdItemsResponse403 = {
-  data: void
+  data: HttpError
   status: 403
+}
+
+export type postApiListsIdItemsResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type postApiListsIdItemsResponseSuccess = (postApiListsIdItemsResponse200) & {
   headers: Headers;
 };
-export type postApiListsIdItemsResponseError = (postApiListsIdItemsResponse401 | postApiListsIdItemsResponse403) & {
+export type postApiListsIdItemsResponseError = (postApiListsIdItemsResponse400 | postApiListsIdItemsResponse401 | postApiListsIdItemsResponse403 | postApiListsIdItemsResponse500) & {
   headers: Headers;
 };
 
@@ -663,19 +760,24 @@ export type deleteApiListsIdItemsTickerResponse200 = {
 }
 
 export type deleteApiListsIdItemsTickerResponse401 = {
-  data: void
+  data: HttpError
   status: 401
 }
 
 export type deleteApiListsIdItemsTickerResponse403 = {
-  data: void
+  data: HttpError
   status: 403
+}
+
+export type deleteApiListsIdItemsTickerResponse500 = {
+  data: HttpError
+  status: 500
 }
 
 export type deleteApiListsIdItemsTickerResponseSuccess = (deleteApiListsIdItemsTickerResponse200) & {
   headers: Headers;
 };
-export type deleteApiListsIdItemsTickerResponseError = (deleteApiListsIdItemsTickerResponse401 | deleteApiListsIdItemsTickerResponse403) & {
+export type deleteApiListsIdItemsTickerResponseError = (deleteApiListsIdItemsTickerResponse401 | deleteApiListsIdItemsTickerResponse403 | deleteApiListsIdItemsTickerResponse500) & {
   headers: Headers;
 };
 
@@ -720,7 +822,7 @@ export type getApiListsStreamResponse200 = {
 }
 
 export type getApiListsStreamResponse401 = {
-  data: void
+  data: HttpError
   status: 401
 }
 

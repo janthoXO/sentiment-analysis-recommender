@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react"
-import { toast } from "sonner"
 import { readStream } from "@/lib/stream"
 import { getApiTickersTickerIdSentiment } from "@/api/generated/sentimentSearchAPI.gen"
 import type { PriceEvent } from "@/lib/events"
@@ -7,6 +6,7 @@ import type {
   TickerResult,
   TickerResultSourcesItem,
 } from "@/api/generated/dtos"
+import { assertStreamOk, toastApiError } from "@/lib/api-error"
 
 export function useSentimentByEvents(
   ticker: string | undefined,
@@ -49,11 +49,10 @@ export function useSentimentByEvents(
         )
         if (signal.aborted) return
 
-        if (res.status !== 200) {
-          throw new Error(`Sentiment request failed: ${res.status}`)
-        }
+        assertStreamOk(res, "Could not load event sentiment")
 
-        await readStream(res.stream, (parsedObj) => {
+        const streamRes = res as { stream: Response }
+        await readStream(streamRes.stream, (parsedObj) => {
           if ("error" in parsedObj) return
           const result = parsedObj as TickerResult
           if (result.eventTSec !== undefined) {
@@ -65,12 +64,11 @@ export function useSentimentByEvents(
           }
         })
       } catch (e: unknown) {
-        if (e instanceof Error && e.name === "AbortError") return
         if (signal.aborted) return
         const msg =
           e instanceof Error ? e.message : "Failed to load event sentiment"
         setError(msg)
-        toast.error("Could not load event sentiment", { description: msg })
+        toastApiError("Could not load event sentiment", e)
       } finally {
         if (!signal.aborted) setLoading(false)
       }

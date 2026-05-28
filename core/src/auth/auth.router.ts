@@ -12,57 +12,59 @@ import { db } from "../postgres.repo.js";
 import { usersSchema } from "./auth.schema.js";
 import { listsSchema } from "../03watchlist/watchlist.schema.js";
 import { getUnixTime } from "date-fns";
+import { asyncHandler, HttpError } from "@/middleware/httpError.js";
 
 export const JWT_SECRET =
   process.env.JWT_SECRET || "fallback_secret_for_dev_only";
 
 export const authRouter = Router();
 
-authRouter.post("/register", async (req, res): Promise<void> => {
-  try {
+authRouter.post(
+  "/register",
+  asyncHandler(async (req, res): Promise<void> => {
     const { username, password } = req.body;
     if (!username || !password) {
-      res.status(400).json({ error: "Username and password required" });
-      return;
+      throw HttpError.badRequest(
+        "MISSING_CREDENTIALS",
+        "Username and password required"
+      );
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const userId = uuidv4();
+    try {
+      const passwordHash = await bcrypt.hash(password, 10);
+      const userId = uuidv4();
 
-    await db.insert(usersSchema).values({
-      id: userId,
-      username,
-      passwordHash,
-    });
+      await db
+        .insert(usersSchema)
+        .values({ id: userId, username, passwordHash });
 
-    const now = getUnixTime(new Date());
-    await db.insert(listsSchema).values([
-      { id: uuidv4(), userId, name: "Watchlist", createdAtSec: now },
-      { id: uuidv4(), userId, name: "Portfolio", createdAtSec: now + 1 },
-    ]);
+      const now = getUnixTime(new Date());
+      await db.insert(listsSchema).values([
+        { id: uuidv4(), userId, name: "Watchlist", createdAtSec: now },
+        { id: uuidv4(), userId, name: "Portfolio", createdAtSec: now + 1 },
+      ]);
 
-    const token = jwt.sign({ userId, username }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
-    res.json({ token });
-  } catch (error: unknown) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code: string }).code === "23505"
-    ) {
-      // Postgres unique_violation
-      res.status(400).json({ error: "Username already taken" });
-      return;
+      const token = jwt.sign({ userId, username }, JWT_SECRET, {
+        expiresIn: "7d",
+      });
+      res.json({ token });
+    } catch (error: unknown) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code: string }).code === "23505"
+      ) {
+        throw HttpError.badRequest("USERNAME_TAKEN", "Username already taken");
+      }
+      throw error;
     }
-    console.error("Register error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  })
+);
 
-authRouter.post("/login", async (req, res): Promise<void> => {
-  try {
+authRouter.post(
+  "/login",
+  asyncHandler(async (req, res): Promise<void> => {
     const { username, password } = req.body;
 
     const user = await db.query.usersSchema.findFirst({
@@ -70,14 +72,12 @@ authRouter.post("/login", async (req, res): Promise<void> => {
     });
 
     if (!user) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
+      throw HttpError.unauthorized("Invalid credentials");
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
+      throw HttpError.unauthorized("Invalid credentials");
     }
 
     const token = jwt.sign(
@@ -86,11 +86,8 @@ authRouter.post("/login", async (req, res): Promise<void> => {
       { expiresIn: "7d" }
     );
     res.json({ token });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  })
+);
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -104,7 +101,6 @@ export function authMiddleware(
   res: Response,
   next: NextFunction
 ): void {
-  // Allow passing token via query param (useful for SSE EventSource) or Authorization header
   const authHeader = req.headers.authorization;
   let token = authHeader?.split(" ")[1];
 
@@ -113,7 +109,7 @@ export function authMiddleware(
   }
 
   if (!token) {
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "Unauthorized", code: "UNAUTHORIZED" });
     return;
   }
 
@@ -125,6 +121,8 @@ export function authMiddleware(
     req.user = decoded;
     next();
   } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+    res
+      .status(401)
+      .json({ error: "Invalid or expired token", code: "UNAUTHORIZED" });
   }
 }
