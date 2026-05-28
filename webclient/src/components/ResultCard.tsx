@@ -14,8 +14,15 @@ export interface ResultCardProps {
 }
 
 export function ResultCard({ stock }: ResultCardProps) {
-  const { ticker, articles, avgScore } = stock
+  const { ticker, name, articles, avgScore, sector, industry, exchange } = stock
   const sentiment = avgScore != null ? parseSentimentLabel(avgScore) : null
+  const metadataBadges = Array.from(
+    new Set(
+      [sector, industry, exchange].filter(
+        (value): value is string => Boolean(value)
+      )
+    )
+  )
 
   // Sort articles by recency; apply positive/negative weighting once we have avgScore
   const sortedArticles = articles
@@ -47,9 +54,9 @@ export function ResultCard({ stock }: ResultCardProps) {
             <h3 className="text-2xl leading-none font-semibold tracking-tight">
               {ticker}
             </h3>
-            {stock.name && stock.name !== ticker && (
+            {name && name !== ticker && (
               <p className="mt-0.5 max-w-[160px] truncate text-xs text-muted-foreground">
-                {stock.name}
+                {name}
               </p>
             )}
           </div>
@@ -69,6 +76,19 @@ export function ResultCard({ stock }: ResultCardProps) {
         </CardHeader>
 
         <CardContent className="pb-2">
+          {metadataBadges.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {metadataBadges.map((label) => (
+                <Badge
+                  key={label}
+                  variant="secondary"
+                  className="max-w-full truncate text-[10px] font-medium"
+                >
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="mb-1 block text-muted-foreground">
