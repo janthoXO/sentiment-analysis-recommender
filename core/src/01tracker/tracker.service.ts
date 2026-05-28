@@ -61,9 +61,7 @@ function track(tracker: Tracker) {
     console.error(`Error requesting analysis for ${tracker.ticker}:`, err);
   });
 
-  // update lastTriggeredAt
   tracker.lastTriggeredAt = now;
-  // We update DB in background
   updateTrackerLastTriggered(
     tracker.ticker,
     tracker.priority,
@@ -81,7 +79,6 @@ function scheduleTracker(tracker: Tracker) {
   const now = Date.now();
 
   if (tracker.expiresAt && tracker.expiresAt < now) {
-    // skip expired trackers and remove them from db if they persist there
     deleteTracker(tracker.ticker, tracker.priority, tracker.interval).catch(
       (err) => {
         console.error(
@@ -98,15 +95,11 @@ function scheduleTracker(tracker: Tracker) {
     : 0;
 
   setTimeout(() => {
-    // fire the first trigger after the calculated delay
     track(tracker);
-
-    // after the first trigger, subsequent triggers will be handled by setInterval
     const key = getTrackerKey(tracker);
     if (intervalTimers.has(key)) {
       stopTracker(tracker);
     }
-
     const timer = setInterval(() => track(tracker), tracker.interval);
     intervalTimers.set(key, timer);
   }, timeToNextTrigger);
@@ -118,8 +111,32 @@ export async function initPersistedTrackers() {
   );
 }
 
-const TopTickerRefreshInterval = 4 * 7 * 24 * 60 * 60 * 1000; // 4 weeks in milliseconds
-const TopTickerInterval = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+// Diffs active trackers against a new stock list: stops removed tickers and starts new ones.
+// Each new ticker gets a random jitter applied to both the initial fire and subsequent interval,
+// so all fires for that ticker remain aligned to its jitter offset.
+function refreshTrackerGroup(
+  active: Record<string, Tracker>,
+  newStocks: Array<{ ticker: string; name: string }>,
+  buildTracker: (stock: { ticker: string; name: string }) => Tracker,
+  jitterMs: number
+) {
+  const newSet = new Set(newStocks.map((s) => s.ticker));
+
+  for (const ticker in active) {
+    if (!newSet.has(ticker)) {
+      stopTracker(active[ticker]!);
+      delete active[ticker];
+    }
+  }
+
+  for (const stock of newStocks) {
+    if (active[stock.ticker]) continue;
+    const tracker = buildTracker(stock);
+    active[stock.ticker] = tracker;
+    setTimeout(() => scheduleTracker(tracker), Math.random() * jitterMs);
+  }
+}
+
 const activeTopTickersTracker: Record<string, Tracker> = {};
 
 async function refreshTopTickers() {
@@ -127,39 +144,19 @@ async function refreshTopTickers() {
   try {
     const topTickers = await getTopTickers();
     console.log(`Fetched ${topTickers.length} Top Tickers.`);
-    const newTopTickers = new Set(topTickers.map((t) => t.ticker));
-
-    // Stop trackers for tickers that fell out
-    for (const oldTicker in activeTopTickersTracker) {
-      if (!newTopTickers.has(oldTicker)) {
-        stopTracker(activeTopTickersTracker[oldTicker]!);
-        delete activeTopTickersTracker[oldTicker];
-      }
-    }
-
-    // Add new trackers
-    for (const stock of topTickers) {
-      if (activeTopTickersTracker[stock.ticker]) {
-        continue; // already tracking this ticker
-      }
-
-      // set random timeout to avoid thundering herd if many new tickers are added at once
-      setTimeout(
-        () => {
-          const tracker: Tracker = {
-            ticker: stock.ticker,
-            name: stock.name,
-            priority: 1,
-            expiresAt: null,
-            interval: TopTickerInterval,
-            lastTriggeredAt: null,
-          };
-          scheduleTracker(tracker);
-          activeTopTickersTracker[stock.ticker] = tracker;
-        },
-        Math.random() * 30 * 60 * 1000
-      ); // random delay up to 30 minutes
-    }
+    refreshTrackerGroup(
+      activeTopTickersTracker,
+      topTickers,
+      (stock) => ({
+        ticker: stock.ticker,
+        name: stock.name,
+        priority: 1,
+        expiresAt: null,
+        interval: env.TOP_TICKERS_SCRAPE_INTERVAL_SEC * 1000,
+        lastTriggeredAt: null,
+      }),
+      env.TOP_TICKERS_JITTER_SEC * 1000
+    );
   } catch (err) {
     console.error("Failed to fetch top tickers", err);
   }
@@ -174,19 +171,22 @@ export async function initTopTrackers() {
   setInterval(
     () => {
       const now = Date.now();
-      if (now - lastTopTickerRefresh >= TopTickerRefreshInterval) {
+      if (
+        now - lastTopTickerRefresh >=
+        env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000
+      ) {
         lastTopTickerRefresh = now;
         refreshTopTickers().catch((err) =>
           console.error("Error in top trackers refresh interval", err)
         );
       }
     },
-    24 * 60 * 60 * 1000
-  ); // Check every 24 hours
+    env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000
+  );
 }
 
-const TrendingInterval = 10 * 60 * 1000;
 const TRENDING_PRIORITY = 2;
+const activeTrendingTracker: Record<string, Tracker> = {};
 
 async function refreshTrendingTickers() {
   console.log("Fetching trending tickers...");
@@ -197,16 +197,32 @@ async function refreshTrendingTickers() {
 
   const expiresAt = Date.now() + refreshMs;
   await upsertManyTickerStocks(trending);
+  await Promise.all(
+    trending.map((stock) =>
+      upsertTracker({
+        ticker: stock.ticker,
+        name: stock.name,
+        priority: TRENDING_PRIORITY,
+        interval: env.TRENDING_SCRAPE_INTERVAL_SEC * 1000,
+        expiresAt,
+        lastTriggeredAt: null,
+      })
+    )
+  );
 
-  for (const stock of trending) {
-    await saveTracker(
-      stock.ticker,
-      stock.name,
-      TRENDING_PRIORITY,
-      TrendingInterval,
-      expiresAt
-    );
-  }
+  refreshTrackerGroup(
+    activeTrendingTracker,
+    trending,
+    (stock) => ({
+      ticker: stock.ticker,
+      name: stock.name,
+      priority: TRENDING_PRIORITY,
+      expiresAt,
+      interval: env.TRENDING_SCRAPE_INTERVAL_SEC * 1000,
+      lastTriggeredAt: null,
+    }),
+    env.TRENDING_TICKERS_JITTER_SEC * 1000
+  );
 }
 
 export async function initTrendingTickers() {
@@ -237,7 +253,5 @@ export async function saveTracker(
   };
 
   await upsertTracker(newTracker);
-
-  // instantly start the tracking logic locally as well since we just created it
   scheduleTracker(newTracker);
 }
