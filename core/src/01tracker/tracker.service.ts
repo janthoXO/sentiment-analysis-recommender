@@ -168,21 +168,18 @@ export async function initTopTrackers() {
 
   // setInterval max delay is 2147483647 ms (~24.8 days). 4 weeks overflows this limit and defaults to 1ms.
   // Instead, we check daily if 4 weeks have elapsed.
-  setInterval(
-    () => {
-      const now = Date.now();
-      if (
-        now - lastTopTickerRefresh >=
-        env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000
-      ) {
-        lastTopTickerRefresh = now;
-        refreshTopTickers().catch((err) =>
-          console.error("Error in top trackers refresh interval", err)
-        );
-      }
-    },
-    env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000
-  );
+  setInterval(() => {
+    const now = Date.now();
+    if (
+      now - lastTopTickerRefresh >=
+      env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000
+    ) {
+      lastTopTickerRefresh = now;
+      refreshTopTickers().catch((err) =>
+        console.error("Error in top trackers refresh interval", err)
+      );
+    }
+  }, env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000);
 }
 
 const TRENDING_PRIORITY = 2;

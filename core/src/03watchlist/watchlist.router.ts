@@ -163,7 +163,13 @@ listsRouter.post(
         await upsertTickerStock(stock);
       }
 
-      await saveTracker(normalizedTicker, normalizedTicker, 1, env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000, null);
+      await saveTracker(
+        normalizedTicker,
+        normalizedTicker,
+        1,
+        env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000,
+        null
+      );
       await addListItem(req.params.id as string, normalizedTicker);
       res.json({ message: "Added" });
     } catch (err) {
