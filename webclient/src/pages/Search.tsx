@@ -1,12 +1,12 @@
 import { useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { ResultCard } from "@/components/ResultCard"
-import { useStockStream } from "@/hooks/useStockStream"
+import { useSearchPipeline } from "@/hooks/useSearchPipeline"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 export default function SearchPage() {
-  const { results, loading, search } = useStockStream()
+  const { resultsByTicker, order, loading, search } = useSearchPipeline()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -49,18 +49,22 @@ export default function SearchPage() {
       )}
 
       <div className="mt-4 grid w-full max-w-4xl grid-cols-1 place-items-center gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {results.map((res) => (
-          <ResultCard
-            key={res.stock.ticker}
-            ticker={res.stock.ticker}
-            avgScore={res.avgScore}
-            articleCount={res.sources.length}
-            sources={res.sources}
-          />
-        ))}
+        {order.map((ticker) => {
+          const state = resultsByTicker.get(ticker)
+          if (!state) return null
+          return (
+            <ResultCard
+              key={ticker}
+              stock={state.stock}
+              articles={state.articles}
+              scoresByUrl={state.scoresByUrl}
+              avgScore={state.avgScore}
+            />
+          )
+        })}
       </div>
 
-      {!loading && q && results.length === 0 && (
+      {!loading && q && order.length === 0 && (
         <p className="mt-12 text-muted-foreground">No results found.</p>
       )}
     </div>

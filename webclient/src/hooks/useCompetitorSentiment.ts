@@ -1,187 +1,196 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import {
   getApiTickersTickerIdPeers,
-  getApiTickersSentiment,
+  getApiTickersTickerIdArticles,
+  getApiTickersTickerIdArticlesSentiment,
 } from "@/api/generated/sentimentSearchAPI.gen"
 import { readStream } from "@/lib/stream"
 import type { Stock } from "@/api/generated/dtos/stock.gen"
-import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
-import { assertOk, toastApiError } from "@/lib/api-error"
+import type { TickerArticles } from "@/api/generated/dtos/tickerArticles.gen"
+import type { SourceResult } from "@/api/generated/dtos/sourceResult.gen"
+import { assertStreamOk, toastApiError } from "@/lib/api-error"
 
 const EAGER_COUNT = 3
 
+export interface CompetitorState {
+  stock: Stock
+  articles: TickerArticles["sources"] | undefined
+  scoresByUrl: Map<string, number>
+  avgScore: number | null
+  loading: boolean
+}
+
+function computeAvg(scores: Map<string, number>): number | null {
+  if (scores.size === 0) return null
+  let sum = 0
+  for (const v of scores.values()) sum += v
+  return sum / scores.size
+}
+
+/** Runs stages 2+3 for a ticker whose Stock is already known. */
+async function runArticlesSentimentForTicker(
+  ticker: string,
+  onArticles: (articles: TickerArticles["sources"]) => void,
+  onScore: (sr: SourceResult) => void,
+  onDone: () => void,
+  signal: AbortSignal
+): Promise<void> {
+  try {
+    const artRes = await getApiTickersTickerIdArticles(ticker, {}, { signal })
+    if (signal.aborted || artRes.status !== 200) return
+
+    await readStream(
+      (artRes as unknown as { stream: Response }).stream,
+      (parsed) => {
+        if (signal.aborted) return
+        if ("error" in parsed) return
+        const ta = parsed as TickerArticles
+        onArticles(ta.sources)
+
+        if (ta.sources.length === 0) {
+          onDone()
+          return
+        }
+
+        // Stage 3: sentiment starts immediately for each article chunk
+        void (async () => {
+          try {
+            const sentRes = await getApiTickersTickerIdArticlesSentiment(
+              ticker,
+              { articleUrl: ta.sources.map((s) => s.url) },
+              { signal }
+            )
+            if (signal.aborted || sentRes.status !== 200) return
+            await readStream(
+              (sentRes as unknown as { stream: Response }).stream,
+              (p) => {
+                if (signal.aborted || "error" in p) return
+                onScore(p as SourceResult)
+              }
+            )
+          } finally {
+            onDone()
+          }
+        })()
+      }
+    )
+  } catch {
+    // silently ignore per-ticker failures in competitor view
+    onDone()
+  }
+}
+
 export function useCompetitorSentiment(ticker: string | undefined): {
   peers: Stock[]
-  resultsByTicker: Record<string, TickerResult | null>
-  loadingByTicker: Record<string, boolean>
-  errorsByTicker: Record<string, string>
+  stateByTicker: Record<string, CompetitorState>
   peersLoading: boolean
   error: string | null
   loadSentiment: (ticker: string) => void
 } {
   const [peers, setPeers] = useState<Stock[]>([])
-  const [resultsByTicker, setResultsByTicker] = useState<
-    Record<string, TickerResult | null>
+  const [stateByTicker, setStateByTicker] = useState<
+    Record<string, CompetitorState>
   >({})
-  const [loadingByTicker, setLoadingByTicker] = useState<
-    Record<string, boolean>
-  >({})
-  const [errorsByTicker, setErrorsByTicker] = useState<Record<string, string>>(
-    {}
-  )
   const [peersLoading, setPeersLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const pendingRef = useRef<Set<string>>(new Set())
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const peersRef = useRef<Stock[]>([])
 
-  const flushPending = useCallback(() => {
-    const tickers = [...pendingRef.current]
-    if (tickers.length === 0) return
-    pendingRef.current = new Set()
+  const startPipelineForTicker = useCallback(
+    (stock: Stock, signal: AbortSignal) => {
+      const t = stock.ticker
+      setStateByTicker((prev) => ({
+        ...prev,
+        [t]: prev[t] ?? {
+          stock,
+          articles: undefined,
+          scoresByUrl: new Map(),
+          avgScore: null,
+          loading: true,
+        },
+      }))
 
-    setLoadingByTicker((prev) => {
-      const next = { ...prev }
-      for (const t of tickers) next[t] = true
-      return next
-    })
-
-    void (async () => {
-      try {
-        const res = await getApiTickersSentiment({ tickerIds: tickers })
-        if (res.status !== 200) return
-
-        await readStream(res.stream, (parsedObj) => {
-          if ("error" in parsedObj) {
-            const chunk = parsedObj as { error: string; ticker?: string }
-            if (chunk.ticker) {
-              setErrorsByTicker((prev) => ({
-                ...prev,
-                [chunk.ticker!]: chunk.error,
-              }))
-              setResultsByTicker((prev) => ({
-                ...prev,
-                [chunk.ticker!]: null,
-              }))
-              setLoadingByTicker((prev) => ({
-                ...prev,
-                [chunk.ticker!]: false,
-              }))
+      void runArticlesSentimentForTicker(
+        t,
+        (articles) =>
+          setStateByTicker((prev) => ({
+            ...prev,
+            [t]: { ...prev[t]!, articles },
+          })),
+        (sr) =>
+          setStateByTicker((prev) => {
+            const s = prev[t]
+            if (!s) return prev
+            const newScores = new Map(s.scoresByUrl)
+            newScores.set(sr.url, sr.score)
+            return {
+              ...prev,
+              [t]: {
+                ...s,
+                scoresByUrl: newScores,
+                avgScore: computeAvg(newScores),
+              },
             }
-            return
-          }
-          const r = parsedObj as TickerResult
-          setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
-          setLoadingByTicker((prev) => ({ ...prev, [r.stock.ticker]: false }))
-        })
-
-        setResultsByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of tickers) if (next[t] === undefined) next[t] = null
-          return next
-        })
-      } catch (e) {
-        toastApiError("Could not load competitor sentiment", e)
-      } finally {
-        setLoadingByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of tickers) next[t] = false
-          return next
-        })
-      }
-    })()
-  }, [])
+          }),
+        () =>
+          setStateByTicker((prev) =>
+            prev[t] ? { ...prev, [t]: { ...prev[t]!, loading: false } } : prev
+          ),
+        signal
+      )
+    },
+    []
+  )
 
   const loadSentiment = useCallback(
     (t: string) => {
-      if (resultsByTicker[t] !== undefined || loadingByTicker[t]) return
-      pendingRef.current.add(t)
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-      debounceTimerRef.current = setTimeout(flushPending, 50)
+      if (stateByTicker[t] !== undefined) return
+      const stock = peersRef.current.find((s) => s.ticker === t)
+      if (!stock) return
+      const signal = abortRef.current?.signal ?? new AbortController().signal
+      startPipelineForTicker(stock, signal)
     },
-    [resultsByTicker, loadingByTicker, flushPending]
+    [stateByTicker, startPipelineForTicker]
   )
 
   useEffect(() => {
     if (!ticker) return
-
-    const abortController = new AbortController()
-    const signal = abortController.signal
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    const signal = ctrl.signal
 
     async function load() {
       setPeersLoading(true)
       setError(null)
       setPeers([])
-      setResultsByTicker({})
-      setLoadingByTicker({})
-      setErrorsByTicker({})
+      setStateByTicker({})
+      peersRef.current = []
 
       try {
         const peersRes = await getApiTickersTickerIdPeers(ticker!, { signal })
         if (signal.aborted) return
+        assertStreamOk(peersRes, "Could not load competitors")
 
-        const stocks =
-          assertOk<Stock[]>(peersRes, "Could not load competitors") ?? []
-        setPeers(stocks)
+        let eagerCount = 0
 
-        if (stocks.length === 0) return
-
-        const eagerTickers = stocks.slice(0, EAGER_COUNT).map((s) => s.ticker)
-
-        const initialResults: Record<string, TickerResult | null> = {}
-        const initialLoading: Record<string, boolean> = {}
-        for (const t of eagerTickers) initialLoading[t] = true
-        setResultsByTicker(initialResults)
-        setLoadingByTicker(initialLoading)
-
-        const eagerRes = await getApiTickersSentiment(
-          { tickerIds: eagerTickers },
-          { signal }
-        )
-        if (signal.aborted) return
-
-        if (eagerRes.status === 200) {
-          await readStream(eagerRes.stream, (parsedObj) => {
+        await readStream(
+          (peersRes as unknown as { stream: Response }).stream,
+          (parsed) => {
             if (signal.aborted) return
-            if ("error" in parsedObj) {
-              const chunk = parsedObj as { error: string; ticker?: string }
-              if (chunk.ticker) {
-                setErrorsByTicker((prev) => ({
-                  ...prev,
-                  [chunk.ticker!]: chunk.error,
-                }))
-                setResultsByTicker((prev) => ({
-                  ...prev,
-                  [chunk.ticker!]: null,
-                }))
-                setLoadingByTicker((prev) => ({
-                  ...prev,
-                  [chunk.ticker!]: false,
-                }))
-              }
-              return
-            }
-            const r = parsedObj as TickerResult
-            setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
-            setLoadingByTicker((prev) => ({
-              ...prev,
-              [r.stock.ticker]: false,
-            }))
-          })
-        }
+            if ("error" in parsed) return
+            const stock = parsed as Stock
 
-        if (signal.aborted) return
-        setResultsByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of eagerTickers)
-            if (next[t] === undefined) next[t] = null
-          return next
-        })
-        setLoadingByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of eagerTickers) next[t] = false
-          return next
-        })
+            peersRef.current = [...peersRef.current, stock]
+            setPeers((prev) => [...prev, stock])
+
+            // Immediately start the pipeline for the first EAGER_COUNT peers as each arrives
+            if (eagerCount < EAGER_COUNT) {
+              eagerCount++
+              startPipelineForTicker(stock, signal)
+            }
+          }
+        )
       } catch (e: unknown) {
         if (signal.aborted) return
         const msg =
@@ -194,19 +203,8 @@ export function useCompetitorSentiment(ticker: string | undefined): {
     }
 
     void load()
-    return () => {
-      abortController.abort()
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-    }
-  }, [ticker])
+    return () => ctrl.abort()
+  }, [ticker, startPipelineForTicker])
 
-  return {
-    peers,
-    resultsByTicker,
-    loadingByTicker,
-    errorsByTicker,
-    peersLoading,
-    error,
-    loadSentiment,
-  }
+  return { peers, stateByTicker, peersLoading, error, loadSentiment }
 }

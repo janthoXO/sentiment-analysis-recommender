@@ -17,10 +17,13 @@ import {
   type RangePresetKey,
 } from "@/lib/intervals"
 import { detectEvents } from "@/lib/events"
-import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
-import { useTickerSentiment } from "@/hooks/useTickerSentiment"
+import type { Stock } from "@/api/generated/dtos/stock.gen"
 import { useCandles } from "@/hooks/useCandles"
-import { useSentimentByEvents } from "@/hooks/useSentimentByEvents"
+import {
+  useTickerLatestPipeline,
+  useTickerEventPipeline,
+  type EventPipelineEntry,
+} from "@/hooks/useTickerPipeline"
 
 type RangeKey = "latest" | RangePresetKey
 
@@ -36,21 +39,23 @@ export default function StockDetailPage() {
   const { ticker } = useParams()
   const location = useLocation()
 
-  const preloaded =
-    (location.state as { tickerResult?: TickerResult } | null)?.tickerResult ??
-    null
+  // Router state now carries only { stock } — no articles or scores
+  const preloadedStock =
+    (location.state as { stock?: Stock } | null)?.stock ?? null
 
   const [range, setRange] = useState<RangeKey>("latest")
   const [selectedEventTSec, setSelectedEventTSec] = useState<number | null>(
     null
   )
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
-  // Fetch per-ticker sentiment only when not preloaded from router state
-  const { data: fetched, loading: fetchLoading } = useTickerSentiment(
-    preloaded ? undefined : ticker
-  )
 
-  const data: TickerResult | null = preloaded ?? fetched
+  // Stage 1 (latest): articles + sentiment for the "latest" tab
+  const {
+    articles: latestArticles,
+    scoresByUrl: latestScoresByUrl,
+    avgScore: latestAvgScore,
+    loading: latestLoading,
+  } = useTickerLatestPipeline(ticker)
 
   const duration: CandleDuration = range === "latest" ? "today" : range
   const interval = pickIntervalForDuration(duration)
@@ -61,7 +66,6 @@ export default function StockDetailPage() {
     interval
   )
 
-  // Client-side event detection — only for non-latest modes.
   const events = useMemo(() => {
     if (range === "latest" || candles.length === 0) return []
     return detectEvents(candles, [])
@@ -69,69 +73,91 @@ export default function StockDetailPage() {
 
   const intervalSec = interval != null ? intervalToSec(interval) : undefined
 
+  // Stage 1 (event mode): articles + sentiment per event
   const {
-    eventSourceMap,
-    allSources,
-    loading: eventSentimentLoading,
-  } = useSentimentByEvents(
+    eventPipelineMap,
+    allArticles: eventAllArticles,
+    loading: eventLoading,
+  } = useTickerEventPipeline(
     range !== "latest" ? ticker : undefined,
     events,
     intervalSec
   )
 
-  // Per-event sentiment info for the timeline tooltip
+  // Per-event avg scores for the timeline tooltip
   const eventInfoByTSec = useMemo(() => {
     const map = new Map<number, { avgScore: number }>()
-    for (const [tSec, result] of eventSourceMap) {
-      map.set(tSec, { avgScore: result.avgScore })
+    for (const [tSec, entry] of eventPipelineMap) {
+      if (entry.avgScore != null) map.set(tSec, { avgScore: entry.avgScore })
     }
     return map
-  }, [eventSourceMap])
+  }, [eventPipelineMap])
 
-  const articles = range === "latest" ? (data?.sources ?? []) : allSources
+  // Merged scores across all events — used as the ArticleList scoresByUrl in event mode
+  const eventAllScoresByUrl = useMemo(() => {
+    const merged = new Map<string, number>()
+    for (const entry of eventPipelineMap.values()) {
+      for (const [url, score] of entry.scoresByUrl) {
+        merged.set(url, score)
+      }
+    }
+    return merged
+  }, [eventPipelineMap])
 
-  // Header avgScore always anchored to the latest sentiment
-  const avgScore = data?.avgScore
+  const articles =
+    range === "latest" ? (latestArticles ?? []) : eventAllArticles
+
+  // avgScore in header is always from latest mode
+  const avgScore = latestAvgScore
 
   const activeEventTSec = selectedEventTSec ?? hoveredEventTSec
 
   const highlightedUrls = useMemo((): Set<string> | undefined => {
     if (!activeEventTSec) return undefined
-    const result = eventSourceMap.get(activeEventTSec)
-    return result && result.sources.length > 0
-      ? new Set<string>(result.sources.map((s) => s.url))
+    const entry: EventPipelineEntry | undefined =
+      eventPipelineMap.get(activeEventTSec)
+    return entry && entry.articles.length > 0
+      ? new Set<string>(entry.articles.map((a) => a.url))
       : undefined
-  }, [activeEventTSec, eventSourceMap])
+  }, [activeEventTSec, eventPipelineMap])
 
-  const isLoading = fetchLoading && !data
+  // Convert scoresByUrl for ArticleList (which expects TickerResultSourcesItem-like objects)
+  // In latest mode we pass articles + scores separately; ArticleList already accepts them.
+  const isLoading = latestLoading && latestArticles === undefined
   const isSentimentLoading =
-    range !== "latest" && (candlesLoading || eventSentimentLoading)
+    range !== "latest" && (candlesLoading || eventLoading)
+
+  const stockName = preloadedStock?.name || ticker || ""
 
   if (isLoading) {
     return <div className="p-8">Loading data...</div>
   }
-  if (!data) {
-    return <div className="p-8">No data found for {ticker}</div>
+  if (!ticker) {
+    return <div className="p-8">Ticker not found.</div>
   }
 
-  const overall = parseSentimentLabel(avgScore ?? data.avgScore)
+  const overall = parseSentimentLabel(avgScore ?? 0)
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold">{data.stock.name || ticker}</h1>
+          <h1 className="text-4xl font-bold">{stockName || ticker}</h1>
           <p className="mt-1 text-xl text-muted-foreground">{ticker}</p>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <Badge
-            variant="outline"
-            className={cn("px-4 py-2 text-base font-bold", overall.className)}
-          >
-            {overall.label} · {(avgScore ?? data.avgScore).toFixed(2)}
-          </Badge>
-          <AddToListButton ticker={ticker!} />
+          {avgScore != null ? (
+            <Badge
+              variant="outline"
+              className={cn("px-4 py-2 text-base font-bold", overall.className)}
+            >
+              {overall.label} · {avgScore.toFixed(2)}
+            </Badge>
+          ) : (
+            <Skeleton className="h-10 w-36 rounded-full" />
+          )}
+          <AddToListButton ticker={ticker} />
         </div>
       </div>
 
@@ -211,6 +237,9 @@ export default function StockDetailPage() {
             ) : (
               <ArticleList
                 articles={articles}
+                scoresByUrl={
+                  range === "latest" ? latestScoresByUrl : eventAllScoresByUrl
+                }
                 highlightedUrls={highlightedUrls}
               />
             )}
@@ -220,7 +249,7 @@ export default function StockDetailPage() {
         {/* Right column: competitors */}
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold">Competitors</h2>
-          <CompetitorsAccordion ticker={ticker!} />
+          <CompetitorsAccordion ticker={ticker} />
         </div>
       </div>
     </div>

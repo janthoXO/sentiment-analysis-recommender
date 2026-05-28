@@ -50,13 +50,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useStockStream } from "@/hooks/useStockStream"
+import { useSearchPipeline } from "@/hooks/useSearchPipeline"
 import type { List } from "@/api/generated/dtos"
 
 export default function WatchlistPage() {
   const { requireAuth } = useAuth()
   const { lists, createList, renameList, deleteList } = useWatchlistContext()
-  const { results: streamResults, loading, search } = useStockStream()
+  const { resultsByTicker, order, loading, search } = useSearchPipeline()
 
   const [comboOpen, setComboOpen] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
@@ -80,7 +80,6 @@ export default function WatchlistPage() {
     void search({ tickerIds: activeList.items.map((i) => i.ticker) })
   }, [activeList, search])
 
-  // Load sentiment data when active list changes
   useEffect(() => {
     loadSentiment()
   }, [loadSentiment])
@@ -120,7 +119,7 @@ export default function WatchlistPage() {
         </div>
       )
     }
-    if (loading) {
+    if (loading && order.length === 0) {
       return (
         <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-2 lg:grid-cols-3">
           {activeList.items.map((item) => (
@@ -132,16 +131,14 @@ export default function WatchlistPage() {
     return (
       <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-2 lg:grid-cols-3">
         {activeList.items.map((item) => {
-          const streamData = streamResults.find(
-            (r) => r.stock.ticker === item.ticker
-          )
+          const state = resultsByTicker.get(item.ticker)
           return (
             <ResultCard
               key={item.ticker}
-              ticker={item.ticker}
-              avgScore={streamData?.avgScore ?? 0}
-              articleCount={streamData?.sources?.length ?? 0}
-              sources={streamData?.sources ?? []}
+              stock={state?.stock ?? { ticker: item.ticker, name: item.ticker }}
+              articles={state?.articles}
+              scoresByUrl={state?.scoresByUrl ?? new Map()}
+              avgScore={state?.avgScore ?? null}
             />
           )
         })}
@@ -161,7 +158,6 @@ export default function WatchlistPage() {
       </div>
 
       <div className="mb-6 flex items-center gap-2">
-        {/* List selector combobox */}
         <Popover open={comboOpen} onOpenChange={setComboOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-52 justify-between">
@@ -207,7 +203,6 @@ export default function WatchlistPage() {
           </PopoverContent>
         </Popover>
 
-        {/* List actions */}
         {activeList && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -231,7 +226,6 @@ export default function WatchlistPage() {
           </DropdownMenu>
         )}
 
-        {/* Refresh sentiment */}
         {activeList && activeList.items.length > 0 && (
           <Button
             variant="ghost"
@@ -246,7 +240,6 @@ export default function WatchlistPage() {
 
       {renderGrid()}
 
-      {/* Rename dialog */}
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
           <DialogHeader>
@@ -267,7 +260,6 @@ export default function WatchlistPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Create list dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -288,7 +280,6 @@ export default function WatchlistPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

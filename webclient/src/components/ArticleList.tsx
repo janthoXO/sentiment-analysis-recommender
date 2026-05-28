@@ -2,24 +2,28 @@ import { useMemo } from "react"
 import { ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { parseSentimentLabel, parseHeadline } from "@/lib/sentiment"
-import type { TickerResultSourcesItem as SourceResult } from "@/api/generated/dtos/tickerResultSourcesItem.gen"
+import type { TickerArticlesSourcesItem } from "@/api/generated/dtos/tickerArticlesSourcesItem.gen"
 
 interface Props {
-  articles: SourceResult[]
+  articles: TickerArticlesSourcesItem[]
+  scoresByUrl: Map<string, number>
   highlightedUrls?: Set<string>
 }
 
 function ArticleCard({
-  source,
+  article,
+  score,
   dimmed,
 }: {
-  source: SourceResult
+  article: TickerArticlesSourcesItem
+  score: number | undefined
   dimmed: boolean
 }) {
-  const { headline, body } = parseHeadline(source.snippet ?? "")
-  const articleSentiment = parseSentimentLabel(source.score)
+  const { headline, body } = parseHeadline(article.snippet ?? "")
+  const articleSentiment = score != null ? parseSentimentLabel(score) : null
 
   return (
     <div
@@ -36,10 +40,10 @@ function ArticleCard({
               dimmed && "text-muted-foreground"
             )}
           >
-            {headline || source.url}
+            {headline || article.url}
           </p>
           <a
-            href={source.url}
+            href={article.url}
             target="_blank"
             rel="noreferrer"
             className={cn(
@@ -47,18 +51,22 @@ function ArticleCard({
               dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
             )}
           >
-            {source.url} <ExternalLink className="size-3 shrink-0" />
+            {article.url} <ExternalLink className="size-3 shrink-0" />
           </a>
         </div>
-        <Badge
-          variant="outline"
-          className={cn(
-            "shrink-0 font-bold",
-            dimmed ? "opacity-40" : articleSentiment.className
-          )}
-        >
-          {source.score.toFixed(2)}
-        </Badge>
+        {articleSentiment ? (
+          <Badge
+            variant="outline"
+            className={cn(
+              "shrink-0 font-bold",
+              dimmed ? "opacity-40" : articleSentiment.className
+            )}
+          >
+            {score!.toFixed(2)}
+          </Badge>
+        ) : (
+          <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+        )}
       </div>
       {body && (
         <p
@@ -74,7 +82,7 @@ function ArticleCard({
   )
 }
 
-export function ArticleList({ articles, highlightedUrls }: Props) {
+export function ArticleList({ articles, scoresByUrl, highlightedUrls }: Props) {
   const { highlighted, rest } = useMemo(() => {
     if (!highlightedUrls || highlightedUrls.size === 0) {
       return { highlighted: null, rest: articles }
@@ -89,8 +97,13 @@ export function ArticleList({ articles, highlightedUrls }: Props) {
   if (highlighted === null) {
     return (
       <div className="flex flex-col gap-4">
-        {rest.map((source, i) => (
-          <ArticleCard key={i} source={source} dimmed={false} />
+        {rest.map((article, i) => (
+          <ArticleCard
+            key={i}
+            article={article}
+            score={scoresByUrl.get(article.url)}
+            dimmed={false}
+          />
         ))}
       </div>
     )
@@ -98,8 +111,13 @@ export function ArticleList({ articles, highlightedUrls }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {highlighted.map((source, i) => (
-        <ArticleCard key={i} source={source} dimmed={false} />
+      {highlighted.map((article, i) => (
+        <ArticleCard
+          key={i}
+          article={article}
+          score={scoresByUrl.get(article.url)}
+          dimmed={false}
+        />
       ))}
 
       {rest.length > 0 && (
@@ -111,8 +129,13 @@ export function ArticleList({ articles, highlightedUrls }: Props) {
             </span>
             <Separator className="flex-1" />
           </div>
-          {rest.map((source, i) => (
-            <ArticleCard key={i} source={source} dimmed={true} />
+          {rest.map((article, i) => (
+            <ArticleCard
+              key={i}
+              article={article}
+              score={scoresByUrl.get(article.url)}
+              dimmed={true}
+            />
           ))}
         </>
       )}

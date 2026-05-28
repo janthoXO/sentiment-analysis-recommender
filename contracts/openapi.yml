@@ -1,13 +1,15 @@
 openapi: 3.0.3
 info:
   title: Sentiment Search API
-  version: 1.0.0
-  description: Core API for handling user searches and delegating tracking tasks.
+  version: 2.0.0
+  description: >
+    Three-stage pipeline: (1) stream stock info, (2) stream articles per ticker,
+    (3) stream per-article sentiment scores.
 
 paths:
-  /api/tickers/sentiment:
+  /api/tickers:
     get:
-      summary: Stream ticker sentiment as NDJSON. Accepts either a search query or a list of ticker IDs.
+      summary: Stream stock records as NDJSON. Accepts either a search query or a list of ticker IDs.
       parameters:
         - in: query
           name: q
@@ -25,12 +27,51 @@ paths:
           description: Repeat the param (?tickerIds=AAPL&tickerIds=MSFT). Mutually exclusive with q.
       responses:
         "200":
-          description: NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
+          description: NDJSON stream of Stock records (one Stock per line, or a SearchError line).
           content:
             application/x-ndjson:
               schema:
                 oneOf:
-                  - $ref: "#/components/schemas/TickerResult"
+                  - $ref: "#/components/schemas/Stock"
+                  - $ref: "#/components/schemas/SearchError"
+        "400":
+          description: Missing or invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/tickers/articles:
+    get:
+      summary: Stream articles for a list of tickers as NDJSON.
+      parameters:
+        - in: query
+          name: tickerIds
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: Repeat the param (?tickerIds=AAPL&tickerIds=MSFT).
+      responses:
+        "200":
+          description: NDJSON stream — one TickerArticles per ticker (or a SearchError line).
+          content:
+            application/x-ndjson:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TickerArticles"
                   - $ref: "#/components/schemas/SearchError"
         "400":
           description: Missing or invalid query parameters
@@ -50,16 +91,16 @@ paths:
 
   /api/tickers/trending:
     get:
-      summary: Get the current trending US tickers
+      summary: Stream the current trending US tickers as NDJSON
       responses:
         "200":
-          description: List of trending stocks
+          description: NDJSON stream of Stock records (one Stock per line, or a SearchError line).
           content:
-            application/json:
+            application/x-ndjson:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Stock"
+                oneOf:
+                  - $ref: "#/components/schemas/Stock"
+                  - $ref: "#/components/schemas/SearchError"
         "500":
           description: Internal server error
           content:
@@ -70,9 +111,9 @@ paths:
         - webclient-out
         - core-in
 
-  /api/tickers/{tickerId}/sentiment:
+  /api/tickers/{tickerId}/articles:
     get:
-      summary: Stream sentiment for a single ticker as NDJSON. Optionally pin to one or more event timestamps.
+      summary: Stream articles for a single ticker as NDJSON. Optionally pin to one or more event timestamps.
       parameters:
         - in: path
           name: tickerId
@@ -88,7 +129,7 @@ paths:
               type: integer
           style: form
           explode: true
-          description: Optional. Per-event timestamps (Unix seconds). Repeat the param. Each produces one TickerResult line.
+          description: Optional. Per-event timestamps (Unix seconds). Repeat the param. Each produces one TickerArticles line.
         - in: query
           name: intervalSec
           schema:
@@ -97,12 +138,57 @@ paths:
           description: Optional. Article-window size in seconds (fromSec = eventTSec - intervalSec, or now - intervalSec for no-event call).
       responses:
         "200":
-          description: NDJSON stream — one TickerResult or SearchError per line (one per eventTSec, or a single result when no events given).
+          description: NDJSON stream — one TickerArticles per event (or a single result when no events given).
           content:
             application/x-ndjson:
               schema:
                 oneOf:
-                  - $ref: "#/components/schemas/TickerResult"
+                  - $ref: "#/components/schemas/TickerArticles"
+                  - $ref: "#/components/schemas/SearchError"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "503":
+          description: Article data unavailable (upstream failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+      tags:
+        - webclient-out
+        - core-in
+
+  /api/tickers/{tickerId}/articles/sentiment:
+    get:
+      summary: Stream per-article sentiment scores as NDJSON.
+      parameters:
+        - in: path
+          name: tickerId
+          required: true
+          schema:
+            type: string
+          description: Ticker symbol (e.g. AAPL)
+        - in: query
+          name: articleUrl
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: Repeat the param (?articleUrl=https://...&articleUrl=https://...). One SourceResult emitted per scored article.
+      responses:
+        "200":
+          description: NDJSON stream — one SourceResult per line as each article is scored (cached ones emit immediately).
+          content:
+            application/x-ndjson:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SourceResult"
                   - $ref: "#/components/schemas/SearchError"
         "400":
           description: Invalid query parameters
@@ -175,7 +261,7 @@ paths:
 
   /api/tickers/{tickerId}/peers:
     get:
-      summary: Get peer companies for a ticker
+      summary: Stream peer companies for a ticker as NDJSON
       parameters:
         - in: path
           name: tickerId
@@ -185,13 +271,13 @@ paths:
           description: Ticker symbol to find peers for (e.g. AAPL)
       responses:
         "200":
-          description: List of peer stocks (same country + sector/industry)
+          description: NDJSON stream of peer Stock records (one per line, cached peers emitted first).
           content:
-            application/json:
+            application/x-ndjson:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Stock"
+                oneOf:
+                  - $ref: "#/components/schemas/Stock"
+                  - $ref: "#/components/schemas/SearchError"
         "503":
           description: Peer lookup unavailable (upstream failure)
           content:
@@ -499,11 +585,12 @@ paths:
 
   /api/lists/stream:
     get:
-      summary: Stream sentiment updates for user's watchlist tickers (SSE)
+      summary: Stream per-article sentiment updates for user's watchlist tickers (SSE)
       description: >
         Server-Sent Events stream. Each `data:` line is a JSON-encoded
-        `SentimentStreamEvent`. The client is responsible for deciding whether
-        a score change warrants an alert. Pass the JWT via the `token` query
+        `SentimentStreamEvent`. On each scored article for a watched ticker the
+        server emits a `SOURCE_UPDATE` event containing the article's SourceResult
+        and the recomputed ticker avgScore. Pass the JWT via the `token` query
         parameter when using the browser `EventSource` API (which cannot set
         custom headers).
       parameters:
@@ -534,14 +621,17 @@ components:
     Stock:
       $ref: "./schemas/Stock.json"
 
-    TickerResult:
-      $ref: "./schemas/TickerResult.json"
+    TickerArticles:
+      $ref: "./schemas/TickerArticles.json"
+
+    SourceResult:
+      $ref: "./schemas/SourceResult.json"
 
     Candle:
       $ref: "./schemas/Candle.json"
 
-    SourceResult:
-      $ref: "./schemas/SourceResult.json"
+    SourceSchema:
+      $ref: "./schemas/Source.json"
 
     HttpError:
       type: object
@@ -673,12 +763,22 @@ components:
           required:
             - type
         - type: object
+          description: Emitted for each newly scored article for a watched ticker.
           properties:
             type:
               type: string
-              enum: [TICKER_UPDATE]
-            payload:
-              $ref: "#/components/schemas/TickerResult"
+              enum: [SOURCE_UPDATE]
+            ticker:
+              type: string
+            source:
+              $ref: "#/components/schemas/SourceResult"
+            avgScore:
+              type: number
+              minimum: -1.0
+              maximum: 1.0
+              description: Recomputed average score for this ticker across all fresh source_score rows.
           required:
             - type
-            - payload
+            - ticker
+            - source
+            - avgScore

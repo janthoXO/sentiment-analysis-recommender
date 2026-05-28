@@ -9,7 +9,8 @@ import {
 import type { ReactNode } from "react"
 import { useAuth } from "./auth-provider.js"
 import { toast } from "sonner"
-import type { List, TickerResult } from "@/api/generated/dtos/index.js"
+import type { List } from "@/api/generated/dtos/index.js"
+import type { SourceResult } from "@/api/generated/dtos/sourceResult.gen.js"
 import {
   getApiLists,
   postApiLists,
@@ -17,22 +18,21 @@ import {
   deleteApiListsId,
   postApiListsIdItems,
   deleteApiListsIdItemsTicker,
-  getApiTickersSentiment,
 } from "@/api/generated/sentimentSearchAPI.gen.js"
-import { readStream } from "@/lib/stream.js"
 import { toastApiError } from "@/lib/api-error.js"
 
 const DIVERGENCE_THRESHOLD = 0.2
+const NOTIFY_INTERVAL_MS = 30_000
 
-export interface WatchlistEvent {
+export interface WatchlistAlert {
   id: number
-  result: TickerResult
+  ticker: string
+  avgScore: number
 }
 
 interface WatchlistContextType {
   lists: List[]
-  tickerResults: Record<string, TickerResult>
-  events: WatchlistEvent[]
+  alerts: WatchlistAlert[]
   refresh: () => Promise<void>
   createList: (name: string) => Promise<List | null>
   renameList: (id: string, name: string) => Promise<void>
@@ -49,11 +49,15 @@ const WatchlistContext = createContext<WatchlistContextType | undefined>(
 export function WatchlistProvider({ children }: { children: ReactNode }) {
   const { token, isAuthenticated } = useAuth()
   const [lists, setLists] = useState<List[]>([])
-  const [tickerResults, setTickerResults] = useState<
-    Record<string, TickerResult>
-  >({})
-  const [events, setEvents] = useState<WatchlistEvent[]>([])
+  const [alerts, setAlerts] = useState<WatchlistAlert[]>([])
   const sseErrorToastedRef = useRef(false)
+
+  // ticker → { score, notifiedAt } for throttled alerts
+  const lastNotifiedRef = useRef<
+    Map<string, { score: number; notifiedAt: number }>
+  >(new Map())
+  // ticker → running avg score built from per-article SSE events
+  const tickerScoresRef = useRef<Map<string, Map<string, number>>>(new Map())
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${token}` }),
@@ -79,44 +83,11 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      refresh()
+      await refresh()
     })()
   }, [refresh])
 
-  // Hydrate tickerResults whenever lists change
-  useEffect(() => {
-    if (!isAuthenticated || lists.length === 0) return
-
-    const uniqueTickers = [
-      ...new Set(lists.flatMap((l) => l.items.map((i) => i.ticker))),
-    ]
-    if (uniqueTickers.length === 0) return
-
-    void (async () => {
-      try {
-        const res = await getApiTickersSentiment(
-          { tickerIds: uniqueTickers },
-          { headers: authHeaders() }
-        )
-        if (res.status === 200) {
-          const map: Record<string, TickerResult> = {}
-          await readStream(res.stream, (parsedObj) => {
-            if (!("error" in parsedObj)) {
-              const r = parsedObj as TickerResult
-              map[r.stock.ticker] = r
-            }
-          })
-          setTickerResults(map)
-        } else {
-          toastApiError("Could not load watchlist sentiment", res)
-        }
-      } catch (err) {
-        toastApiError("Could not load watchlist sentiment", err)
-      }
-    })()
-  }, [lists, isAuthenticated, authHeaders])
-
-  // SSE for real-time sentiment updates
+  // SSE for real-time per-article sentiment updates
   useEffect(() => {
     if (!isAuthenticated || !token) return
     sseErrorToastedRef.current = false
@@ -124,28 +95,53 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
     eventSource.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data as string)
-        if (data.type === "TICKER_UPDATE") {
-          const fresh: TickerResult = data.payload
-          const ticker = fresh.stock.ticker
+        const data = JSON.parse(event.data as string) as {
+          type: string
+          ticker?: string
+          source?: SourceResult
+          avgScore?: number
+        }
 
-          setTickerResults((prev) => {
-            const prevResult = prev[ticker]
-            if (
-              prevResult &&
-              Math.abs(fresh.avgScore - prevResult.avgScore) >=
-                DIVERGENCE_THRESHOLD
-            ) {
-              toast.message(`Sentiment Alert: ${ticker}`, {
-                description: `Score changed from ${prevResult.avgScore.toFixed(2)} to ${fresh.avgScore.toFixed(2)}`,
-              })
-            }
-            return { ...prev, [ticker]: fresh }
-          })
+        if (
+          data.type === "SOURCE_UPDATE" &&
+          data.ticker &&
+          data.source != null &&
+          data.avgScore != null
+        ) {
+          const { ticker, source, avgScore } = data as {
+            ticker: string
+            source: SourceResult
+            avgScore: number
+          }
 
-          setEvents((prev) =>
-            [{ id: Date.now(), result: fresh }, ...prev].slice(0, 50)
-          )
+          // Update our running score map
+          const scoreMap =
+            tickerScoresRef.current.get(ticker) ?? new Map<string, number>()
+          scoreMap.set(source.url, source.score)
+          tickerScoresRef.current.set(ticker, scoreMap)
+
+          // Throttled notification: fire only if enough time has passed AND score diff is large
+          const prev = lastNotifiedRef.current.get(ticker)
+          const now = Date.now()
+          if (
+            (!prev || now - prev.notifiedAt >= NOTIFY_INTERVAL_MS) &&
+            (!prev || Math.abs(avgScore - prev.score) >= DIVERGENCE_THRESHOLD)
+          ) {
+            const prevScore = prev?.score
+            toast.message(`Sentiment Alert: ${ticker}`, {
+              description:
+                prevScore != null
+                  ? `Score changed from ${prevScore.toFixed(2)} to ${avgScore.toFixed(2)}`
+                  : `Current score: ${avgScore.toFixed(2)}`,
+            })
+            lastNotifiedRef.current.set(ticker, {
+              score: avgScore,
+              notifiedAt: now,
+            })
+            setAlerts((prev) =>
+              [{ id: now, ticker, avgScore }, ...prev].slice(0, 50)
+            )
+          }
         }
       } catch (err) {
         console.error("SSE parse error", err)
@@ -279,8 +275,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     <WatchlistContext.Provider
       value={{
         lists,
-        tickerResults,
-        events,
+        alerts,
         refresh,
         createList,
         renameList,

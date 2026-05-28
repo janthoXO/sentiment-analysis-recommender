@@ -15,6 +15,20 @@
       "when": 1779628700434,
       "tag": "0001_glorious_harry_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1748390400000,
+      "tag": "0002_nullable_source_score",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1748476800000,
+      "tag": "0003_tracker_fk_ticker",
+      "breakpoints": true
     }
   ]
 }
