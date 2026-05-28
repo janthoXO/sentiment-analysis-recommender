@@ -175,9 +175,9 @@ async function bootstrap() {
   trackerService
     .initPersistedTrackers()
     .catch((err) => console.error("Failed to init persisted trackers", err));
-  // trackerService.initTopTrackers().catch((err) => {
-  //   console.error("Failed to init top trackers", err);
-  // });
+  trackerService.initTopTrackers().catch((err) => {
+    console.error("Failed to init top trackers", err);
+  });
   trackerService
     .initTrendingTickers()
     .catch((err) => console.error("Failed to init trending tickers", err));
