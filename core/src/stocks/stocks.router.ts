@@ -116,12 +116,10 @@ export function makeStocksRouter({
       await stockCache.setPeersCache(ticker, peers);
     } catch (e) {
       console.error(`Peers lookup error for ${ticker}:`, e);
-      res
-        .status(503)
-        .json({
-          error: "Peer lookup unavailable",
-          code: "UPSTREAM_UNAVAILABLE",
-        });
+      res.status(503).json({
+        error: "Peer lookup unavailable",
+        code: "UPSTREAM_UNAVAILABLE",
+      });
       return;
     }
 

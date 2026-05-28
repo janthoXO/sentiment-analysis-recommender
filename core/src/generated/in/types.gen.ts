@@ -210,9 +210,9 @@ export type GetApiTickersTrendingError = GetApiTickersTrendingErrors[keyof GetAp
 
 export type GetApiTickersTrendingResponses = {
     /**
-     * List of trending stocks
+     * NDJSON stream of Stock records (one Stock per line, or a SearchError line).
      */
-    200: Array<StockRoot>;
+    200: StockRoot | SearchError;
 };
 
 export type GetApiTickersTrendingResponse = GetApiTickersTrendingResponses[keyof GetApiTickersTrendingResponses];
@@ -373,9 +373,9 @@ export type GetApiTickersByTickerIdPeersError = GetApiTickersByTickerIdPeersErro
 
 export type GetApiTickersByTickerIdPeersResponses = {
     /**
-     * List of peer stocks (same country + sector/industry)
+     * NDJSON stream of peer Stock records (one per line, cached peers emitted first).
      */
-    200: Array<StockRoot>;
+    200: StockRoot | SearchError;
 };
 
 export type GetApiTickersByTickerIdPeersResponse = GetApiTickersByTickerIdPeersResponses[keyof GetApiTickersByTickerIdPeersResponses];

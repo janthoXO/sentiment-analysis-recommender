@@ -133,9 +133,12 @@ export const zGetApiTickersArticlesResponse = z.union([
 ]);
 
 /**
- * List of trending stocks
+ * NDJSON stream of Stock records (one Stock per line, or a SearchError line).
  */
-export const zGetApiTickersTrendingResponse = z.array(zStockRoot);
+export const zGetApiTickersTrendingResponse = z.union([
+    zStockRoot,
+    zSearchError
+]);
 
 export const zGetApiTickersByTickerIdArticlesPath = z.object({
     tickerId: z.string()
@@ -199,9 +202,12 @@ export const zGetApiTickersByTickerIdPeersPath = z.object({
 });
 
 /**
- * List of peer stocks (same country + sector/industry)
+ * NDJSON stream of peer Stock records (one per line, cached peers emitted first).
  */
-export const zGetApiTickersByTickerIdPeersResponse = z.array(zStockRoot);
+export const zGetApiTickersByTickerIdPeersResponse = z.union([
+    zStockRoot,
+    zSearchError
+]);
 
 export const zPostApiAuthRegisterBody = zAuthRequest;
 
