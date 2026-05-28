@@ -158,8 +158,14 @@ function buildThemeQueryPrompt(query: string): string {
     "Map a user's stock search query to relevant publicly traded equity tickers.",
     "Return only JSON with this shape:",
     '{"confidence":0.0,"tickers":[{"ticker":"NVDA","reason":"AI accelerator leader"}]}',
-    `Rules: return at most ${env.LLM_THEME_MAX_TICKERS} tickers; prefer US-listed common stocks; do not include ETFs, indexes, crypto, or private companies; do not invent symbols.`,
-    "If the query is not related to public equities, return confidence 0 and an empty tickers array.",
+    `Return at most ${env.LLM_THEME_MAX_TICKERS} tickers. Prefer US-listed common stocks. Do not include ETFs, indexes, crypto, or private companies. Do not invent symbols.`,
+    "The user query may be a sector, theme, product, brand, franchise, movie, video game, sports team, league, material, vehicle type, or consumer category.",
+    "If the query names a product, brand, franchise, subsidiary, or entertainment IP, map it to the publicly traded parent company when one exists.",
+    "If the query names a sports team or league, map it to a publicly traded owner, media-rights company, sponsor, or directly exposed sports business only when the link is strong.",
+    "For broad categories, return a small diversified set of direct public-company exposures, not obscure or loosely related tickers.",
+    "Use confidence near 1 for well-known direct mappings, 0.6-0.8 for broad themes, and below 0.6 when the stock mapping is weak or ambiguous.",
+    "Examples: Grand Theft Auto -> TTWO; Rockstar Games -> TTWO; Toy Story -> DIS; Pixar -> DIS; Alexa -> AMZN; Universal Pictures -> CMCSA; PlayStation -> SONY; Call of Duty -> MSFT; trucks -> F, GM, PCAR; wood products -> WY, LPX, UFPI; movies -> DIS, CMCSA, SONY, NFLX, WBD; videogames -> TTWO, EA, RBLX, NTDOY, SONY.",
+    "If there is no meaningful public-equity mapping, return confidence 0 and an empty tickers array.",
     `User query: ${JSON.stringify(query)}`,
   ].join("\n");
 }
