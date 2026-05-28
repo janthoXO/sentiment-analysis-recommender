@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react"
 import type { ReactNode } from "react"
 import { useAuth } from "./auth-provider.js"
@@ -19,6 +20,7 @@ import {
   getApiTickersSentiment,
 } from "@/api/generated/sentimentSearchAPI.gen.js"
 import { readStream } from "@/lib/stream.js"
+import { toastApiError } from "@/lib/api-error.js"
 
 const DIVERGENCE_THRESHOLD = 0.2
 
@@ -51,6 +53,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     Record<string, TickerResult>
   >({})
   const [events, setEvents] = useState<WatchlistEvent[]>([])
+  const sseErrorToastedRef = useRef(false)
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${token}` }),
@@ -64,9 +67,13 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     }
     try {
       const res = await getApiLists({ headers: authHeaders() })
-      if (res.data) setLists(res.data)
+      if (res.status === 200 && res.data) {
+        setLists(res.data)
+      } else if (res.status !== 200) {
+        toastApiError("Could not load watchlists", res)
+      }
     } catch (err) {
-      console.error("Failed to fetch lists:", err)
+      toastApiError("Could not load watchlists", err)
     }
   }, [isAuthenticated, authHeaders])
 
@@ -100,9 +107,11 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
             }
           })
           setTickerResults(map)
+        } else {
+          toastApiError("Could not load watchlist sentiment", res)
         }
       } catch (err) {
-        console.error("Failed to hydrate ticker results:", err)
+        toastApiError("Could not load watchlist sentiment", err)
       }
     })()
   }, [lists, isAuthenticated, authHeaders])
@@ -110,6 +119,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   // SSE for real-time sentiment updates
   useEffect(() => {
     if (!isAuthenticated || !token) return
+    sseErrorToastedRef.current = false
     const eventSource = new EventSource(`/api/lists/stream?token=${token}`)
 
     eventSource.onmessage = (event) => {
@@ -142,7 +152,15 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    eventSource.onerror = (err) => console.error("SSE Error:", err)
+    eventSource.onerror = (err) => {
+      console.error("SSE Error:", err)
+      if (!sseErrorToastedRef.current) {
+        sseErrorToastedRef.current = true
+        toast.error("Real-time updates disconnected", {
+          description: "Sentiment alerts may be delayed.",
+        })
+      }
+    }
     return () => eventSource.close()
   }, [isAuthenticated, token])
 
@@ -154,8 +172,9 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
           setLists((prev) => [...prev, res.data as List])
           return res.data as List
         }
+        toastApiError("Could not create list", res)
       } catch (err) {
-        console.error("Create list error:", err)
+        toastApiError("Could not create list", err)
       }
       return null
     },
@@ -165,10 +184,20 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const renameList = useCallback(
     async (id: string, name: string) => {
       try {
-        await patchApiListsId(id, { name }, { headers: authHeaders() })
-        setLists((prev) => prev.map((l) => (l.id === id ? { ...l, name } : l)))
+        const res = await patchApiListsId(
+          id,
+          { name },
+          { headers: authHeaders() }
+        )
+        if (res.status === 200) {
+          setLists((prev) =>
+            prev.map((l) => (l.id === id ? { ...l, name } : l))
+          )
+        } else {
+          toastApiError("Could not rename list", res)
+        }
       } catch (err) {
-        console.error("Rename list error:", err)
+        toastApiError("Could not rename list", err)
       }
     },
     [authHeaders]
@@ -177,10 +206,14 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const deleteList = useCallback(
     async (id: string) => {
       try {
-        await deleteApiListsId(id, { headers: authHeaders() })
-        setLists((prev) => prev.filter((l) => l.id !== id))
+        const res = await deleteApiListsId(id, { headers: authHeaders() })
+        if (res.status === 200) {
+          setLists((prev) => prev.filter((l) => l.id !== id))
+        } else {
+          toastApiError("Could not delete list", res)
+        }
       } catch (err) {
-        console.error("Delete list error:", err)
+        toastApiError("Could not delete list", err)
       }
     },
     [authHeaders]
@@ -189,20 +222,24 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const addToList = useCallback(
     async (listId: string, ticker: string) => {
       try {
-        await postApiListsIdItems(
+        const res = await postApiListsIdItems(
           listId,
           { ticker },
           { headers: authHeaders() }
         )
-        setLists((prev) =>
-          prev.map((l) =>
-            l.id === listId && !l.items.some((i) => i.ticker === ticker)
-              ? { ...l, items: [...l.items, { ticker }] }
-              : l
+        if (res.status === 200) {
+          setLists((prev) =>
+            prev.map((l) =>
+              l.id === listId && !l.items.some((i) => i.ticker === ticker)
+                ? { ...l, items: [...l.items, { ticker }] }
+                : l
+            )
           )
-        )
+        } else {
+          toastApiError("Could not add ticker to list", res)
+        }
       } catch (err) {
-        console.error("Add to list error:", err)
+        toastApiError("Could not add ticker to list", err)
       }
     },
     [authHeaders]
@@ -211,18 +248,22 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const removeFromList = useCallback(
     async (listId: string, ticker: string) => {
       try {
-        await deleteApiListsIdItemsTicker(listId, ticker, {
+        const res = await deleteApiListsIdItemsTicker(listId, ticker, {
           headers: authHeaders(),
         })
-        setLists((prev) =>
-          prev.map((l) =>
-            l.id === listId
-              ? { ...l, items: l.items.filter((i) => i.ticker !== ticker) }
-              : l
+        if (res.status === 200) {
+          setLists((prev) =>
+            prev.map((l) =>
+              l.id === listId
+                ? { ...l, items: l.items.filter((i) => i.ticker !== ticker) }
+                : l
+            )
           )
-        )
+        } else {
+          toastApiError("Could not remove ticker from list", res)
+        }
       } catch (err) {
-        console.error("Remove from list error:", err)
+        toastApiError("Could not remove ticker from list", err)
       }
     },
     [authHeaders]

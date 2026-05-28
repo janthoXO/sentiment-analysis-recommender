@@ -32,6 +32,18 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/TickerResult"
                   - $ref: "#/components/schemas/SearchError"
+        "400":
+          description: Missing or invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -48,6 +60,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Stock"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -79,13 +97,25 @@ paths:
           description: Optional. Article-window size in seconds (fromSec = eventTSec - intervalSec, or now - intervalSec for no-event call).
       responses:
         "200":
-          description: NDJSON stream — one TickerResult per line (one per eventTSec, or a single result when no events given).
+          description: NDJSON stream — one TickerResult or SearchError per line (one per eventTSec, or a single result when no events given).
           content:
             application/x-ndjson:
               schema:
-                $ref: "#/components/schemas/TickerResult"
+                oneOf:
+                  - $ref: "#/components/schemas/TickerResult"
+                  - $ref: "#/components/schemas/SearchError"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "503":
-          description: Sentiment data unavailable
+          description: Sentiment data unavailable (upstream failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -121,8 +151,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CandleSeries"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "404":
+          description: No price data for this ticker/window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "503":
-          description: Price data unavailable
+          description: Price data unavailable (upstream failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -146,6 +192,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Stock"
+        "503":
+          description: Peer lookup unavailable (upstream failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -167,7 +225,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
         "400":
-          description: Username already taken
+          description: Username already taken or missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -190,6 +258,16 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -208,6 +286,16 @@ paths:
                   $ref: "#/components/schemas/List"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -226,8 +314,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/List"
+        "400":
+          description: Missing name field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -254,10 +358,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListSummary"
+        "400":
+          description: Missing name field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "404":
           description: List not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -274,6 +398,16 @@ paths:
           description: Deleted
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -296,10 +430,30 @@ paths:
       responses:
         "200":
           description: Added
+        "400":
+          description: Missing ticker or ticker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -323,8 +477,22 @@ paths:
           description: Removed
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -353,6 +521,10 @@ paths:
                 type: string
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
       tags:
         - webclient-out
         - core-in
@@ -371,13 +543,33 @@ components:
     SourceResult:
       $ref: "./schemas/SourceResult.json"
 
-    SearchError:
+    HttpError:
       type: object
       properties:
         error:
           type: string
+          description: Human-readable error message safe to display to the user.
+        code:
+          type: string
+          description: Machine-readable error code (e.g. UPSTREAM_UNAVAILABLE, USERNAME_TAKEN).
       required:
         - error
+        - code
+
+    SearchError:
+      type: object
+      description: An error chunk emitted mid-stream for a specific ticker (or the whole request).
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        ticker:
+          type: string
+          description: Present when the failure is scoped to a single ticker.
+      required:
+        - error
+        - code
 
     CandleSeries:
       type: object

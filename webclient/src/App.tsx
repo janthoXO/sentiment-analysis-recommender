@@ -10,6 +10,7 @@ import { AuthProvider } from "./context/auth-provider"
 import { WatchlistProvider } from "./context/watchlist-provider"
 import { AuthModal } from "./components/AuthModal"
 import StockDetailPage from "./pages/StockDetail"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 
 function AppRoutes() {
   const location = useLocation()
@@ -50,7 +51,9 @@ export function App() {
       <BrowserRouter>
         <AuthProvider>
           <WatchlistProvider>
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </WatchlistProvider>
         </AuthProvider>
       </BrowserRouter>

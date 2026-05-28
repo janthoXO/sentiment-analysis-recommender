@@ -95,8 +95,18 @@ export const zCandleSeries = z.object({
     candles: z.array(zRoot)
 });
 
+/**
+ * An error chunk emitted mid-stream for a specific ticker (or the whole request).
+ */
 export const zSearchError = z.object({
-    error: z.string()
+    error: z.string(),
+    code: z.string(),
+    ticker: z.string().optional()
+});
+
+export const zHttpError = z.object({
+    error: z.string(),
+    code: z.string()
 });
 
 export const zGetApiTickersSentimentQuery = z.object({
@@ -127,9 +137,12 @@ export const zGetApiTickersByTickerIdSentimentQuery = z.object({
 });
 
 /**
- * NDJSON stream — one TickerResult per line (one per eventTSec, or a single result when no events given).
+ * NDJSON stream — one TickerResult or SearchError per line (one per eventTSec, or a single result when no events given).
  */
-export const zGetApiTickersByTickerIdSentimentResponse = zTickerResultRoot;
+export const zGetApiTickersByTickerIdSentimentResponse = z.union([
+    zTickerResultRoot,
+    zSearchError
+]);
 
 export const zGetApiTickersByTickerIdCandlesPath = z.object({
     tickerId: z.string()

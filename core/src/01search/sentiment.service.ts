@@ -27,6 +27,7 @@ import {
 } from "./ticker-stock.repo.js";
 import { searchTickers } from "@/stocks/stocks.api.js";
 import { env } from "@/env.js";
+import { sanitizeError, errorCode } from "@/middleware/httpError.js";
 
 // ---------------------------------------------------------------------------
 // Core per-stock analysis
@@ -34,11 +35,8 @@ import { env } from "@/env.js";
 
 export interface AnalyzeStockOptions {
   stock: StockRoot;
-  /** When set, pins the article window and tags the result. */
   eventTSec?: number;
-  /** Article-window size in seconds. */
   intervalSec?: number;
-  /** Analysis priority passed to the analyzer queue. Default 4. */
   priority?: number;
 }
 
@@ -50,7 +48,6 @@ async function fetchArticlesWithCache(opts: {
   const { ticker, eventTSec, intervalSec } = opts;
 
   if (eventTSec !== undefined) {
-    // event-articles cache; use 0 as the interval sentinel for backoff-mode
     const cacheInterval = intervalSec ?? 0;
     let articles = await getEventArticlesCache(
       ticker,
@@ -64,7 +61,6 @@ async function fetchArticlesWithCache(opts: {
     return articles;
   }
 
-  // Non-event: standard ticker-articles cache
   let articles = await getTickerArticlesCache(ticker);
   if (articles === null) {
     articles = await getArticles({ ticker, intervalSec });
@@ -84,7 +80,6 @@ export async function analyzeStock(
 ): Promise<TickerResultRoot | null> {
   const { stock, eventTSec, intervalSec, priority = 4 } = opts;
 
-  // DB short-circuit: enough fresh scores already stored?
   const count = await countFreshSourceScoresForTicker(stock.ticker, {
     toSec: eventTSec,
     intervalSec,
@@ -135,7 +130,6 @@ function tag(
 // Streaming helpers
 // ---------------------------------------------------------------------------
 
-/** Yields resolved values from an array of promises in completion order. */
 export async function* yieldAsResolved<T>(
   promises: Promise<T>[]
 ): AsyncGenerator<T> {
@@ -153,17 +147,42 @@ export async function* yieldAsResolved<T>(
   }
 }
 
+export interface StreamError {
+  error: string;
+  code: string;
+  ticker?: string;
+}
+
+function makeStockError(stock: StockRoot, e: unknown): StreamError {
+  return {
+    error: sanitizeError(e, "Analysis failed"),
+    code: errorCode(e),
+    ticker: stock.ticker,
+  };
+}
+
 async function* analyzeStocks(
   stocks: StockRoot[]
-): AsyncGenerator<TickerResultRoot> {
+): AsyncGenerator<TickerResultRoot | StreamError> {
   const promises = stocks.map((stock) =>
-    analyzeStock({ stock, priority: 4 }).catch((e) => {
-      console.error(`Error processing ${stock.ticker}:`, e);
-      return null;
-    })
+    analyzeStock({ stock, priority: 4 })
+      .then((result) => {
+        if (result === null) {
+          return {
+            error: "No articles found for this ticker",
+            code: "NO_ARTICLES",
+            ticker: stock.ticker,
+          } satisfies StreamError;
+        }
+        return result;
+      })
+      .catch((e) => {
+        console.error(`Error processing ${stock.ticker}:`, e);
+        return makeStockError(stock, e);
+      })
   );
   for await (const result of yieldAsResolved(promises)) {
-    if (result !== null) yield result;
+    yield result;
   }
 }
 
@@ -173,7 +192,7 @@ async function* analyzeStocks(
 
 export async function* streamSentiment(
   input: { q: string } | { tickerIds: string[] }
-): AsyncGenerator<TickerResultRoot | { error: string }> {
+): AsyncGenerator<TickerResultRoot | StreamError> {
   if ("q" in input) {
     yield* streamByQuery(input.q);
   } else {
@@ -183,30 +202,49 @@ export async function* streamSentiment(
 
 async function* streamByQuery(
   q: string
-): AsyncGenerator<TickerResultRoot | { error: string }> {
+): AsyncGenerator<TickerResultRoot | StreamError> {
   const qUpper = q.toUpperCase().trim();
 
-  // Direct ticker lookup
   const directHit = await getTickerStock(qUpper);
   if (directHit) {
     console.debug(`Direct ticker cache hit for ${qUpper}`);
     try {
       const result = await analyzeStock({ stock: directHit, priority: 4 });
-      if (result) yield result;
+      if (result) {
+        yield result;
+      } else {
+        yield {
+          error: "No articles found for this ticker",
+          code: "NO_ARTICLES",
+          ticker: qUpper,
+        } satisfies StreamError;
+      }
     } catch (e) {
       console.error(`Error processing direct ticker ${qUpper}:`, e);
+      yield makeStockError(directHit, e);
     }
     return;
   }
 
-  // Query cache → Finnhub search
   let stocks = await getQueryStockCache(q);
   if (stocks !== null) {
     console.debug(`Query cache hit for "${q}" (${stocks.length} tickers)`);
   } else {
-    stocks = await searchTickers(q);
+    try {
+      stocks = await searchTickers(q);
+    } catch (e) {
+      console.error(`Ticker search failed for "${q}":`, e);
+      yield {
+        error: sanitizeError(e, "Ticker search failed"),
+        code: errorCode(e),
+      } satisfies StreamError;
+      return;
+    }
     if (stocks.length === 0) {
-      yield { error: "No tickers found" };
+      yield {
+        error: "No tickers found",
+        code: "NO_TICKERS",
+      } satisfies StreamError;
       return;
     }
     await upsertManyTickerStocks(stocks);
@@ -222,9 +260,12 @@ async function* streamByQuery(
 
 async function* streamByTickerIds(
   tickerIds: string[]
-): AsyncGenerator<TickerResultRoot | { error: string }> {
+): AsyncGenerator<TickerResultRoot | StreamError> {
   if (tickerIds.length === 0) {
-    yield { error: "No ticker IDs provided" };
+    yield {
+      error: "No ticker IDs provided",
+      code: "NO_TICKERS",
+    } satisfies StreamError;
     return;
   }
 

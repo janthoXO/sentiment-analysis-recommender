@@ -6,6 +6,7 @@ import { getApiTickersTrending } from "@/api/generated/sentimentSearchAPI.gen"
 import { useStockStream } from "@/hooks/useStockStream"
 import { ResultCard } from "@/components/ResultCard"
 import type { Stock } from "@/api/generated/dtos"
+import { toastApiError } from "@/lib/api-error"
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -22,11 +23,11 @@ export default function HomePage() {
         ) {
           setTrendingStocks(res.data)
           search({ tickerIds: res.data.map((s) => s.ticker) })
+        } else if (res.status !== 200) {
+          toastApiError("Could not load trending stocks", res)
         }
       })
-      .catch(() => {
-        // trending fetch failed silently — section stays hidden
-      })
+      .catch((e) => toastApiError("Could not load trending stocks", e))
   }, [search])
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {

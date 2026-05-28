@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react"
-import { toast } from "sonner"
 import { getApiTickersTickerIdCandles } from "@/api/generated/sentimentSearchAPI.gen"
 import type { Candle } from "@/api/generated/dtos/candle.gen"
 import type { CandleDuration, CandleInterval } from "@/lib/intervals"
+import { assertOk, toastApiError } from "@/lib/api-error"
 
 export function useCandles(
   ticker: string | undefined,
@@ -36,18 +36,16 @@ export function useCandles(
         )
         if (signal.aborted) return
 
-        if (res.status !== 200) {
-          throw new Error("Failed to fetch candles")
-        }
-
-        const series = res.data as { candles: Candle[] }
-        setCandles(series.candles ?? [])
+        const data = assertOk<{ candles: Candle[] }>(
+          res,
+          "Could not load price chart"
+        )
+        setCandles(data.candles ?? [])
       } catch (e: unknown) {
-        if (e instanceof Error && e.name === "AbortError") return
         if (signal.aborted) return
         const msg = e instanceof Error ? e.message : "Failed to load chart data"
         setError(msg)
-        toast.error("Could not load price chart", { description: msg })
+        toastApiError("Could not load price chart", e)
       } finally {
         if (!signal.aborted) setLoading(false)
       }

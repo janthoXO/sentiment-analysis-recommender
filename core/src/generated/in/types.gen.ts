@@ -102,8 +102,27 @@ export type CandleSeries = {
     candles: Array<Root>;
 };
 
+/**
+ * An error chunk emitted mid-stream for a specific ticker (or the whole request).
+ */
 export type SearchError = {
     error: string;
+    code: string;
+    /**
+     * Present when the failure is scoped to a single ticker.
+     */
+    ticker?: string;
+};
+
+export type HttpError = {
+    /**
+     * Human-readable error message safe to display to the user.
+     */
+    error: string;
+    /**
+     * Machine-readable error code (e.g. UPSTREAM_UNAVAILABLE, USERNAME_TAKEN).
+     */
+    code: string;
 };
 
 export type GetApiTickersSentimentData = {
@@ -122,6 +141,19 @@ export type GetApiTickersSentimentData = {
     url: '/api/tickers/sentiment';
 };
 
+export type GetApiTickersSentimentErrors = {
+    /**
+     * Missing or invalid query parameters
+     */
+    400: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
+};
+
+export type GetApiTickersSentimentError = GetApiTickersSentimentErrors[keyof GetApiTickersSentimentErrors];
+
 export type GetApiTickersSentimentResponses = {
     /**
      * NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
@@ -137,6 +169,15 @@ export type GetApiTickersTrendingData = {
     query?: never;
     url: '/api/tickers/trending';
 };
+
+export type GetApiTickersTrendingErrors = {
+    /**
+     * Internal server error
+     */
+    500: HttpError;
+};
+
+export type GetApiTickersTrendingError = GetApiTickersTrendingErrors[keyof GetApiTickersTrendingErrors];
 
 export type GetApiTickersTrendingResponses = {
     /**
@@ -170,16 +211,22 @@ export type GetApiTickersByTickerIdSentimentData = {
 
 export type GetApiTickersByTickerIdSentimentErrors = {
     /**
-     * Sentiment data unavailable
+     * Invalid query parameters
      */
-    503: unknown;
+    400: HttpError;
+    /**
+     * Sentiment data unavailable (upstream failure)
+     */
+    503: HttpError;
 };
+
+export type GetApiTickersByTickerIdSentimentError = GetApiTickersByTickerIdSentimentErrors[keyof GetApiTickersByTickerIdSentimentErrors];
 
 export type GetApiTickersByTickerIdSentimentResponses = {
     /**
-     * NDJSON stream — one TickerResult per line (one per eventTSec, or a single result when no events given).
+     * NDJSON stream — one TickerResult or SearchError per line (one per eventTSec, or a single result when no events given).
      */
-    200: TickerResultRoot;
+    200: TickerResultRoot | SearchError;
 };
 
 export type GetApiTickersByTickerIdSentimentResponse = GetApiTickersByTickerIdSentimentResponses[keyof GetApiTickersByTickerIdSentimentResponses];
@@ -207,10 +254,20 @@ export type GetApiTickersByTickerIdCandlesData = {
 
 export type GetApiTickersByTickerIdCandlesErrors = {
     /**
-     * Price data unavailable
+     * Invalid query parameters
      */
-    503: unknown;
+    400: HttpError;
+    /**
+     * No price data for this ticker/window
+     */
+    404: HttpError;
+    /**
+     * Price data unavailable (upstream failure)
+     */
+    503: HttpError;
 };
+
+export type GetApiTickersByTickerIdCandlesError = GetApiTickersByTickerIdCandlesErrors[keyof GetApiTickersByTickerIdCandlesErrors];
 
 export type GetApiTickersByTickerIdCandlesResponses = {
     /**
@@ -233,6 +290,19 @@ export type GetApiTickersByTickerIdPeersData = {
     url: '/api/tickers/{tickerId}/peers';
 };
 
+export type GetApiTickersByTickerIdPeersErrors = {
+    /**
+     * Internal server error
+     */
+    500: HttpError;
+    /**
+     * Peer lookup unavailable (upstream failure)
+     */
+    503: HttpError;
+};
+
+export type GetApiTickersByTickerIdPeersError = GetApiTickersByTickerIdPeersErrors[keyof GetApiTickersByTickerIdPeersErrors];
+
 export type GetApiTickersByTickerIdPeersResponses = {
     /**
      * List of peer stocks (same country + sector/industry)
@@ -251,10 +321,16 @@ export type PostApiAuthRegisterData = {
 
 export type PostApiAuthRegisterErrors = {
     /**
-     * Username already taken
+     * Username already taken or missing credentials
      */
-    400: unknown;
+    400: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type PostApiAuthRegisterError = PostApiAuthRegisterErrors[keyof PostApiAuthRegisterErrors];
 
 export type PostApiAuthRegisterResponses = {
     /**
@@ -276,8 +352,14 @@ export type PostApiAuthLoginErrors = {
     /**
      * Invalid credentials
      */
-    401: unknown;
+    401: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type PostApiAuthLoginError = PostApiAuthLoginErrors[keyof PostApiAuthLoginErrors];
 
 export type PostApiAuthLoginResponses = {
     /**
@@ -299,8 +381,14 @@ export type GetApiListsErrors = {
     /**
      * Unauthorized
      */
-    401: unknown;
+    401: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type GetApiListsError = GetApiListsErrors[keyof GetApiListsErrors];
 
 export type GetApiListsResponses = {
     /**
@@ -320,10 +408,20 @@ export type PostApiListsData = {
 
 export type PostApiListsErrors = {
     /**
+     * Missing name field
+     */
+    400: HttpError;
+    /**
      * Unauthorized
      */
-    401: unknown;
+    401: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type PostApiListsError = PostApiListsErrors[keyof PostApiListsErrors];
 
 export type PostApiListsResponses = {
     /**
@@ -347,8 +445,14 @@ export type DeleteApiListsByIdErrors = {
     /**
      * Unauthorized
      */
-    401: unknown;
+    401: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type DeleteApiListsByIdError = DeleteApiListsByIdErrors[keyof DeleteApiListsByIdErrors];
 
 export type DeleteApiListsByIdResponses = {
     /**
@@ -368,14 +472,24 @@ export type PatchApiListsByIdData = {
 
 export type PatchApiListsByIdErrors = {
     /**
+     * Missing name field
+     */
+    400: HttpError;
+    /**
      * Unauthorized
      */
-    401: unknown;
+    401: HttpError;
     /**
      * List not found
      */
-    404: unknown;
+    404: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type PatchApiListsByIdError = PatchApiListsByIdErrors[keyof PatchApiListsByIdErrors];
 
 export type PatchApiListsByIdResponses = {
     /**
@@ -397,14 +511,24 @@ export type PostApiListsByIdItemsData = {
 
 export type PostApiListsByIdItemsErrors = {
     /**
+     * Missing ticker or ticker not found
+     */
+    400: HttpError;
+    /**
      * Unauthorized
      */
-    401: unknown;
+    401: HttpError;
     /**
      * Forbidden
      */
-    403: unknown;
+    403: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type PostApiListsByIdItemsError = PostApiListsByIdItemsErrors[keyof PostApiListsByIdItemsErrors];
 
 export type PostApiListsByIdItemsResponses = {
     /**
@@ -427,12 +551,18 @@ export type DeleteApiListsByIdItemsByTickerErrors = {
     /**
      * Unauthorized
      */
-    401: unknown;
+    401: HttpError;
     /**
      * Forbidden
      */
-    403: unknown;
+    403: HttpError;
+    /**
+     * Internal server error
+     */
+    500: HttpError;
 };
+
+export type DeleteApiListsByIdItemsByTickerError = DeleteApiListsByIdItemsByTickerErrors[keyof DeleteApiListsByIdItemsByTickerErrors];
 
 export type DeleteApiListsByIdItemsByTickerResponses = {
     /**
@@ -457,8 +587,10 @@ export type GetApiListsStreamErrors = {
     /**
      * Unauthorized
      */
-    401: unknown;
+    401: HttpError;
 };
+
+export type GetApiListsStreamError = GetApiListsStreamErrors[keyof GetApiListsStreamErrors];
 
 export type GetApiListsStreamResponses = {
     /**

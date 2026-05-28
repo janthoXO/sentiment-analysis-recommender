@@ -12,18 +12,25 @@ export const readStream = <T extends object>(
     stream.read().then(({ done, value }) => {
       if (done) {
         if (buffer.trim().length > 0) {
-          processLine(JSON.parse(buffer))
+          try {
+            processLine(JSON.parse(buffer))
+          } catch {
+            console.warn("Failed to parse final NDJSON chunk; skipping")
+          }
         }
         return
       }
 
       buffer += decoder.decode(value, { stream: true })
-      // Splitting by \r?\n perfectly handles cross-platform newline characters
       const parts = buffer.split(/\r?\n/)
       buffer = parts.pop() ?? ""
 
       for (const part of parts.filter(Boolean)) {
-        processLine(JSON.parse(part) as T)
+        try {
+          processLine(JSON.parse(part) as T)
+        } catch {
+          console.warn("Failed to parse NDJSON line; skipping:", part)
+        }
       }
 
       return loop()

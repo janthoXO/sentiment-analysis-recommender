@@ -14,6 +14,7 @@ import {
   postApiAuthLogin,
   postApiAuthRegister,
 } from "@/api/generated/sentimentSearchAPI.gen.js"
+import { ApiError, assertOk, toastApiError } from "@/lib/api-error"
 
 export function AuthModal({ isRegister = false }: { isRegister?: boolean }) {
   const navigate = useNavigate()
@@ -25,7 +26,6 @@ export function AuthModal({ isRegister = false }: { isRegister?: boolean }) {
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      // Go back to the background location if it exists
       navigate(-1)
     }
   }
@@ -37,30 +37,26 @@ export function AuthModal({ isRegister = false }: { isRegister?: boolean }) {
     try {
       if (isRegister) {
         const res = await postApiAuthRegister({ username, password })
-        if (res.status === 200 && res.data && "token" in res.data) {
-          login((res.data as unknown as { token: string }).token)
-        } else {
-          throw new Error("Registration failed")
-        }
+        const data = assertOk<{ token: string }>(res, "Registration failed")
+        login(data.token)
       } else {
         const res = await postApiAuthLogin({ username, password })
-        if (res.status === 200 && res.data && "token" in res.data) {
-          login((res.data as unknown as { token: string }).token)
-        } else {
-          throw new Error("Login failed")
-        }
+        const data = assertOk<{ token: string }>(res, "Login failed")
+        login(data.token)
       }
-      // After successful login/register, navigate to the background location
       const state = location.state as { backgroundLocation?: Location }
       navigate(state?.backgroundLocation?.pathname || "/", { replace: true })
     } catch (err: unknown) {
-      if (typeof err === "object" && err !== null && "response" in err) {
-        setError(
-          (err as { response?: { data?: { error?: string } } }).response?.data
-            ?.error || "An error occurred"
-        )
-      } else {
-        setError("An error occurred")
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "An error occurred"
+      setError(msg)
+      // assertOk already fired a toast; only fire manually for non-ApiError paths
+      if (!(err instanceof ApiError)) {
+        toastApiError(isRegister ? "Registration failed" : "Login failed", err)
       }
     }
   }

@@ -4,6 +4,7 @@ import * as cheerio from "cheerio";
 import { format, getUnixTime, subDays } from "date-fns";
 import YahooFinance from "yahoo-finance2";
 import z from "zod";
+import { HttpError } from "@/middleware/httpError.js";
 
 const MIN_ARTICLES = 5;
 const TOP_X_ARTICLES = 10;
@@ -14,7 +15,7 @@ const zFinnhubNews = z.object({
   headline: z.string(),
   url: z.string(),
   summary: z.string(),
-  datetime: z.number(), // unix timestamp (seconds)
+  datetime: z.number(),
 });
 
 async function scrapeArticleSnippet(
@@ -43,28 +44,41 @@ export async function getArticlesByTickerTime(
   limit: number,
   now: Date = new Date()
 ): Promise<SourceRoot[]> {
+  const from = new Date(fromSec * 1000);
+  const to = new Date(toSec * 1000);
+  const url = new URL("https://finnhub.io/api/v1/company-news");
+  url.searchParams.set("symbol", ticker);
+  url.searchParams.set("from", format(from, "yyyy-MM-dd"));
+  url.searchParams.set("to", format(to, "yyyy-MM-dd"));
+  url.searchParams.set("token", env.FINNHUB_API_KEY);
+
+  let response: Response;
   try {
-    const from = new Date(fromSec * 1000);
-    const to = new Date(toSec * 1000);
-    const url = new URL("https://finnhub.io/api/v1/company-news");
-    url.searchParams.set("symbol", ticker);
-    url.searchParams.set("from", format(from, "yyyy-MM-dd"));
-    url.searchParams.set("to", format(to, "yyyy-MM-dd"));
-    url.searchParams.set("token", env.FINNHUB_API_KEY);
-    const response = await fetch(url);
-    const data = await zFinnhubNews.array().parseAsync(await response.json());
-    return data
-      .map((news) => ({
-        url: news.url,
-        snippet: `${news.headline}\n${news.summary}`,
-        scrapedAtSec: getUnixTime(now),
-        updatedAtSec: news.datetime,
-      }))
-      .slice(0, limit);
+    response = await fetch(url);
   } catch (e) {
-    console.error(`Failed to fetch articles for ${ticker}:`);
-    throw e;
+    throw HttpError.upstreamUnavailable("News feed unavailable", e);
   }
+
+  if (response.status === 429 || response.status >= 500) {
+    throw HttpError.upstreamUnavailable(
+      `News feed rate-limited or unavailable (${response.status})`
+    );
+  }
+  if (!response.ok) {
+    throw HttpError.upstreamUnavailable(
+      `News feed failed (${response.status})`
+    );
+  }
+
+  const data = await zFinnhubNews.array().parseAsync(await response.json());
+  return data
+    .map((news) => ({
+      url: news.url,
+      snippet: `${news.headline}\n${news.summary}`,
+      scrapedAtSec: getUnixTime(now),
+      updatedAtSec: news.datetime,
+    }))
+    .slice(0, limit);
 }
 
 async function getArticlesByTickerLatest(
@@ -72,39 +86,37 @@ async function getArticlesByTickerLatest(
   limit: number,
   now: Date
 ): Promise<SourceRoot[]> {
-  const res = await yf.search(ticker, { newsCount: limit, quotesCount: 0 });
-  return Promise.all(
-    res.news.map(async (n) => ({
-      url: n.link,
-      snippet: await scrapeArticleSnippet(n.link, n.title),
-      scrapedAtSec: getUnixTime(now),
-      updatedAtSec: getUnixTime(n.providerPublishTime),
-    }))
-  );
+  try {
+    const res = await yf.search(ticker, { newsCount: limit, quotesCount: 0 });
+    return Promise.all(
+      res.news.map(async (n) => ({
+        url: n.link,
+        snippet: await scrapeArticleSnippet(n.link, n.title),
+        scrapedAtSec: getUnixTime(now),
+        updatedAtSec: getUnixTime(n.providerPublishTime),
+      }))
+    );
+  } catch (e) {
+    if (e instanceof HttpError) throw e;
+    throw HttpError.upstreamUnavailable("News feed unavailable", e);
+  }
 }
 
 export interface GetArticlesOptions {
   ticker: string;
-  /** Upper bound of the article window (Unix seconds). Defaults to now. */
   toSec?: number;
-  /** Lower bound of the article window. If set, performs a single fixed-window fetch. */
   fromSec?: number;
-  /** Window size in seconds. Used to derive fromSec when fromSec is absent: fromSec = toSec - intervalSec. */
   intervalSec?: number;
-  /** Max articles to return. Defaults to 10. */
   limit?: number;
-  /** Minimum articles before stopping exponential backoff. Defaults to 5. */
   minArticles?: number;
-  /** Max exponential backoff steps (each doubles the lookback). Defaults to 6 (~32 days). */
   maxBackoffSteps?: number;
 }
 
 /**
  * Unified article fetcher.
  *
- * Fixed window (fromSec or intervalSec given) → Finnhub only (supports time range).
- * Latest news (no window) → Yahoo first (globally relevant, ranked by relevance);
- *   falls back to Finnhub exponential walk-back only if Yahoo returns 0 results.
+ * Fixed window (fromSec or intervalSec given) → Finnhub only.
+ * Latest news (no window) → Yahoo first; Finnhub exponential walk-back fallback.
  */
 export async function getArticles(
   opts: GetArticlesOptions
@@ -120,7 +132,6 @@ export async function getArticles(
   const now = new Date();
   const toSec = opts.toSec ?? getUnixTime(now);
 
-  // Fixed window: either fromSec is explicit, or derivable from intervalSec.
   if (fromSec !== undefined) {
     return getArticlesByTickerTime(ticker, fromSec, toSec, limit, now);
   }
@@ -135,7 +146,12 @@ export async function getArticles(
   }
 
   // Latest news: Yahoo first; Finnhub walk-back only when Yahoo returns nothing.
-  const yahooArticles = await getArticlesByTickerLatest(ticker, limit, now);
+  let yahooArticles: SourceRoot[] = [];
+  try {
+    yahooArticles = await getArticlesByTickerLatest(ticker, limit, now);
+  } catch {
+    // Yahoo failed — fall through to Finnhub walk-back
+  }
   if (yahooArticles.length > 0) {
     return yahooArticles;
   }
@@ -144,13 +160,17 @@ export async function getArticles(
   const stepNow = new Date(toSec * 1000);
   let articles: SourceRoot[] = [];
   for (let i = 0; articles.length < minArticles && i < maxBackoffSteps; i++) {
-    articles = await getArticlesByTickerTime(
-      ticker,
-      getUnixTime(subDays(new Date(toSec * 1000), 2 ** i)),
-      toSec,
-      limit,
-      stepNow
-    );
+    try {
+      articles = await getArticlesByTickerTime(
+        ticker,
+        getUnixTime(subDays(new Date(toSec * 1000), 2 ** i)),
+        toSec,
+        limit,
+        stepNow
+      );
+    } catch {
+      break;
+    }
   }
   return articles;
 }
