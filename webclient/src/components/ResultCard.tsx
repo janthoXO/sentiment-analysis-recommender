@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { AddToListButton } from "./AddToListButton"
 import { cn } from "@/lib/utils"
+import { parseSentimentLabel, parseHeadline } from "@/lib/sentiment"
 import type { TickerResultSourcesItem as SourceResult } from "@/api/generated/dtos/tickerResultSourcesItem.gen"
 import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
 
@@ -12,35 +13,6 @@ export interface ResultCardProps {
   avgScore: number
   articleCount: number
   sources?: SourceResult[]
-}
-
-function parseSentimentLabel(score: number): {
-  label: string
-  className: string
-} {
-  if (score > 0.2)
-    return {
-      label: "Bullish",
-      className: "border-green-400 bg-green-50 text-green-700",
-    }
-  if (score < -0.2)
-    return {
-      label: "Bearish",
-      className: "border-red-400 bg-red-50 text-red-700",
-    }
-  return {
-    label: "Neutral",
-    className: "border-gray-200 bg-gray-50 text-gray-700",
-  }
-}
-
-function parseHeadline(snippet: string): { headline: string; body: string } {
-  const idx = snippet.indexOf("\n")
-  if (idx === -1) return { headline: snippet, body: "" }
-  return {
-    headline: snippet.slice(0, idx).trim(),
-    body: snippet.slice(idx + 1).trim(),
-  }
 }
 
 export function ResultCard({

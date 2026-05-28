@@ -16,8 +16,9 @@ import {
   deleteApiListsId,
   postApiListsIdItems,
   deleteApiListsIdItemsTicker,
-  getApiTickers,
+  getApiTickersSentiment,
 } from "@/api/generated/sentimentSearchAPI.gen.js"
+import { readStream } from "@/lib/stream.js"
 
 const DIVERGENCE_THRESHOLD = 0.2
 
@@ -86,15 +87,18 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
     void (async () => {
       try {
-        const res = await getApiTickers(
-          { tickers: uniqueTickers.join(",") },
+        const res = await getApiTickersSentiment(
+          { tickerIds: uniqueTickers },
           { headers: authHeaders() }
         )
-        if (res.data && Array.isArray(res.data)) {
+        if (res.status === 200) {
           const map: Record<string, TickerResult> = {}
-          for (const result of res.data) {
-            map[result.stock.ticker] = result
-          }
+          await readStream(res.stream, (parsedObj) => {
+            if (!("error" in parsedObj)) {
+              const r = parsedObj as TickerResult
+              map[r.stock.ticker] = r
+            }
+          })
           setTickerResults(map)
         }
       } catch (err) {

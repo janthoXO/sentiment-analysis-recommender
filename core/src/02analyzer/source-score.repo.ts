@@ -1,7 +1,8 @@
-import { and, eq, sql, count, gt } from "drizzle-orm";
+import { and, between, eq, sql, count } from "drizzle-orm";
 import { db } from "../postgres.repo.js";
 import { sourceScoreSchema } from "./source-score.schema.js";
 import type { SourceResultRoot } from "@/generated/in/index.js";
+import { getUnixTime } from "date-fns";
 
 function rowToSourceResult(
   row: typeof sourceScoreSchema.$inferSelect
@@ -63,37 +64,66 @@ export async function upsertManySourceScores(
   await Promise.all(results.map((r) => upsertSourceScore(ticker, r)));
 }
 
+export interface FreshWindow {
+  /** Upper bound (Unix seconds). Defaults to now. */
+  toSec?: number;
+  /** Window size in seconds.
+   *  - toSec + intervalSec → [toSec - intervalSec, toSec]
+   *  - toSec only          → [toSec - 86400, toSec]
+   *  - intervalSec only    → [now - intervalSec, now]
+   *  - neither             → [now - 3600, now]  (preserves old 1-hour default)
+   */
+  intervalSec?: number;
+}
+
+function resolveFreshWindow(win?: FreshWindow): {
+  fromSec: number;
+  toSec: number;
+} {
+  const nowSec = getUnixTime(new Date());
+  const toSec = win?.toSec ?? nowSec;
+
+  let intervalSec: number;
+  if (win?.intervalSec !== undefined) {
+    intervalSec = win.intervalSec;
+  } else if (win?.toSec !== undefined) {
+    intervalSec = 86_400; // default 1-day window when toSec is explicitly given
+  } else {
+    intervalSec = 3_600; // default 1-hour window (preserve old behavior)
+  }
+
+  return { fromSec: toSec - intervalSec, toSec };
+}
+
 export async function listFreshSourceScoresForTicker(
-  ticker: string
+  ticker: string,
+  win?: FreshWindow
 ): Promise<SourceResultRoot[]> {
+  const { fromSec, toSec } = resolveFreshWindow(win);
   const rows = await db
     .select()
     .from(sourceScoreSchema)
     .where(
       and(
         eq(sourceScoreSchema.ticker, ticker),
-        gt(
-          sourceScoreSchema.scrapedAtSec,
-          sql`extract(epoch from now()) - 1 * 60 * 60` // only count sources scraped in the last hour
-        )
+        between(sourceScoreSchema.updatedAtSec, fromSec, toSec)
       )
     );
   return rows.map(rowToSourceResult);
 }
 
 export async function countFreshSourceScoresForTicker(
-  ticker: string
+  ticker: string,
+  win?: FreshWindow
 ): Promise<number> {
+  const { fromSec, toSec } = resolveFreshWindow(win);
   const result = await db
     .select({ count: count() })
     .from(sourceScoreSchema)
     .where(
       and(
         eq(sourceScoreSchema.ticker, ticker),
-        gt(
-          sourceScoreSchema.scrapedAtSec,
-          sql`extract(epoch from now()) - 1 * 60 * 60` // only count sources scraped in the last hour
-        )
+        between(sourceScoreSchema.updatedAtSec, fromSec, toSec)
       )
     );
   return result[0]?.count ?? 0;

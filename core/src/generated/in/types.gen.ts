@@ -11,12 +11,16 @@ export type TickerResultRoot = {
     stock: StockRoot;
     sources: Array<SourceResultRoot>;
     avgScore: number;
+    /**
+     * The timestamp (in seconds) of the associated event.
+     */
+    eventTSec?: number;
 };
 
 /**
  * Source
  */
-export type Root = {
+export type SourceRoot = {
     url: string;
     snippet: string;
     /**
@@ -32,7 +36,7 @@ export type Root = {
 /**
  * SourceResult
  */
-export type SourceResultRoot = Root & {
+export type SourceResultRoot = SourceRoot & {
     score: number;
 };
 
@@ -42,6 +46,18 @@ export type SourceResultRoot = Root & {
 export type StockRoot = {
     ticker: string;
     name: string;
+};
+
+/**
+ * Candle
+ */
+export type Root = {
+    tSec: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
 };
 
 export type AddListItemRequest = {
@@ -80,9 +96,135 @@ export type AuthRequest = {
     password: string;
 };
 
-export type SearchError = {
-    error?: string;
+export type CandleSeries = {
+    ticker: string;
+    interval: '5m' | '30m' | '1d';
+    candles: Array<Root>;
 };
+
+export type SearchError = {
+    error: string;
+};
+
+export type GetApiTickersSentimentData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Search query (company name, sector). Mutually exclusive with tickerIds.
+         */
+        q?: string;
+        /**
+         * Repeat the param (?tickerIds=AAPL&tickerIds=MSFT). Mutually exclusive with q.
+         */
+        tickerIds?: Array<string>;
+    };
+    url: '/api/tickers/sentiment';
+};
+
+export type GetApiTickersSentimentResponses = {
+    /**
+     * NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
+     */
+    200: TickerResultRoot | SearchError;
+};
+
+export type GetApiTickersSentimentResponse = GetApiTickersSentimentResponses[keyof GetApiTickersSentimentResponses];
+
+export type GetApiTickersByTickerIdSentimentData = {
+    body?: never;
+    path: {
+        /**
+         * Ticker symbol (e.g. AAPL)
+         */
+        tickerId: string;
+    };
+    query?: {
+        /**
+         * Optional. Per-event timestamps (Unix seconds). Repeat the param. Each produces one TickerResult line.
+         */
+        eventTSec?: Array<number>;
+        /**
+         * Optional. Article-window size in seconds (fromSec = eventTSec - intervalSec, or now - intervalSec for no-event call).
+         */
+        intervalSec?: number;
+    };
+    url: '/api/tickers/{tickerId}/sentiment';
+};
+
+export type GetApiTickersByTickerIdSentimentErrors = {
+    /**
+     * Sentiment data unavailable
+     */
+    503: unknown;
+};
+
+export type GetApiTickersByTickerIdSentimentResponses = {
+    /**
+     * NDJSON stream — one TickerResult per line (one per eventTSec, or a single result when no events given).
+     */
+    200: TickerResultRoot;
+};
+
+export type GetApiTickersByTickerIdSentimentResponse = GetApiTickersByTickerIdSentimentResponses[keyof GetApiTickersByTickerIdSentimentResponses];
+
+export type GetApiTickersByTickerIdCandlesData = {
+    body?: never;
+    path: {
+        /**
+         * Ticker symbol (e.g. AAPL)
+         */
+        tickerId: string;
+    };
+    query: {
+        /**
+         * Lookback window. `today` starts at UTC midnight; others go back from now.
+         */
+        duration: '1D' | '1W' | '1M' | '1Y' | 'today';
+        /**
+         * Candle interval.
+         */
+        interval: '5m' | '30m' | '1d';
+    };
+    url: '/api/tickers/{tickerId}/candles';
+};
+
+export type GetApiTickersByTickerIdCandlesErrors = {
+    /**
+     * Price data unavailable
+     */
+    503: unknown;
+};
+
+export type GetApiTickersByTickerIdCandlesResponses = {
+    /**
+     * OHLC candle series
+     */
+    200: CandleSeries;
+};
+
+export type GetApiTickersByTickerIdCandlesResponse = GetApiTickersByTickerIdCandlesResponses[keyof GetApiTickersByTickerIdCandlesResponses];
+
+export type GetApiTickersByTickerIdPeersData = {
+    body?: never;
+    path: {
+        /**
+         * Ticker symbol to find peers for (e.g. AAPL)
+         */
+        tickerId: string;
+    };
+    query?: never;
+    url: '/api/tickers/{tickerId}/peers';
+};
+
+export type GetApiTickersByTickerIdPeersResponses = {
+    /**
+     * List of peer stocks (same country + sector/industry)
+     */
+    200: Array<StockRoot>;
+};
+
+export type GetApiTickersByTickerIdPeersResponse = GetApiTickersByTickerIdPeersResponses[keyof GetApiTickersByTickerIdPeersResponses];
 
 export type PostApiAuthRegisterData = {
     body: AuthRequest;
@@ -310,66 +452,3 @@ export type GetApiListsStreamResponses = {
 };
 
 export type GetApiListsStreamResponse = GetApiListsStreamResponses[keyof GetApiListsStreamResponses];
-
-export type GetApiTickersData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * Comma-separated list of ticker symbols (e.g. AAPL,MSFT). Max 50.
-         */
-        tickers: string;
-    };
-    url: '/api/tickers';
-};
-
-export type GetApiTickersResponses = {
-    /**
-     * Array of analyzed ticker results
-     */
-    200: Array<TickerResultRoot>;
-};
-
-export type GetApiTickersResponse = GetApiTickersResponses[keyof GetApiTickersResponses];
-
-export type GetApiTickersByTickerIdPeersData = {
-    body?: never;
-    path: {
-        /**
-         * Ticker symbol to find peers for (e.g. AAPL)
-         */
-        tickerId: string;
-    };
-    query?: never;
-    url: '/api/tickers/{tickerId}/peers';
-};
-
-export type GetApiTickersByTickerIdPeersResponses = {
-    /**
-     * List of peer stocks (same country + sector/industry)
-     */
-    200: Array<StockRoot>;
-};
-
-export type GetApiTickersByTickerIdPeersResponse = GetApiTickersByTickerIdPeersResponses[keyof GetApiTickersByTickerIdPeersResponses];
-
-export type GetApiSearchData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Search query (e.g. company name, ticker, or sector).
-         */
-        q?: string;
-    };
-    url: '/api/search';
-};
-
-export type GetApiSearchResponses = {
-    /**
-     * A stream of analyzed stock results.
-     */
-    200: TickerResultRoot | SearchError;
-};
-
-export type GetApiSearchResponse = GetApiSearchResponses[keyof GetApiSearchResponses];

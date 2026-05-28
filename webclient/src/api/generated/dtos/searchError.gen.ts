@@ -7,5 +7,5 @@
  */
 
 export interface SearchError {
-  error?: string;
+  error: string;
 }

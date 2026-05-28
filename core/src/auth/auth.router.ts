@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../postgres.repo.js";
 import { usersSchema } from "./auth.schema.js";
 import { listsSchema } from "../03watchlist/watchlist.schema.js";
+import { getUnixTime } from "date-fns";
 
 export const JWT_SECRET =
   process.env.JWT_SECRET || "fallback_secret_for_dev_only";
@@ -34,7 +35,7 @@ authRouter.post("/register", async (req, res): Promise<void> => {
       passwordHash,
     });
 
-    const now = Math.floor(Date.now() / 1000);
+    const now = getUnixTime(new Date());
     await db.insert(listsSchema).values([
       { id: uuidv4(), userId, name: "Watchlist", createdAtSec: now },
       { id: uuidv4(), userId, name: "Portfolio", createdAtSec: now + 1 },

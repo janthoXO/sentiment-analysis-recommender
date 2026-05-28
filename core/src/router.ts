@@ -2,8 +2,8 @@ import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 
-import searchRouter from "@/01search/search.router.js";
 import tickersRouter from "@/01search/tickers.router.js";
+import trendsRouter from "@/01trends/trends.router.js";
 import { authRouter } from "@/auth/auth.router.js";
 import { listsRouter } from "@/03watchlist/watchlist.router.js";
 import { env } from "@/env.js";
@@ -16,7 +16,7 @@ export function initRouter(): Promise<void> {
     res.status(200).json({ msg: "ok" });
   });
 
-  apiRouter.use("/search", searchRouter);
+  apiRouter.use("/tickers", trendsRouter);
   apiRouter.use("/tickers", tickersRouter);
   apiRouter.use("/auth", authRouter);
   apiRouter.use("/lists", listsRouter);

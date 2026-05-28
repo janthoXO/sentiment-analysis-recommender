@@ -6,9 +6,11 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type GetApiTickersParams = {
-/**
- * Comma-separated list of ticker symbols (e.g. AAPL,MSFT). Max 50.
- */
-tickers: string;
-};
+export interface Candle {
+  tSec: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
