@@ -25,6 +25,10 @@ import {
   getManyTickerStocks,
   upsertManyTickerStocks,
 } from "./ticker-stock.repo.js";
+import {
+  isExplicitTickerQuery,
+  resolveThemeQueryStocks,
+} from "./theme-query.service.js";
 import { searchTickers } from "@/stocks/stocks.api.js";
 import { env } from "@/env.js";
 import { sanitizeError, errorCode } from "@/middleware/httpError.js";
@@ -203,37 +207,52 @@ export async function* streamSentiment(
 async function* streamByQuery(
   q: string
 ): AsyncGenerator<TickerResultRoot | StreamError> {
-  const qUpper = q.toUpperCase().trim();
+  const qTrim = q.trim();
+  const qUpper = qTrim.toUpperCase();
 
-  const directHit = await getTickerStock(qUpper);
-  if (directHit) {
-    console.debug(`Direct ticker cache hit for ${qUpper}`);
-    try {
-      const result = await analyzeStock({ stock: directHit, priority: 4 });
-      if (result) {
-        yield result;
-      } else {
-        yield {
-          error: "No articles found for this ticker",
-          code: "NO_ARTICLES",
-          ticker: qUpper,
-        } satisfies StreamError;
+  if (isExplicitTickerQuery(qTrim)) {
+    const directHit = await getTickerStock(qUpper);
+    if (directHit) {
+      console.debug(`Direct ticker cache hit for ${qUpper}`);
+      try {
+        const result = await analyzeStock({ stock: directHit, priority: 4 });
+        if (result) {
+          yield result;
+        } else {
+          yield {
+            error: "No articles found for this ticker",
+            code: "NO_ARTICLES",
+            ticker: qUpper,
+          } satisfies StreamError;
+        }
+      } catch (e) {
+        console.error(`Error processing direct ticker ${qUpper}:`, e);
+        yield makeStockError(directHit, e);
       }
-    } catch (e) {
-      console.error(`Error processing direct ticker ${qUpper}:`, e);
-      yield makeStockError(directHit, e);
+      return;
     }
-    return;
   }
 
-  let stocks = await getQueryStockCache(q);
+  let usedThemeResolver = false;
+  let stocks = await getQueryStockCache(qTrim);
   if (stocks !== null) {
-    console.debug(`Query cache hit for "${q}" (${stocks.length} tickers)`);
+    console.debug(`Query cache hit for "${qTrim}" (${stocks.length} tickers)`);
   } else {
     try {
-      stocks = await searchTickers(q);
+      const themeStocks = isExplicitTickerQuery(qTrim)
+        ? null
+        : await resolveThemeQueryStocks(qTrim);
+      if (themeStocks) {
+        stocks = themeStocks;
+        usedThemeResolver = true;
+        console.debug(
+          `LLM theme query resolved "${qTrim}" to ${stocks.length} tickers`
+        );
+      } else {
+        stocks = await searchTickers(qTrim);
+      }
     } catch (e) {
-      console.error(`Ticker search failed for "${q}":`, e);
+      console.error(`Ticker search failed for "${qTrim}":`, e);
       yield {
         error: sanitizeError(e, "Ticker search failed"),
         code: errorCode(e),
@@ -250,8 +269,8 @@ async function* streamByQuery(
     await upsertManyTickerStocks(stocks);
     const isDirectTickerQuery =
       stocks.length === 1 && stocks[0]!.ticker.toUpperCase() === qUpper;
-    if (!isDirectTickerQuery) {
-      await setQueryStockCache(q, stocks);
+    if (usedThemeResolver || !isDirectTickerQuery) {
+      await setQueryStockCache(qTrim, stocks);
     }
   }
 

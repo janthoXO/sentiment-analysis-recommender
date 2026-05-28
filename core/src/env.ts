@@ -21,6 +21,11 @@ export const EnvSchema = z.object({
   GROUP_TIMEOUT_MS: z.coerce.number().default(15000),
 
   FINNHUB_API_KEY: z.string(),
+  LLM_PROVIDER: z.enum(["none", "gemini"]).default("none"),
+  LLM_MODEL: z.string().default("gemini-2.5-flash-lite"),
+  GEMINI_API_KEY: z.string().optional(),
+  LLM_THEME_MAX_TICKERS: z.coerce.number().int().positive().max(20).default(5),
+  LLM_THEME_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
   MAX_ARTICLES: z.coerce.number().default(10),
   TOP_TICKERS_REFRESH_INTERVAL_SEC: z.coerce
     .number()

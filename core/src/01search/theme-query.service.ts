@@ -1,0 +1,201 @@
+import z from "zod";
+import type { StockRoot } from "@/generated/in/index.js";
+import { env } from "@/env.js";
+import { searchTickers } from "@/stocks/stocks.api.js";
+import { dedupe } from "@/utils/depupe.js";
+
+const GeminiResponseSchema = z
+  .object({
+    candidates: z
+      .array(
+        z
+          .object({
+            content: z
+              .object({
+                parts: z.array(
+                  z
+                    .object({
+                      text: z.string().optional(),
+                    })
+                    .passthrough()
+                ),
+              })
+              .passthrough()
+              .optional(),
+          })
+          .passthrough()
+      )
+      .optional(),
+  })
+  .passthrough();
+
+const ThemeQueryResponseSchema = z
+  .object({
+    confidence: z.coerce.number().min(0).max(1),
+    tickers: z.array(
+      z
+        .object({
+          ticker: z.string(),
+          reason: z.string().optional(),
+        })
+        .passthrough()
+    ),
+  })
+  .passthrough();
+
+type ThemeQueryResponse = z.infer<typeof ThemeQueryResponseSchema>;
+
+const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/;
+
+export function isExplicitTickerQuery(query: string): boolean {
+  const trimmed = query.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed === trimmed.toUpperCase() &&
+    TICKER_PATTERN.test(trimmed)
+  );
+}
+
+export async function resolveThemeQueryStocks(
+  query: string
+): Promise<StockRoot[] | null> {
+  if (env.LLM_PROVIDER !== "gemini") return null;
+
+  const apiKey = env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    console.warn("LLM_PROVIDER=gemini but GEMINI_API_KEY is not configured");
+    return null;
+  }
+
+  try {
+    const themeResponse = await requestGeminiThemeTickers(query, apiKey);
+    if (
+      !themeResponse ||
+      themeResponse.confidence < env.LLM_THEME_CONFIDENCE_THRESHOLD
+    ) {
+      return null;
+    }
+
+    const tickers = dedupe(
+      themeResponse.tickers
+        .map((item) => normalizeTicker(item.ticker))
+        .filter((ticker): ticker is string => ticker !== null)
+        .slice(0, env.LLM_THEME_MAX_TICKERS),
+      (ticker) => ticker
+    );
+    if (tickers.length === 0) return null;
+
+    const stocks = await Promise.all(tickers.map(validateTicker));
+    const validStocks = dedupe(
+      stocks.filter((stock): stock is StockRoot => stock !== null),
+      (stock) => stock.ticker.toUpperCase()
+    );
+
+    return validStocks.length > 0 ? validStocks : null;
+  } catch (e) {
+    console.warn("Gemini theme query failed; falling back to ticker search", e);
+    return null;
+  }
+}
+
+async function requestGeminiThemeTickers(
+  query: string,
+  apiKey: string
+): Promise<ThemeQueryResponse | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  const model = env.LLM_MODEL.replace(/^models\//, "");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: buildThemeQueryPrompt(query) }],
+          },
+        ],
+        generationConfig: {
+          candidateCount: 1,
+          maxOutputTokens: 512,
+          responseMimeType: "application/json",
+          temperature: 0.1,
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini request failed (${response.status})`);
+    }
+
+    const payload = GeminiResponseSchema.parse(await response.json());
+    const text =
+      payload.candidates
+        ?.flatMap((candidate) => candidate.content?.parts ?? [])
+        .map((part) => part.text)
+        .filter((part): part is string => typeof part === "string")
+        .join("")
+        .trim() ?? "";
+
+    if (!text) return null;
+
+    const parsed = ThemeQueryResponseSchema.safeParse(parseJsonObject(text));
+    return parsed.success ? parsed.data : null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildThemeQueryPrompt(query: string): string {
+  return [
+    "Map a user's stock search query to relevant publicly traded equity tickers.",
+    "Return only JSON with this shape:",
+    '{"confidence":0.0,"tickers":[{"ticker":"NVDA","reason":"AI accelerator leader"}]}',
+    `Rules: return at most ${env.LLM_THEME_MAX_TICKERS} tickers; prefer US-listed common stocks; do not include ETFs, indexes, crypto, or private companies; do not invent symbols.`,
+    "If the query is not related to public equities, return confidence 0 and an empty tickers array.",
+    `User query: ${JSON.stringify(query)}`,
+  ].join("\n");
+}
+
+function parseJsonObject(text: string): unknown {
+  const trimmed = text
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    }
+    throw new Error("Gemini response did not contain valid JSON");
+  }
+}
+
+function normalizeTicker(ticker: string): string | null {
+  const normalized = ticker.trim().replace(/^\$/, "").toUpperCase();
+  return TICKER_PATTERN.test(normalized) ? normalized : null;
+}
+
+async function validateTicker(ticker: string): Promise<StockRoot | null> {
+  try {
+    const matches = await searchTickers(ticker);
+    return (
+      matches.find((stock) => stock.ticker.toUpperCase() === ticker) ?? null
+    );
+  } catch (e) {
+    console.warn(`Could not validate LLM ticker ${ticker}`, e);
+    return null;
+  }
+}

@@ -9,7 +9,17 @@ import {
 } from "./01tracker/tracker.service.js";
 import { runMigrations } from "./postgres.repo.js";
 
-console.log("Environment variables loaded.", env);
+function redactEnvForLog(environment: typeof env): Record<string, unknown> {
+  const secretKeys = new Set(["FINNHUB_API_KEY", "GEMINI_API_KEY"]);
+  return Object.fromEntries(
+    Object.entries(environment).map(([key, value]) => [
+      key,
+      secretKeys.has(key) && value ? "[redacted]" : value,
+    ])
+  );
+}
+
+console.log("Environment variables loaded.", redactEnvForLog(env));
 
 async function bootstrap() {
   await Promise.all([
