@@ -4,7 +4,10 @@
   "type": "object",
   "properties": {
     "ticker": { "type": "string" },
-    "name": { "type": "string" }
+    "name": { "type": "string" },
+    "sector": { "type": "string" },
+    "industry": { "type": "string" },
+    "exchange": { "type": "string" }
   },
   "required": ["ticker", "name"]
 }

@@ -46,6 +46,9 @@ export type SourceResultRoot = SourceRoot & {
 export type StockRoot = {
     ticker: string;
     name: string;
+    sector?: string;
+    industry?: string;
+    exchange?: string;
 };
 
 /**

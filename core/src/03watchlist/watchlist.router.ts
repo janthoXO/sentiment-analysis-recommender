@@ -20,7 +20,7 @@ import {
   upsertTickerStock,
 } from "../01search/ticker-stock.repo.js";
 import { sentimentEmitter, type SentimentChangeEvent } from "../events.js";
-import { searchTickers } from "@/stocks/stocks.api.js";
+import { enrichStockProfile, searchTickers } from "@/stocks/stocks.api.js";
 import { getUnixTime } from "date-fns";
 import { env } from "@/env.js";
 import { asyncHandler, HttpError } from "@/middleware/httpError.js";
@@ -133,13 +133,14 @@ listsRouter.post(
       if (!stock) {
         throw HttpError.notFound("TICKER_NOT_FOUND", "Ticker not found");
       }
-
-      await upsertTickerStock(stock);
     }
+
+    stock = await enrichStockProfile(stock);
+    await upsertTickerStock(stock);
 
     await saveTracker(
       normalizedTicker,
-      normalizedTicker,
+      stock.name,
       1,
       env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000,
       null

@@ -10,7 +10,11 @@ import {
   zGetApiTickersSentimentQuery,
   zGetApiTickersByTickerIdSentimentQuery,
 } from "@/generated/in/zod.gen.js";
-import { getCompanyPeers, searchTickers } from "@/stocks/stocks.api.js";
+import {
+  enrichStockProfile,
+  getCompanyPeers,
+  searchTickers,
+} from "@/stocks/stocks.api.js";
 import { getPeersCache, setPeersCache } from "./stock.cache.js";
 import { getTickerStock, upsertTickerStock } from "./ticker-stock.repo.js";
 import type { StockRoot } from "@/generated/in/index.js";
@@ -106,10 +110,12 @@ tickersRouter.get(
     }
 
     const { eventTSec, intervalSec } = parsed.data;
-    const stock: StockRoot = (await getTickerStock(ticker)) ?? {
-      ticker,
-      name: ticker,
-    };
+    const stock: StockRoot = await enrichStockProfile(
+      (await getTickerStock(ticker)) ?? {
+        ticker,
+        name: ticker,
+      }
+    );
 
     res.contentType("application/x-ndjson");
     res.setHeader("Transfer-Encoding", "chunked");
@@ -186,12 +192,13 @@ tickersRouter.get(
             const stocks = await searchTickers(t);
             const exact = stocks.find((s) => s.ticker.toUpperCase() === t);
             if (exact) {
-              upsertTickerStock(exact);
-              return exact;
+              const enrichedExact = await enrichStockProfile(exact);
+              await upsertTickerStock(enrichedExact);
+              return enrichedExact;
             }
           }
 
-          return stock ?? { ticker: t, name: t };
+          return enrichStockProfile(stock ?? { ticker: t, name: t });
         } catch (e) {
           console.error(`Error enriching peer ${t}:`, e);
           return null;

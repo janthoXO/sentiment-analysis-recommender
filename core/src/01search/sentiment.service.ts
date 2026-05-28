@@ -25,7 +25,11 @@ import {
   getManyTickerStocks,
   upsertManyTickerStocks,
 } from "./ticker-stock.repo.js";
-import { searchTickers } from "@/stocks/stocks.api.js";
+import {
+  enrichStockProfile,
+  enrichStocksProfiles,
+  searchTickers,
+} from "@/stocks/stocks.api.js";
 import { env } from "@/env.js";
 import { sanitizeError, errorCode } from "@/middleware/httpError.js";
 
@@ -209,7 +213,8 @@ async function* streamByQuery(
   if (directHit) {
     console.debug(`Direct ticker cache hit for ${qUpper}`);
     try {
-      const result = await analyzeStock({ stock: directHit, priority: 4 });
+      const stock = await enrichStockProfile(directHit);
+      const result = await analyzeStock({ stock, priority: 4 });
       if (result) {
         yield result;
       } else {
@@ -229,6 +234,8 @@ async function* streamByQuery(
   let stocks = await getQueryStockCache(q);
   if (stocks !== null) {
     console.debug(`Query cache hit for "${q}" (${stocks.length} tickers)`);
+    stocks = await enrichStocksProfiles(stocks);
+    await upsertManyTickerStocks(stocks);
   } else {
     try {
       stocks = await searchTickers(q);
@@ -247,6 +254,7 @@ async function* streamByQuery(
       } satisfies StreamError;
       return;
     }
+    stocks = await enrichStocksProfiles(stocks);
     await upsertManyTickerStocks(stocks);
     const isDirectTickerQuery =
       stocks.length === 1 && stocks[0]!.ticker.toUpperCase() === qUpper;
@@ -272,9 +280,10 @@ async function* streamByTickerIds(
   const upper = tickerIds.map((t) => t.toUpperCase().trim()).filter(Boolean);
   const stockMap = await getManyTickerStocks(upper);
 
-  const stocks: StockRoot[] = upper.map(
+  let stocks: StockRoot[] = upper.map(
     (ticker) => stockMap.get(ticker) ?? { ticker, name: ticker }
   );
+  stocks = await enrichStocksProfiles(stocks);
 
   yield* analyzeStocks(stocks);
 }
