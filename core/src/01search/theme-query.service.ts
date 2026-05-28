@@ -46,6 +46,21 @@ const ThemeQueryResponseSchema = z
 type ThemeQueryResponse = z.infer<typeof ThemeQueryResponseSchema>;
 
 const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/;
+const KNOWN_THEME_TICKERS: Record<string, string[]> = {
+  "grand theft auto": ["TTWO"],
+  gta: ["TTWO"],
+  "rockstar games": ["TTWO"],
+  "toy story": ["DIS"],
+  pixar: ["DIS"],
+  alexa: ["AMZN"],
+  "universal pictures": ["CMCSA"],
+  playstation: ["SONY"],
+  "call of duty": ["MSFT"],
+  trucks: ["F", "GM", "PCAR"],
+  "wood products": ["WY", "LPX", "UFPI"],
+  movies: ["DIS", "CMCSA", "SONY", "NFLX", "WBD"],
+  videogames: ["TTWO", "EA", "RBLX", "NTDOY", "SONY"],
+};
 
 class GeminiRequestError extends Error {
   constructor(
@@ -71,6 +86,9 @@ export function isExplicitTickerQuery(query: string): boolean {
 export async function resolveThemeQueryStocks(
   query: string
 ): Promise<StockRoot[] | null> {
+  const knownThemeStocks = await resolveKnownThemeStocks(query);
+  if (knownThemeStocks) return knownThemeStocks;
+
   if (env.LLM_PROVIDER !== "gemini") return null;
 
   const apiKey = env.GEMINI_API_KEY?.trim();
@@ -97,11 +115,7 @@ export async function resolveThemeQueryStocks(
     );
     if (tickers.length === 0) return null;
 
-    const stocks = await Promise.all(tickers.map(validateTicker));
-    const validStocks = dedupe(
-      stocks.filter((stock): stock is StockRoot => stock !== null),
-      (stock) => stock.ticker.toUpperCase()
-    );
+    const validStocks = await validateTickers(tickers);
 
     return validStocks.length > 0 ? validStocks : null;
   } catch (e) {
@@ -117,6 +131,16 @@ export async function resolveThemeQueryStocks(
     }
     return null;
   }
+}
+
+async function resolveKnownThemeStocks(
+  query: string
+): Promise<StockRoot[] | null> {
+  const tickers = KNOWN_THEME_TICKERS[normalizeThemeAliasKey(query)];
+  if (!tickers) return null;
+
+  const stocks = await validateTickers(tickers);
+  return stocks.length > 0 ? stocks : null;
 }
 
 async function requestGeminiThemeTickers(
@@ -229,6 +253,24 @@ function parseJsonObject(text: string): unknown {
 function normalizeTicker(ticker: string): string | null {
   const normalized = ticker.trim().replace(/^\$/, "").toUpperCase();
   return TICKER_PATTERN.test(normalized) ? normalized : null;
+}
+
+function normalizeThemeAliasKey(query: string): string {
+  return query
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function validateTickers(tickers: string[]): Promise<StockRoot[]> {
+  const stocks = await Promise.all(tickers.map(validateTicker));
+  return dedupe(
+    stocks.filter((stock): stock is StockRoot => stock !== null),
+    (stock) => stock.ticker.toUpperCase()
+  );
 }
 
 async function validateTicker(ticker: string): Promise<StockRoot | null> {
