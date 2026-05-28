@@ -75,7 +75,7 @@ export default function HomePage() {
               return result ? (
                 <ResultCard
                   key={stock.ticker}
-                  ticker={result.stock.ticker}
+                  stock={result.stock}
                   avgScore={result.avgScore}
                   articleCount={result.sources.length}
                   sources={result.sources}

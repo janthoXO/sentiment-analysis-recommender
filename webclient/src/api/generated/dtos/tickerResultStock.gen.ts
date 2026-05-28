@@ -9,4 +9,7 @@
 export type TickerResultStock = {
   ticker: string;
   name: string;
+  sector?: string;
+  industry?: string;
+  exchange?: string;
 };

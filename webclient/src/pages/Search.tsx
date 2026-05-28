@@ -52,7 +52,7 @@ export default function SearchPage() {
         {results.map((res) => (
           <ResultCard
             key={res.stock.ticker}
-            ticker={res.stock.ticker}
+            stock={res.stock}
             avgScore={res.avgScore}
             articleCount={res.sources.length}
             sources={res.sources}

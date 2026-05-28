@@ -138,7 +138,9 @@ export default function WatchlistPage() {
           return (
             <ResultCard
               key={item.ticker}
-              ticker={item.ticker}
+              stock={
+                streamData?.stock ?? { ticker: item.ticker, name: item.ticker }
+              }
               avgScore={streamData?.avgScore ?? 0}
               articleCount={streamData?.sources?.length ?? 0}
               sources={streamData?.sources ?? []}

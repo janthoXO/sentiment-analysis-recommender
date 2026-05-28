@@ -9,19 +9,28 @@ import type { TickerResultSourcesItem as SourceResult } from "@/api/generated/dt
 import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
 
 export interface ResultCardProps {
-  ticker: string
+  stock: TickerResult["stock"]
   avgScore: number
   articleCount: number
   sources?: SourceResult[]
 }
 
 export function ResultCard({
-  ticker,
+  stock,
   avgScore,
   articleCount,
   sources = [],
 }: ResultCardProps) {
   const sentiment = parseSentimentLabel(avgScore)
+  const { ticker, name, sector, industry, exchange } = stock
+  const displayName = name && name !== ticker ? name : null
+  const metadataBadges = Array.from(
+    new Set(
+      [sector, industry, exchange].filter(
+        (value): value is string => Boolean(value)
+      )
+    )
+  )
 
   const sortedSources = [...sources].sort(
     (a, b) => b.updatedAtSec - a.updatedAtSec
@@ -43,7 +52,7 @@ export function ResultCard({
       to={`/stock/${ticker}`}
       state={{
         tickerResult: {
-          stock: { ticker, name: "" },
+          stock,
           sources,
           avgScore,
         } as TickerResult,
@@ -52,9 +61,16 @@ export function ResultCard({
     >
       <Card className="group h-full cursor-pointer transition-colors hover:border-primary">
         <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
-          <h3 className="text-2xl leading-none font-semibold tracking-tight">
-            {ticker}
-          </h3>
+          <div className="min-w-0">
+            <h3 className="text-2xl leading-none font-semibold tracking-tight">
+              {ticker}
+            </h3>
+            {displayName && (
+              <p className="mt-1 truncate text-sm font-medium text-muted-foreground">
+                {displayName}
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <AddToListButton ticker={ticker} />
             <Badge
@@ -67,6 +83,19 @@ export function ResultCard({
         </CardHeader>
 
         <CardContent className="pb-2">
+          {metadataBadges.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {metadataBadges.map((label) => (
+                <Badge
+                  key={label}
+                  variant="secondary"
+                  className="max-w-full truncate text-[10px] font-medium"
+                >
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="mb-1 block text-muted-foreground">
