@@ -25,7 +25,10 @@ export const zTickerArticlesRoot = z.object({
  */
 export const zStockRoot = z.object({
     ticker: z.string(),
-    name: z.string()
+    name: z.string(),
+    sector: z.string().optional(),
+    industry: z.string().optional(),
+    exchange: z.string().optional()
 });
 
 /**

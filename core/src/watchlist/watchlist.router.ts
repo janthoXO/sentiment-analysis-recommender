@@ -7,6 +7,7 @@ import {
 import type { WatchlistRepo } from "./watchlist.repo.js";
 import type { TrackerService } from "../tracker/tracker.service.js";
 import type { TickerStockRepo } from "../stocks/ticker-stock.repo.js";
+import { enrichStockProfile } from "../stocks/stocks.api.js";
 import { getUnixTime } from "date-fns";
 import { env } from "../env.js";
 import { asyncHandler, HttpError } from "../middleware/httpError.js";
@@ -105,9 +106,10 @@ export function makeWatchlistRouter({
         if (!stock) {
           throw HttpError.notFound("TICKER_NOT_FOUND", "Ticker not found");
         }
-
-        await tickerStockRepo.upsertTickerStock(stock);
       }
+
+      stock = await enrichStockProfile(stock);
+      await tickerStockRepo.upsertTickerStock(stock);
 
       await trackerService.saveTracker(
         normalizedTicker,

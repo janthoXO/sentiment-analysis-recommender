@@ -2,6 +2,10 @@ import type { StockRoot } from "../generated/in/index.js";
 import type { TickerStockRepo } from "./ticker-stock.repo.js";
 import type { StockCacheService } from "./stock.cache.js";
 import { sanitizeError, errorCode } from "../middleware/httpError.js";
+import {
+  enrichStockProfile,
+  enrichStocksProfiles,
+} from "./stocks.api.js";
 
 export interface StreamError {
   error: string;
@@ -32,13 +36,16 @@ export function makeStocksService({
     const directHit = await tickerStockRepo.getTickerStock(qUpper);
     if (directHit) {
       console.debug(`Direct ticker cache hit for ${qUpper}`);
-      yield directHit;
+      const stock = await enrichStockProfile(directHit);
+      yield stock;
       return;
     }
 
     let stocks = await stockCache.getQueryStockCache(q);
     if (stocks !== null) {
       console.debug(`Query cache hit for "${q}" (${stocks.length} tickers)`);
+      stocks = await enrichStocksProfiles(stocks);
+      await tickerStockRepo.upsertManyTickerStocks(stocks);
     } else {
       try {
         stocks = await searchTickers(q);
@@ -57,6 +64,7 @@ export function makeStocksService({
         } satisfies StreamError;
         return;
       }
+      stocks = await enrichStocksProfiles(stocks);
       await tickerStockRepo.upsertManyTickerStocks(stocks);
       const isDirectTickerQuery =
         stocks.length === 1 && stocks[0]!.ticker.toUpperCase() === qUpper;
@@ -84,8 +92,13 @@ export function makeStocksService({
     const upper = tickerIds.map((t) => t.toUpperCase().trim()).filter(Boolean);
     const stockMap = await tickerStockRepo.getManyTickerStocks(upper);
 
-    for (const ticker of upper) {
-      yield stockMap.get(ticker) ?? { ticker, name: ticker };
+    let stocks: StockRoot[] = upper.map(
+      (ticker) => stockMap.get(ticker) ?? { ticker, name: ticker }
+    );
+    stocks = await enrichStocksProfiles(stocks);
+
+    for (const stock of stocks) {
+      yield stock;
     }
   }
 
