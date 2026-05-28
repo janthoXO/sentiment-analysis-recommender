@@ -22,6 +22,7 @@ export const EnvSchema = z.object({
 
   FINNHUB_API_KEY: z.string(),
   MAX_ARTICLES: z.coerce.number().default(10),
+  TRENDING_REFRESH_INTERVAL_SEC: z.coerce.number().default(60 * 60),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

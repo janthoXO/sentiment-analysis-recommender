@@ -77,7 +77,7 @@ export default function WatchlistPage() {
 
   const loadSentiment = useCallback(() => {
     if (!activeList || activeList.items.length === 0) return
-    void search(activeList.items.map((i) => i.ticker).join(" "))
+    void search({ tickerIds: activeList.items.map((i) => i.ticker) })
   }, [activeList, search])
 
   // Load sentiment data when active list changes

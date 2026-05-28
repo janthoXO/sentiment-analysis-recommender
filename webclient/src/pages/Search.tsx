@@ -20,7 +20,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (q === null || q.trim() === "") return
-    search(q)
+    search({ q })
   }, [q, search])
 
   return (

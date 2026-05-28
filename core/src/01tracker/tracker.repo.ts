@@ -31,6 +31,15 @@ export async function getAllTrackers(): Promise<Tracker[]> {
   return result;
 }
 
+export async function getTrackersByPriority(
+  priority: number
+): Promise<Tracker[]> {
+  return db
+    .select()
+    .from(trackerSchema)
+    .where(eq(trackerSchema.priority, priority));
+}
+
 export async function updateTrackerLastTriggered(
   ticker: string,
   priority: number,

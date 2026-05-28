@@ -118,6 +118,33 @@ export async function getTopTickers(): Promise<StockRoot[]> {
   return fetchSP500();
 }
 
+const zTrendingResult = z.object({
+  quotes: z.array(z.object({ symbol: z.string() })),
+});
+
+export async function getTrendingTickers(): Promise<StockRoot[]> {
+  const raw = await yf.trendingSymbols("US", { count: 20 });
+  const parsed = zTrendingResult.parse(raw);
+  const symbols = parsed.quotes.map((q) => q.symbol);
+
+  const results: StockRoot[] = [];
+  await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const matches = await searchTickers(symbol);
+        const match = matches.find(
+          (m) => m.ticker.toUpperCase() === symbol.toUpperCase()
+        );
+        if (match) results.push(match);
+      } catch {
+        // skip symbols that fail lookup
+      }
+    })
+  );
+
+  return dedupe(results, (s) => s.ticker);
+}
+
 async function fetchSP500(): Promise<StockRoot[]> {
   const url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies";
 

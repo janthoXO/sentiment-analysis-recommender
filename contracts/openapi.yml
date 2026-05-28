@@ -36,6 +36,22 @@ paths:
         - webclient-out
         - core-in
 
+  /api/tickers/trending:
+    get:
+      summary: Get the current trending US tickers
+      responses:
+        "200":
+          description: List of trending stocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stock"
+      tags:
+        - webclient-out
+        - core-in
+
   /api/tickers/{tickerId}/sentiment:
     get:
       summary: Stream sentiment for a single ticker as NDJSON. Optionally pin to one or more event timestamps.

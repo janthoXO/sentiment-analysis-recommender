@@ -1,4 +1,4 @@
-import { getTopTickers } from "../stocks/stocks.api.js";
+import { getTopTickers, getTrendingTickers } from "../stocks/stocks.api.js";
 import { analyzeArticles } from "../02analyzer/analyzer.service.js";
 import {
   getTickerArticlesCache,
@@ -12,6 +12,8 @@ import {
   upsertTracker,
   deleteTracker,
 } from "./tracker.repo.js";
+import { upsertManyTickerStocks } from "../01search/ticker-stock.repo.js";
+import { env } from "../env.js";
 
 const intervalTimers = new Map<string, NodeJS.Timeout>();
 
@@ -110,7 +112,7 @@ function scheduleTracker(tracker: Tracker) {
   }, timeToNextTrigger);
 }
 
-async function initPersistedTrackers() {
+export async function initPersistedTrackers() {
   await getAllTrackers().then((trackers) =>
     trackers.forEach((tracker) => scheduleTracker(tracker))
   );
@@ -164,7 +166,7 @@ async function refreshTopTickers() {
 }
 
 let lastTopTickerRefresh = Date.now();
-async function initTopTrackers() {
+export async function initTopTrackers() {
   await refreshTopTickers();
 
   // setInterval max delay is 2147483647 ms (~24.8 days). 4 weeks overflows this limit and defaults to 1ms.
@@ -183,8 +185,39 @@ async function initTopTrackers() {
   ); // Check every 24 hours
 }
 
-export async function initTracker() {
-  await Promise.all([initPersistedTrackers(), initTopTrackers()]);
+const TrendingInterval = 10 * 60 * 1000;
+const TRENDING_PRIORITY = 2;
+
+async function refreshTrendingTickers() {
+  console.log("Fetching trending tickers...");
+  const refreshMs = env.TRENDING_REFRESH_INTERVAL_SEC * 1000;
+  const trending = await getTrendingTickers();
+  console.log(`Fetched ${trending.length} trending tickers.`);
+  if (trending.length === 0) return;
+
+  const expiresAt = Date.now() + refreshMs;
+  await upsertManyTickerStocks(trending);
+
+  for (const stock of trending) {
+    await saveTracker(
+      stock.ticker,
+      stock.name,
+      TRENDING_PRIORITY,
+      TrendingInterval,
+      expiresAt
+    );
+  }
+}
+
+export async function initTrendingTickers() {
+  await refreshTrendingTickers().catch((err) =>
+    console.error("Initial trending tickers refresh failed", err)
+  );
+  setInterval(() => {
+    refreshTrendingTickers().catch((err) =>
+      console.error("Trending tickers refresh failed", err)
+    );
+  }, env.TRENDING_REFRESH_INTERVAL_SEC * 1000);
 }
 
 export async function saveTracker(

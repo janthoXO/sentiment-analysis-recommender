@@ -2,8 +2,12 @@ import { initRouter } from "./router.js";
 // always keep this import to load environment variables before anything else
 import { env } from "./env.js";
 import { connectMq } from "./mq.repo.js";
-import { initTracker } from "./01tracker/tracker.service.js";
+import {
+  initPersistedTrackers,
+  initTopTrackers,
+} from "./01tracker/tracker.service.js";
 import { runMigrations } from "./postgres.repo.js";
+import { initTrendingTickers } from "./01tracker/tracker.service.js";
 
 console.log("Environment variables loaded.", env);
 
@@ -28,10 +32,16 @@ async function bootstrap() {
   ]);
 
   initRouter();
-  initTracker().catch((err) => {
-    console.error("Failed to init tracker", err);
-    throw err;
-  });
+  initPersistedTrackers().catch((err) =>
+    console.error("Failed to init persisted trackers", err)
+  );
+  // initTopTrackers().catch((err) => {
+  //   console.error("Failed to init top trackers", err);
+  //   throw err;
+  // });
+  initTrendingTickers().catch((err) =>
+    console.error("Failed to init trending tickers", err)
+  );
 }
 
 bootstrap().catch(() => {

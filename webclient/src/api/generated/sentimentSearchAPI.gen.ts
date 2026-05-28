@@ -82,6 +82,49 @@ export const getApiTickersSentiment = async (params?: GetApiTickersSentimentPara
 
 
 
+export type getApiTickersTrendingResponse200 = {
+  data: Stock[]
+  status: 200
+}
+
+export type getApiTickersTrendingResponseSuccess = (getApiTickersTrendingResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getApiTickersTrendingResponse = (getApiTickersTrendingResponseSuccess)
+
+export const getGetApiTickersTrendingUrl = () => {
+
+
+
+
+  return `/api/tickers/trending`
+}
+
+/**
+ * @summary Get the current trending US tickers
+ */
+export const getApiTickersTrending = async ( options?: RequestInit): Promise<getApiTickersTrendingResponse> => {
+
+  const res = await fetch(getGetApiTickersTrendingUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiTickersTrendingResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getApiTickersTrendingResponse
+}
+
+
+
 export type getApiTickersTickerIdSentimentResponse200 = {
   stream: TypedResponse<TickerResult>
   status: 200
