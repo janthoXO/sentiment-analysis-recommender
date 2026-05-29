@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "react-router-dom"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -54,6 +54,16 @@ export default function StockDetailPage() {
     null
   )
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
+  const [debouncedHoveredEventTSec, setDebouncedHoveredEventTSec] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (hoveredEventTSec === null) {
+      setDebouncedHoveredEventTSec(null)
+      return
+    }
+    const timer = setTimeout(() => setDebouncedHoveredEventTSec(hoveredEventTSec), 500)
+    return () => clearTimeout(timer)
+  }, [hoveredEventTSec])
 
   // Stage 1 (latest): articles + sentiment for the "latest" tab
   const { articles: latestArticles, avgScore: latestAvgScore } =
@@ -102,7 +112,7 @@ export default function StockDetailPage() {
   // avgScore in header is always from latest mode
   const avgScore = latestAvgScore
 
-  const activeEventTSec = selectedEventTSec ?? hoveredEventTSec
+  const activeEventTSec = selectedEventTSec ?? debouncedHoveredEventTSec
 
   const highlightedUrls = useMemo((): Set<string> | undefined => {
     if (!activeEventTSec) return undefined
