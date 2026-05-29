@@ -54,14 +54,19 @@ export default function StockDetailPage() {
     null
   )
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
-  const [debouncedHoveredEventTSec, setDebouncedHoveredEventTSec] = useState<number | null>(null)
+  const [debouncedHoveredEventTSec, setDebouncedHoveredEventTSec] = useState<
+    number | null
+  >(null)
 
   useEffect(() => {
     if (hoveredEventTSec === null) {
       setDebouncedHoveredEventTSec(null)
       return
     }
-    const timer = setTimeout(() => setDebouncedHoveredEventTSec(hoveredEventTSec), 500)
+    const timer = setTimeout(
+      () => setDebouncedHoveredEventTSec(hoveredEventTSec),
+      500
+    )
     return () => clearTimeout(timer)
   }, [hoveredEventTSec])
 
