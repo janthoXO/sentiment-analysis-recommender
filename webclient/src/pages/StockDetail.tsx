@@ -135,6 +135,15 @@ export default function StockDetailPage() {
   }
 
   const overall = parseSentimentLabel(avgScore ?? 0)
+  const metadataBadges = Array.from(
+    new Set(
+      [
+        preloadedStock?.sector,
+        preloadedStock?.industry,
+        preloadedStock?.exchange,
+      ].filter((value): value is string => Boolean(value))
+    )
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -143,6 +152,15 @@ export default function StockDetailPage() {
         <div>
           <h1 className="text-4xl font-bold">{stockName || ticker}</h1>
           <p className="mt-1 text-xl text-muted-foreground">{ticker}</p>
+          {metadataBadges.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {metadataBadges.map((label) => (
+                <Badge key={label} variant="secondary">
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-3">
           {avgScore != null ? (
