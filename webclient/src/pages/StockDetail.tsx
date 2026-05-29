@@ -118,9 +118,11 @@ export default function StockDetailPage() {
   const overall = parseSentimentLabel(avgScore ?? 0)
   const metadataBadges = Array.from(
     new Set(
-      [preloadedStock?.sector, preloadedStock?.industry, preloadedStock?.exchange].filter(
-        (value): value is string => Boolean(value)
-      )
+      [
+        preloadedStock?.sector,
+        preloadedStock?.industry,
+        preloadedStock?.exchange,
+      ].filter((value): value is string => Boolean(value))
     )
   )
 

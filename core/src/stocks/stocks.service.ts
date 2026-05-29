@@ -2,10 +2,7 @@ import type { StockRoot } from "../generated/in/index.js";
 import type { TickerStockRepo } from "./ticker-stock.repo.js";
 import type { StockCacheService } from "./stock.cache.js";
 import { sanitizeError, errorCode } from "../middleware/httpError.js";
-import {
-  enrichStockProfile,
-  enrichStocksProfiles,
-} from "./stocks.api.js";
+import { enrichStockProfile, enrichStocksProfiles } from "./stocks.api.js";
 
 export interface StreamError {
   error: string;
