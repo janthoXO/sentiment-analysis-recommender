@@ -2,6 +2,7 @@ import { Router } from "express";
 import z from "zod";
 import type { SourceRoot, StockRoot } from "../generated/in/index.js";
 import type { SentimentService } from "./sentiment.service.js";
+import type { InvestmentInsightService } from "./investment-insight.service.js";
 import type { TickerStockRepo } from "../stocks/ticker-stock.repo.js";
 
 const zSentimentQuery = z.object({
@@ -9,6 +10,8 @@ const zSentimentQuery = z.object({
     .union([z.string(), z.array(z.string())])
     .transform((v) => (Array.isArray(v) ? v : [v])),
 });
+
+const zInsightQuery = zSentimentQuery;
 
 function startNdjsonStream(res: import("express").Response) {
   res.contentType("application/x-ndjson");
@@ -19,9 +22,11 @@ function startNdjsonStream(res: import("express").Response) {
 export function makeSentimentRouter({
   sentimentService,
   tickerStockRepo,
+  investmentInsightService,
 }: {
   sentimentService: SentimentService;
   tickerStockRepo: TickerStockRepo;
+  investmentInsightService: InvestmentInsightService;
 }) {
   const router = Router();
 
@@ -81,6 +86,51 @@ export function makeSentimentRouter({
       }
     }
   );
+
+  // GET /api/tickers/:tickerId/articles/insight — cached LLM explanation for scored articles
+  router.get("/:tickerId/articles/insight", async (req, res): Promise<void> => {
+    const ticker = String(req.params["tickerId"] ?? "")
+      .toUpperCase()
+      .trim();
+    if (!ticker) {
+      res
+        .status(400)
+        .json({ error: "tickerId is required", code: "MISSING_TICKER" });
+      return;
+    }
+
+    const parsed = zInsightQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "articleUrl is required", code: "MISSING_PARAM" });
+      return;
+    }
+
+    try {
+      const stock: StockRoot = (await tickerStockRepo.getTickerStock(
+        ticker
+      )) ?? { ticker, name: ticker };
+
+      const insight = await investmentInsightService.getInvestmentInsight(
+        stock,
+        parsed.data.articleUrl
+      );
+
+      if (!insight) {
+        res.status(204).end();
+        return;
+      }
+
+      res.json(insight);
+    } catch (e) {
+      console.error(`Investment insight error for ${ticker}:`, e);
+      res.status(503).json({
+        error: "Investment insight unavailable",
+        code: "UPSTREAM_UNAVAILABLE",
+      });
+    }
+  });
 
   return router;
 }

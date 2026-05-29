@@ -8,6 +8,7 @@ import WatchlistPage from "./pages/Watchlist"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "./context/auth-provider"
 import { WatchlistProvider } from "./context/watchlist-provider"
+import { LlmInsightsProvider } from "./context/llm-insights-provider"
 import { AuthModal } from "./components/AuthModal"
 import StockDetailPage from "./pages/StockDetail"
 import { ErrorBoundary } from "./components/ErrorBoundary"
@@ -51,9 +52,11 @@ export function App() {
       <BrowserRouter>
         <AuthProvider>
           <WatchlistProvider>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
+            <LlmInsightsProvider>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </LlmInsightsProvider>
           </WatchlistProvider>
         </AuthProvider>
       </BrowserRouter>

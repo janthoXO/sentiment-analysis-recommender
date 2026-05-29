@@ -36,6 +36,26 @@ export const zSourceResultRoot = zSourceRoot.and(z.object({
 }));
 
 /**
+ * InvestmentInsight
+ */
+export const zInvestmentInsightRoot = z.object({
+    verdict: z.enum([
+        'bullish',
+        'bearish',
+        'neutral',
+        'mixed'
+    ]),
+    confidence: z.enum([
+        'low',
+        'medium',
+        'high'
+    ]),
+    summary: z.string().min(1),
+    reasons: z.array(z.string().min(1)).min(1).max(3),
+    disclaimer: z.string().min(1)
+});
+
+/**
  * Candle
  */
 export const zRoot = z.object({
@@ -168,6 +188,19 @@ export const zGetApiTickersByTickerIdArticlesSentimentQuery = z.object({
 export const zGetApiTickersByTickerIdArticlesSentimentResponse = z.union([
     zSourceResultRoot,
     zSearchError
+]);
+
+export const zGetApiTickersByTickerIdArticlesInsightPath = z.object({
+    tickerId: z.string()
+});
+
+export const zGetApiTickersByTickerIdArticlesInsightQuery = z.object({
+    articleUrl: z.array(z.string())
+});
+
+export const zGetApiTickersByTickerIdArticlesInsightResponse = z.union([
+    zInvestmentInsightRoot,
+    z.void()
 ]);
 
 export const zGetApiTickersByTickerIdCandlesPath = z.object({

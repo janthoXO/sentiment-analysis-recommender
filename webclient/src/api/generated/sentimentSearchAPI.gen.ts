@@ -13,10 +13,12 @@ import type {
   CandleSeries,
   CreateListRequest,
   GetApiTickersParams,
+  GetApiTickersTickerIdArticlesInsightParams,
   GetApiTickersTickerIdArticlesParams,
   GetApiTickersTickerIdArticlesSentimentParams,
   GetApiTickersTickerIdCandlesParams,
   HttpError,
+  InvestmentInsight,
   List,
   ListSummary,
   NotificationEvent,
@@ -277,6 +279,83 @@ export const getApiTickersTickerIdArticlesSentiment = async (tickerId: string,
 
   return { status: stream.status, stream, headers: stream.headers } as getApiTickersTickerIdArticlesSentimentResponse
   }
+
+
+
+export type getApiTickersTickerIdArticlesInsightResponse200 = {
+  data: InvestmentInsight
+  status: 200
+}
+
+export type getApiTickersTickerIdArticlesInsightResponse204 = {
+  data: void
+  status: 204
+}
+
+export type getApiTickersTickerIdArticlesInsightResponse400 = {
+  data: HttpError
+  status: 400
+}
+
+export type getApiTickersTickerIdArticlesInsightResponse503 = {
+  data: HttpError
+  status: 503
+}
+
+export type getApiTickersTickerIdArticlesInsightResponseSuccess = (getApiTickersTickerIdArticlesInsightResponse200 | getApiTickersTickerIdArticlesInsightResponse204) & {
+  headers: Headers;
+};
+export type getApiTickersTickerIdArticlesInsightResponseError = (getApiTickersTickerIdArticlesInsightResponse400 | getApiTickersTickerIdArticlesInsightResponse503) & {
+  headers: Headers;
+};
+
+export type getApiTickersTickerIdArticlesInsightResponse = (getApiTickersTickerIdArticlesInsightResponseSuccess | getApiTickersTickerIdArticlesInsightResponseError)
+
+export const getGetApiTickersTickerIdArticlesInsightUrl = (tickerId: string,
+    params: GetApiTickersTickerIdArticlesInsightParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["articleUrl"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : v.toString());
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tickers/${tickerId}/articles/insight?${stringifiedParams}` : `/api/tickers/${tickerId}/articles/insight`
+}
+
+/**
+ * @summary Generate a cached LLM explanation for scored ticker articles.
+ */
+export const getApiTickersTickerIdArticlesInsight = async (tickerId: string,
+    params: GetApiTickersTickerIdArticlesInsightParams, options?: RequestInit): Promise<getApiTickersTickerIdArticlesInsightResponse> => {
+
+  const res = await fetch(getGetApiTickersTickerIdArticlesInsightUrl(tickerId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getApiTickersTickerIdArticlesInsightResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getApiTickersTickerIdArticlesInsightResponse
+}
 
 
 

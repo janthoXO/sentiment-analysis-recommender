@@ -29,6 +29,7 @@ import { getTopTickers, getTrendingTickers } from "./trends/trends.api.js";
 
 // services
 import { makeAnalyzerService } from "./sentiment/analyzer.service.js";
+import { makeInvestmentInsightService } from "./sentiment/investment-insight.service.js";
 import { makeStocksService } from "./stocks/stocks.service.js";
 import { makeArticlesService } from "./articles/articles.service.js";
 import { makeSentimentService } from "./sentiment/sentiment.service.js";
@@ -129,6 +130,10 @@ async function bootstrap() {
   });
 
   const sentimentService = makeSentimentService({ analyzer });
+  const investmentInsightService = makeInvestmentInsightService({
+    redis,
+    sourceScoreRepo,
+  });
 
   const trackerService = makeTrackerService({
     trackerRepo,
@@ -158,6 +163,7 @@ async function bootstrap() {
   const sentimentRouter = makeSentimentRouter({
     sentimentService,
     tickerStockRepo,
+    investmentInsightService,
   });
 
   const trendsRouter = makeTrendsRouter({

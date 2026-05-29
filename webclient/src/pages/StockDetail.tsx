@@ -8,6 +8,7 @@ import { AddToListButton } from "@/components/AddToListButton"
 import { StockTimeline } from "@/components/StockTimeline"
 import { ArticleList } from "@/components/ArticleList"
 import { CompetitorsAccordion } from "@/components/CompetitorsAccordion"
+import { SentimentInsight } from "@/components/SentimentInsight"
 import { cn } from "@/lib/utils"
 import { parseSentimentLabel } from "@/lib/sentiment"
 import {
@@ -16,6 +17,17 @@ import {
   type CandleDuration,
   type RangePresetKey,
 } from "@/lib/intervals"
+import { detectEvents } from "@/lib/events"
+import type { Stock } from "@/models/Stock"
+import type { Article } from "@/models/Article"
+import type { InvestmentInsight } from "@/models/InvestmentInsight"
+import { useCandles } from "@/hooks/useCandles"
+import {
+  useTickerLatestPipeline,
+  useTickerEventPipeline,
+} from "@/hooks/useTickerPipeline"
+import { useLlmInsights } from "@/context/llm-insights-provider"
+import { toastApiError } from "@/lib/api-error"
 
 const MAX_EVENTS_BY_RANGE: Record<RangePresetKey, number> = {
   "1D": 2,
@@ -23,13 +35,6 @@ const MAX_EVENTS_BY_RANGE: Record<RangePresetKey, number> = {
   "1M": 5,
   "1Y": 7,
 }
-import { detectEvents } from "@/lib/events"
-import type { Stock } from "@/models/Stock"
-import { useCandles } from "@/hooks/useCandles"
-import {
-  useTickerLatestPipeline,
-  useTickerEventPipeline,
-} from "@/hooks/useTickerPipeline"
 
 type RangeKey = "latest" | RangePresetKey
 
@@ -41,9 +46,16 @@ const RANGES: { label: string; value: RangeKey }[] = [
   { label: "1Y", value: "1Y" },
 ]
 
+function buildInsightUrl(ticker: string, articles: Article[]): string {
+  const params = new URLSearchParams()
+  articles.forEach((article) => params.append("articleUrl", article.url))
+  return `/api/tickers/${encodeURIComponent(ticker)}/articles/insight?${params.toString()}`
+}
+
 export default function StockDetailPage() {
   const { ticker } = useParams()
   const location = useLocation()
+  const { enabled: insightsEnabled } = useLlmInsights()
 
   // Router state now carries only { stock } — no articles or scores
   const preloadedStock =
@@ -57,6 +69,11 @@ export default function StockDetailPage() {
   const [debouncedHoveredEventTSec, setDebouncedHoveredEventTSec] = useState<
     number | null
   >(null)
+  const [insightState, setInsightState] = useState<{
+    key: string
+    insight: InvestmentInsight | null
+  } | null>(null)
+  const [insightLoading, setInsightLoading] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(
@@ -98,6 +115,60 @@ export default function StockDetailPage() {
     intervalSec
   )
 
+  const scoredLatestArticles = useMemo(
+    () => (latestArticles ?? []).filter((article) => article.score != null),
+    [latestArticles]
+  )
+
+  const insightRequestKey = useMemo(() => {
+    if (!ticker || scoredLatestArticles.length === 0) return null
+    return `${ticker}:${scoredLatestArticles.map((article) => article.url).join("|")}`
+  }, [ticker, scoredLatestArticles])
+
+  useEffect(() => {
+    if (!insightsEnabled || !ticker || !insightRequestKey) return
+
+    const ctrl = new AbortController()
+    const requestKey = insightRequestKey
+    const tickerId = ticker
+
+    async function loadInsight() {
+      setInsightLoading(true)
+      try {
+        const response = await fetch(
+          buildInsightUrl(tickerId, scoredLatestArticles),
+          {
+            signal: ctrl.signal,
+          }
+        )
+        if (ctrl.signal.aborted) return
+
+        if (response.status === 204) {
+          setInsightState({ key: requestKey, insight: null })
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(`Insight request failed (${response.status})`)
+        }
+
+        setInsightState({
+          key: requestKey,
+          insight: (await response.json()) as InvestmentInsight,
+        })
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return
+        setInsightState({ key: requestKey, insight: null })
+        toastApiError("Could not load sentiment insight", e)
+      } finally {
+        if (!ctrl.signal.aborted) setInsightLoading(false)
+      }
+    }
+
+    void loadInsight()
+    return () => ctrl.abort()
+  }, [insightsEnabled, ticker, scoredLatestArticles, insightRequestKey])
+
   // Per-event avg scores for the timeline tooltip
   const eventInfoByTSec = useMemo(() => {
     const map = new Map<number, { avgScore: number }>()
@@ -129,6 +200,10 @@ export default function StockDetailPage() {
       : eventAllArticles.length === 0 && eventLoading
 
   const stockName = preloadedStock?.name || ticker || ""
+  const currentInsight =
+    insightsEnabled && insightState?.key === insightRequestKey
+      ? insightState.insight
+      : null
 
   if (!ticker) {
     return <div className="p-8">Ticker not found.</div>
@@ -158,6 +233,15 @@ export default function StockDetailPage() {
           <AddToListButton ticker={ticker} />
         </div>
       </div>
+
+      {insightsEnabled && currentInsight ? (
+        <SentimentInsight insight={currentInsight} />
+      ) : (
+        insightsEnabled &&
+        (insightLoading || scoredLatestArticles.length > 0) && (
+          <Skeleton className="h-36 w-full rounded-xl" />
+        )
+      )}
 
       <Separator />
 
