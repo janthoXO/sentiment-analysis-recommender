@@ -218,7 +218,8 @@ function hasCompleteMetadata(stock: StockRoot): boolean {
 function firstText(
   ...values: Array<string | null | undefined>
 ): string | undefined {
-  return values.find((value) => typeof value === "string" && value.trim())
+  return values
+    .find((value) => typeof value === "string" && value.trim())
     ?.trim();
 }
 

@@ -18,8 +18,8 @@ export function ResultCard({ stock }: ResultCardProps) {
   const sentiment = avgScore != null ? parseSentimentLabel(avgScore) : null
   const metadataBadges = Array.from(
     new Set(
-      [sector, industry, exchange].filter(
-        (value): value is string => Boolean(value)
+      [sector, industry, exchange].filter((value): value is string =>
+        Boolean(value)
       )
     )
   )
