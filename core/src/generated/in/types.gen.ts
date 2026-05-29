@@ -5,28 +5,11 @@ export type ClientOptions = {
 };
 
 /**
- * TickerResult
+ * TickerArticles
  */
-export type TickerResultRoot = {
-    stock: StockRoot;
-    sources: Array<SourceResultRoot>;
-    avgScore: number;
-    investmentInsight?: InvestmentInsightRoot;
-    /**
-     * The timestamp (in seconds) of the associated event.
-     */
-    eventTSec?: number;
-};
-
-/**
- * InvestmentInsight
- */
-export type InvestmentInsightRoot = {
-    verdict: 'bullish' | 'bearish' | 'neutral' | 'mixed';
-    confidence: 'low' | 'medium' | 'high';
-    summary: string;
-    reasons: Array<string>;
-    disclaimer: string;
+export type TickerArticlesRoot = {
+    ticker: string;
+    sources: Array<SourceRoot>;
 };
 
 /**
@@ -46,6 +29,14 @@ export type SourceRoot = {
 };
 
 /**
+ * Stock
+ */
+export type StockRoot = {
+    ticker: string;
+    name: string;
+};
+
+/**
  * SourceResult
  */
 export type SourceResultRoot = SourceRoot & {
@@ -53,11 +44,14 @@ export type SourceResultRoot = SourceRoot & {
 };
 
 /**
- * Stock
+ * InvestmentInsight
  */
-export type StockRoot = {
-    ticker: string;
-    name: string;
+export type InvestmentInsightRoot = {
+    verdict: 'bullish' | 'bearish' | 'neutral' | 'mixed';
+    confidence: 'low' | 'medium' | 'high';
+    summary: string;
+    reasons: Array<string>;
+    disclaimer: string;
 };
 
 /**
@@ -70,6 +64,24 @@ export type Root = {
     low: number;
     close: number;
     volume?: number;
+};
+
+/**
+ * Emitted after the debounce window when new sentiment data arrives for a watched ticker.
+ */
+export type NotificationEvent = {
+    /**
+     * The ticker symbol that was updated.
+     */
+    ticker: string;
+    /**
+     * Top-N SourceResults scored before the user last viewed the ticker (baseline).
+     */
+    before: Array<SourceResultRoot>;
+    /**
+     * Top-N most recent SourceResults for this ticker (current state).
+     */
+    latest: Array<SourceResultRoot>;
 };
 
 export type AddListItemRequest = {
@@ -137,7 +149,7 @@ export type HttpError = {
     code: string;
 };
 
-export type GetApiTickersSentimentData = {
+export type GetApiTickersData = {
     body?: never;
     path?: never;
     query?: {
@@ -149,15 +161,11 @@ export type GetApiTickersSentimentData = {
          * Repeat the param (?tickerIds=AAPL&tickerIds=MSFT). Mutually exclusive with q.
          */
         tickerIds?: Array<string>;
-        /**
-         * Optional. When true, stream a follow-up TickerResult enriched with a cached LLM insight.
-         */
-        includeInsights?: boolean;
     };
-    url: '/api/tickers/sentiment';
+    url: '/api/tickers';
 };
 
-export type GetApiTickersSentimentErrors = {
+export type GetApiTickersErrors = {
     /**
      * Missing or invalid query parameters
      */
@@ -168,16 +176,16 @@ export type GetApiTickersSentimentErrors = {
     500: HttpError;
 };
 
-export type GetApiTickersSentimentError = GetApiTickersSentimentErrors[keyof GetApiTickersSentimentErrors];
+export type GetApiTickersError = GetApiTickersErrors[keyof GetApiTickersErrors];
 
-export type GetApiTickersSentimentResponses = {
+export type GetApiTickersResponses = {
     /**
-     * NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
+     * NDJSON stream of Stock records (one Stock per line, or a SearchError line).
      */
-    200: TickerResultRoot | SearchError;
+    200: StockRoot | SearchError;
 };
 
-export type GetApiTickersSentimentResponse = GetApiTickersSentimentResponses[keyof GetApiTickersSentimentResponses];
+export type GetApiTickersResponse = GetApiTickersResponses[keyof GetApiTickersResponses];
 
 export type GetApiTickersTrendingData = {
     body?: never;
@@ -197,14 +205,14 @@ export type GetApiTickersTrendingError = GetApiTickersTrendingErrors[keyof GetAp
 
 export type GetApiTickersTrendingResponses = {
     /**
-     * List of trending stocks
+     * NDJSON stream of Stock records (one Stock per line, or a SearchError line).
      */
-    200: Array<StockRoot>;
+    200: StockRoot | SearchError;
 };
 
 export type GetApiTickersTrendingResponse = GetApiTickersTrendingResponses[keyof GetApiTickersTrendingResponses];
 
-export type GetApiTickersByTickerIdSentimentData = {
+export type GetApiTickersByTickerIdArticlesData = {
     body?: never;
     path: {
         /**
@@ -214,22 +222,57 @@ export type GetApiTickersByTickerIdSentimentData = {
     };
     query?: {
         /**
-         * Optional. Per-event timestamps (Unix seconds). Repeat the param. Each produces one TickerResult line.
+         * Optional. Per-event timestamps (Unix seconds). Repeat the param. Each produces one TickerArticles line.
          */
         eventTSec?: Array<number>;
         /**
          * Optional. Article-window size in seconds (fromSec = eventTSec - intervalSec, or now - intervalSec for no-event call).
          */
         intervalSec?: number;
-        /**
-         * Optional. When true and no eventTSec is supplied, stream a follow-up TickerResult enriched with a cached LLM insight.
-         */
-        includeInsights?: boolean;
     };
-    url: '/api/tickers/{tickerId}/sentiment';
+    url: '/api/tickers/{tickerId}/articles';
 };
 
-export type GetApiTickersByTickerIdSentimentErrors = {
+export type GetApiTickersByTickerIdArticlesErrors = {
+    /**
+     * Invalid query parameters
+     */
+    400: HttpError;
+    /**
+     * Article data unavailable (upstream failure)
+     */
+    503: HttpError;
+};
+
+export type GetApiTickersByTickerIdArticlesError = GetApiTickersByTickerIdArticlesErrors[keyof GetApiTickersByTickerIdArticlesErrors];
+
+export type GetApiTickersByTickerIdArticlesResponses = {
+    /**
+     * NDJSON stream — one TickerArticles per event (or a single result when no events given).
+     */
+    200: TickerArticlesRoot | SearchError;
+};
+
+export type GetApiTickersByTickerIdArticlesResponse = GetApiTickersByTickerIdArticlesResponses[keyof GetApiTickersByTickerIdArticlesResponses];
+
+export type GetApiTickersByTickerIdArticlesSentimentData = {
+    body?: never;
+    path: {
+        /**
+         * Ticker symbol (e.g. AAPL)
+         */
+        tickerId: string;
+    };
+    query: {
+        /**
+         * Repeat the param (?articleUrl=https://...&articleUrl=https://...). One SourceResult emitted per scored article.
+         */
+        articleUrl: Array<string>;
+    };
+    url: '/api/tickers/{tickerId}/articles/sentiment';
+};
+
+export type GetApiTickersByTickerIdArticlesSentimentErrors = {
     /**
      * Invalid query parameters
      */
@@ -240,16 +283,59 @@ export type GetApiTickersByTickerIdSentimentErrors = {
     503: HttpError;
 };
 
-export type GetApiTickersByTickerIdSentimentError = GetApiTickersByTickerIdSentimentErrors[keyof GetApiTickersByTickerIdSentimentErrors];
+export type GetApiTickersByTickerIdArticlesSentimentError = GetApiTickersByTickerIdArticlesSentimentErrors[keyof GetApiTickersByTickerIdArticlesSentimentErrors];
 
-export type GetApiTickersByTickerIdSentimentResponses = {
+export type GetApiTickersByTickerIdArticlesSentimentResponses = {
     /**
-     * NDJSON stream — one TickerResult or SearchError per line (one per eventTSec, or a single result when no events given).
+     * NDJSON stream — one SourceResult per line as each article is scored (cached ones emit immediately).
      */
-    200: TickerResultRoot | SearchError;
+    200: SourceResultRoot | SearchError;
 };
 
-export type GetApiTickersByTickerIdSentimentResponse = GetApiTickersByTickerIdSentimentResponses[keyof GetApiTickersByTickerIdSentimentResponses];
+export type GetApiTickersByTickerIdArticlesSentimentResponse = GetApiTickersByTickerIdArticlesSentimentResponses[keyof GetApiTickersByTickerIdArticlesSentimentResponses];
+
+export type GetApiTickersByTickerIdArticlesInsightData = {
+    body?: never;
+    path: {
+        /**
+         * Ticker symbol (e.g. AAPL)
+         */
+        tickerId: string;
+    };
+    query: {
+        /**
+         * Repeat the param (?articleUrl=https://...&articleUrl=https://...). The insight is generated from already-scored articles.
+         */
+        articleUrl: Array<string>;
+    };
+    url: '/api/tickers/{tickerId}/articles/insight';
+};
+
+export type GetApiTickersByTickerIdArticlesInsightErrors = {
+    /**
+     * Invalid query parameters
+     */
+    400: HttpError;
+    /**
+     * Insight unavailable (LLM failure or upstream failure)
+     */
+    503: HttpError;
+};
+
+export type GetApiTickersByTickerIdArticlesInsightError = GetApiTickersByTickerIdArticlesInsightErrors[keyof GetApiTickersByTickerIdArticlesInsightErrors];
+
+export type GetApiTickersByTickerIdArticlesInsightResponses = {
+    /**
+     * LLM sentiment explanation grounded in scored articles.
+     */
+    200: InvestmentInsightRoot;
+    /**
+     * No insight available yet.
+     */
+    204: void;
+};
+
+export type GetApiTickersByTickerIdArticlesInsightResponse = GetApiTickersByTickerIdArticlesInsightResponses[keyof GetApiTickersByTickerIdArticlesInsightResponses];
 
 export type GetApiTickersByTickerIdCandlesData = {
     body?: never;
@@ -325,9 +411,9 @@ export type GetApiTickersByTickerIdPeersError = GetApiTickersByTickerIdPeersErro
 
 export type GetApiTickersByTickerIdPeersResponses = {
     /**
-     * List of peer stocks (same country + sector/industry)
+     * NDJSON stream of peer Stock records (one per line, cached peers emitted first).
      */
-    200: Array<StockRoot>;
+    200: StockRoot | SearchError;
 };
 
 export type GetApiTickersByTickerIdPeersResponse = GetApiTickersByTickerIdPeersResponses[keyof GetApiTickersByTickerIdPeersResponses];
@@ -591,32 +677,27 @@ export type DeleteApiListsByIdItemsByTickerResponses = {
     200: unknown;
 };
 
-export type GetApiListsStreamData = {
+export type GetApiNotificationsStreamData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * JWT token (alternative to Authorization header, required for EventSource)
-         */
-        token?: string;
-    };
-    url: '/api/lists/stream';
+    query?: never;
+    url: '/api/notifications/stream';
 };
 
-export type GetApiListsStreamErrors = {
+export type GetApiNotificationsStreamErrors = {
     /**
      * Unauthorized
      */
     401: HttpError;
 };
 
-export type GetApiListsStreamError = GetApiListsStreamErrors[keyof GetApiListsStreamErrors];
+export type GetApiNotificationsStreamError = GetApiNotificationsStreamErrors[keyof GetApiNotificationsStreamErrors];
 
-export type GetApiListsStreamResponses = {
+export type GetApiNotificationsStreamResponses = {
     /**
-     * SSE stream of sentiment update events (use EventSource, not fetch)
+     * NDJSON stream — one NotificationEvent per line, emitted after the debounce window when sentiment changes.
      */
-    200: string;
+    200: NotificationEvent;
 };
 
-export type GetApiListsStreamResponse = GetApiListsStreamResponses[keyof GetApiListsStreamResponses];
+export type GetApiNotificationsStreamResponse = GetApiNotificationsStreamResponses[keyof GetApiNotificationsStreamResponses];

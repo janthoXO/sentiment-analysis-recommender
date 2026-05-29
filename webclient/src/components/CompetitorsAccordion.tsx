@@ -9,9 +9,11 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { parseSentimentLabel } from "@/lib/sentiment"
-import { useCompetitorSentiment } from "@/hooks/useCompetitorSentiment"
-import type { Stock } from "@/api/generated/dtos/stock.gen"
-import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
+import {
+  useCompetitorSentiment,
+  type CompetitorState,
+} from "@/hooks/useCompetitorSentiment"
+import type { Stock } from "@/models/Stock"
 
 interface Props {
   ticker: string
@@ -21,12 +23,14 @@ const VISIBLE_COUNT = 3
 
 interface PeerRowProps {
   stock: Stock
-  result: TickerResult | null
-  isLoading: boolean
+  state: CompetitorState | undefined
 }
 
-function PeerRow({ stock, result, isLoading }: PeerRowProps) {
-  const sentiment = result ? parseSentimentLabel(result.avgScore) : null
+function PeerRow({ stock, state }: PeerRowProps) {
+  const sentiment =
+    state?.stock.avgScore != null
+      ? parseSentimentLabel(state.stock.avgScore)
+      : null
 
   return (
     <div className="flex items-center justify-between gap-2 py-2">
@@ -39,14 +43,14 @@ function PeerRow({ stock, result, isLoading }: PeerRowProps) {
         </Link>
         <span className="text-xs text-muted-foreground">{stock.ticker}</span>
       </div>
-      {isLoading ? (
+      {state?.loading ? (
         <Skeleton className="h-5 w-16 rounded-full" />
       ) : sentiment ? (
         <Badge
           variant="outline"
           className={cn("shrink-0 text-xs font-bold", sentiment.className)}
         >
-          {sentiment.label} · {result!.avgScore.toFixed(2)}
+          {sentiment.label} · {state!.stock!.avgScore!.toFixed(2)}
         </Badge>
       ) : (
         <Badge
@@ -61,13 +65,8 @@ function PeerRow({ stock, result, isLoading }: PeerRowProps) {
 }
 
 export function CompetitorsAccordion({ ticker }: Props) {
-  const {
-    peers,
-    resultsByTicker,
-    loadingByTicker,
-    peersLoading,
-    loadSentiment,
-  } = useCompetitorSentiment(ticker)
+  const { peers, stateByTicker, peersLoading, loadSentiment } =
+    useCompetitorSentiment(ticker)
 
   if (peersLoading && peers.length === 0) {
     return (
@@ -90,19 +89,16 @@ export function CompetitorsAccordion({ ticker }: Props) {
 
   return (
     <div className="flex flex-col">
-      {/* Always-visible top 3 */}
       <div className="divide-y">
         {visiblePeers.map((stock) => (
           <PeerRow
             key={stock.ticker}
             stock={stock}
-            result={resultsByTicker[stock.ticker] ?? null}
-            isLoading={loadingByTicker[stock.ticker] ?? false}
+            state={stateByTicker[stock.ticker]}
           />
         ))}
       </div>
 
-      {/* "Show more" accordion for the rest */}
       {morePeers.length > 0 && (
         <Accordion
           type="single"
@@ -119,17 +115,13 @@ export function CompetitorsAccordion({ ticker }: Props) {
             </AccordionTrigger>
             <AccordionContent>
               <div className="divide-y">
-                {morePeers.map((stock) => {
-                  const isLoading = loadingByTicker[stock.ticker] ?? false
-                  return (
-                    <PeerRow
-                      key={stock.ticker}
-                      stock={stock}
-                      result={resultsByTicker[stock.ticker] ?? null}
-                      isLoading={isLoading}
-                    />
-                  )
-                })}
+                {morePeers.map((stock) => (
+                  <PeerRow
+                    key={stock.ticker}
+                    stock={stock}
+                    state={stateByTicker[stock.ticker]}
+                  />
+                ))}
               </div>
             </AccordionContent>
           </AccordionItem>

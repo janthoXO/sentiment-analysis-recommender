@@ -10,49 +10,46 @@ export async function connectMq() {
   const conn = await amqplib.connect(env.RABBITMQ_URL);
   channel = await conn.createChannel();
 
-  await channel.assertExchange("sentinel.analyze", "direct", { durable: true });
+  await channel.assertExchange(env.MQ_EXCHANGE, "direct", { durable: true });
 
-  await channel.assertQueue("tasks", {
+  await channel.assertQueue("analyzer.tasks", {
     durable: true,
     arguments: { "x-max-priority": 10 },
   });
-  await channel.bindQueue("tasks", "sentinel.analyze", "tasks");
+  await channel.bindQueue("analyzer.tasks", env.MQ_EXCHANGE, "analyzer.tasks");
 
-  await channel.assertQueue("results", { durable: true });
-  await channel.bindQueue("results", "sentinel.analyze", "result");
+  await channel.assertQueue("analyzer.results", { durable: true });
+  await channel.bindQueue("analyzer.results", env.MQ_EXCHANGE, "analyzer.results");
 
-  // Process up to 10 messages concurrently
   await channel.prefetch(10);
 
-  // 1. Listen on the 'tasks' queue
-  channel.consume("tasks", async (msg) => {
+  channel.consume("analyzer.tasks", async (msg) => {
     if (!msg) return;
 
     console.debug("Received MQ message:", msg.content.toString());
 
     try {
-      // take whatever arrives and parse it
-      const {ticker, jobId, sources}: { ticker: string; jobId: string; sources: any[] } = JSON.parse(msg.content.toString());
+      const { stock, jobId, sources }: { stock: any; jobId: string; sources: any[] } = JSON.parse(msg.content.toString());
 
-      // We publish it to the exchange with the routing key "result"
-      channel.publish(
-        "sentinel.analyze",
-        "result",
-        Buffer.from(
-          JSON.stringify({
-            ticker,
-            jobId,
-            sources: sources.map((s) => ({score: 1, ...s})),
-          }),
-        ),
-        { persistent: true }, // Ensures the message survives a RabbitMQ restart
-      );
+      for (const source of sources) {
+        channel.publish(
+          env.MQ_EXCHANGE,
+          "analyzer.results",
+          Buffer.from(
+            JSON.stringify({
+              ticker: stock.ticker,
+              jobId,
+              source: { score: 1, ...source },
+            }),
+          ),
+          { persistent: true },
+        );
+      }
 
-      console.log("Processed task, appended score, and routed to results.");
+      console.log(`Processed task and pushed ${sources.length} scores to analyzer.results.`);
     } catch (e) {
       console.error("Error processing MQ message", e);
     } finally {
-      // Always acknowledge the message so RabbitMQ removes it from the 'tasks' queue
       channel.ack(msg);
     }
   });

@@ -1,10 +1,10 @@
 import { Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
+import type { InvestmentInsight as InvestmentInsightModel } from "@/models/InvestmentInsight"
 
 interface Props {
-  insight: NonNullable<TickerResult["investmentInsight"]>
+  insight: InvestmentInsightModel
 }
 
 const verdictClassName: Record<Props["insight"]["verdict"], string> = {

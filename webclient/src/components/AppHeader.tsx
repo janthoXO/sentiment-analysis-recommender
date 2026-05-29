@@ -31,8 +31,8 @@ export function AppHeader() {
   const navigate = useNavigate()
   const location = useLocation()
   const { isAuthenticated, logout, requireAuth } = useAuth()
-  const { events } = useWatchlistContext()
   const { enabled: insightsEnabled, toggle: toggleInsights } = useLlmInsights()
+  const { alerts } = useWatchlistContext()
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -177,9 +177,9 @@ export function AppHeader() {
                 onClick={handleNotificationsClick}
               >
                 <Bell className="size-4" />
-                {isAuthenticated && events.length > 0 && (
+                {isAuthenticated && alerts.length > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                    {events.length > 9 ? "9+" : events.length}
+                    {alerts.length > 9 ? "9+" : alerts.length}
                   </span>
                 )}
               </Button>
@@ -190,22 +190,20 @@ export function AppHeader() {
                 className="max-h-96 w-80 overflow-y-auto"
               >
                 <h4 className="mb-2 font-semibold">Recent Alerts</h4>
-                {events.length === 0 ? (
+                {alerts.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No recent alerts
                   </p>
                 ) : null}
                 <div className="flex flex-col gap-2">
-                  {events.map((ev, i) => (
+                  {alerts.map((alert) => (
                     <div
-                      key={i}
+                      key={alert.id}
                       className="border-b pb-2 text-sm last:border-b-0"
                     >
-                      <span className="block font-bold">
-                        {ev.result.stock.ticker}
-                      </span>
+                      <span className="block font-bold">{alert.ticker}</span>
                       <span className="text-muted-foreground">
-                        Score: {ev.result.avgScore.toFixed(2)}
+                        Score: {alert.avgScore.toFixed(2)}
                       </span>
                     </div>
                   ))}

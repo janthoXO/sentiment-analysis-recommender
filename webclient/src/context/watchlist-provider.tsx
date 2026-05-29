@@ -4,35 +4,35 @@ import {
   useEffect,
   useState,
   useCallback,
-  useRef,
 } from "react"
 import type { ReactNode } from "react"
 import { useAuth } from "./auth-provider.js"
 import { toast } from "sonner"
-import type { List, TickerResult } from "@/api/generated/dtos/index.js"
+import type { List } from "@/api/generated/dtos/index.js"
+import type { NotificationEvent } from "@/api/generated/dtos/notificationEvent.gen.js"
 import {
   getApiLists,
+  getApiNotificationsStream,
   postApiLists,
   patchApiListsId,
   deleteApiListsId,
   postApiListsIdItems,
   deleteApiListsIdItemsTicker,
-  getApiTickersSentiment,
 } from "@/api/generated/sentimentSearchAPI.gen.js"
 import { readStream } from "@/lib/stream.js"
 import { toastApiError } from "@/lib/api-error.js"
 
 const DIVERGENCE_THRESHOLD = 0.2
 
-export interface WatchlistEvent {
+export interface WatchlistAlert {
   id: number
-  result: TickerResult
+  ticker: string
+  avgScore: number
 }
 
 interface WatchlistContextType {
   lists: List[]
-  tickerResults: Record<string, TickerResult>
-  events: WatchlistEvent[]
+  alerts: WatchlistAlert[]
   refresh: () => Promise<void>
   createList: (name: string) => Promise<List | null>
   renameList: (id: string, name: string) => Promise<void>
@@ -49,11 +49,7 @@ const WatchlistContext = createContext<WatchlistContextType | undefined>(
 export function WatchlistProvider({ children }: { children: ReactNode }) {
   const { token, isAuthenticated } = useAuth()
   const [lists, setLists] = useState<List[]>([])
-  const [tickerResults, setTickerResults] = useState<
-    Record<string, TickerResult>
-  >({})
-  const [events, setEvents] = useState<WatchlistEvent[]>([])
-  const sseErrorToastedRef = useRef(false)
+  const [alerts, setAlerts] = useState<WatchlistAlert[]>([])
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${token}` }),
@@ -79,89 +75,70 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      refresh()
+      await refresh()
     })()
   }, [refresh])
 
-  // Hydrate tickerResults whenever lists change
+  // NDJSON stream for real-time per-ticker sentiment notifications
   useEffect(() => {
-    if (!isAuthenticated || lists.length === 0) return
-
-    const uniqueTickers = [
-      ...new Set(lists.flatMap((l) => l.items.map((i) => i.ticker))),
-    ]
-    if (uniqueTickers.length === 0) return
+    if (!isAuthenticated || !token) return
+    const ctrl = new AbortController()
 
     void (async () => {
       try {
-        const res = await getApiTickersSentiment(
-          { tickerIds: uniqueTickers },
-          { headers: authHeaders() }
-        )
-        if (res.status === 200) {
-          const map: Record<string, TickerResult> = {}
-          await readStream(res.stream, (parsedObj) => {
-            if (!("error" in parsedObj)) {
-              const r = parsedObj as TickerResult
-              map[r.stock.ticker] = r
-            }
-          })
-          setTickerResults(map)
-        } else {
-          toastApiError("Could not load watchlist sentiment", res)
-        }
-      } catch (err) {
-        toastApiError("Could not load watchlist sentiment", err)
-      }
-    })()
-  }, [lists, isAuthenticated, authHeaders])
+        const res = await getApiNotificationsStream({
+          signal: ctrl.signal,
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (ctrl.signal.aborted || res.status !== 200) return
 
-  // SSE for real-time sentiment updates
-  useEffect(() => {
-    if (!isAuthenticated || !token) return
-    sseErrorToastedRef.current = false
-    const eventSource = new EventSource(`/api/lists/stream?token=${token}`)
+        await readStream(
+          (res as unknown as { stream: Response }).stream,
+          (parsed) => {
+            if (ctrl.signal.aborted) return
+            const event = parsed as NotificationEvent
+            if (!event.ticker || !Array.isArray(event.latest)) return
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data as string)
-        if (data.type === "TICKER_UPDATE") {
-          const fresh: TickerResult = data.payload
-          const ticker = fresh.stock.ticker
+            const { ticker, before, latest } = event
+            if (latest.length === 0) return
 
-          setTickerResults((prev) => {
-            const prevResult = prev[ticker]
-            if (
-              prevResult &&
-              Math.abs(fresh.avgScore - prevResult.avgScore) >=
-                DIVERGENCE_THRESHOLD
-            ) {
+            const avgLatest =
+              latest.reduce((sum, s) => sum + s.score, 0) / latest.length
+            const now = Date.now()
+
+            if (before.length === 0) {
               toast.message(`Sentiment Alert: ${ticker}`, {
-                description: `Score changed from ${prevResult.avgScore.toFixed(2)} to ${fresh.avgScore.toFixed(2)}`,
+                description: `Current score: ${avgLatest.toFixed(2)}`,
               })
+              setAlerts((prev) =>
+                [{ id: now, ticker, avgScore: avgLatest }, ...prev].slice(0, 50)
+              )
+              return
             }
-            return { ...prev, [ticker]: fresh }
-          })
 
-          setEvents((prev) =>
-            [{ id: Date.now(), result: fresh }, ...prev].slice(0, 50)
-          )
-        }
-      } catch (err) {
-        console.error("SSE parse error", err)
-      }
-    }
+            const avgBefore =
+              before.reduce((sum, s) => sum + s.score, 0) / before.length
 
-    eventSource.onerror = (err) => {
-      console.error("SSE Error:", err)
-      if (!sseErrorToastedRef.current) {
-        sseErrorToastedRef.current = true
+            if (Math.abs(avgLatest - avgBefore) >= DIVERGENCE_THRESHOLD) {
+              toast.message(`Sentiment Alert: ${ticker}`, {
+                description: `Score changed from ${avgBefore.toFixed(2)} to ${avgLatest.toFixed(2)}`,
+              })
+              setAlerts((prev) =>
+                [{ id: now, ticker, avgScore: avgLatest }, ...prev].slice(0, 50)
+              )
+            }
+          }
+        )
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return
+        console.error("Notification stream error:", e)
         toast.error("Real-time updates disconnected", {
           description: "Sentiment alerts may be delayed.",
         })
       }
-    }
-    return () => eventSource.close()
+    })()
+
+    return () => ctrl.abort()
   }, [isAuthenticated, token])
 
   const createList = useCallback(
@@ -279,8 +256,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     <WatchlistContext.Provider
       value={{
         lists,
-        tickerResults,
-        events,
+        alerts,
         refresh,
         createList,
         renameList,

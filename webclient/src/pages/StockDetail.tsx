@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "react-router-dom"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,11 +18,23 @@ import {
   type RangePresetKey,
 } from "@/lib/intervals"
 import { detectEvents } from "@/lib/events"
-import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
-import { useTickerSentiment } from "@/hooks/useTickerSentiment"
+import type { Stock } from "@/models/Stock"
+import type { Article } from "@/models/Article"
+import type { InvestmentInsight } from "@/models/InvestmentInsight"
 import { useCandles } from "@/hooks/useCandles"
-import { useSentimentByEvents } from "@/hooks/useSentimentByEvents"
+import {
+  useTickerLatestPipeline,
+  useTickerEventPipeline,
+} from "@/hooks/useTickerPipeline"
 import { useLlmInsights } from "@/context/llm-insights-provider"
+import { toastApiError } from "@/lib/api-error"
+
+const MAX_EVENTS_BY_RANGE: Record<RangePresetKey, number> = {
+  "1D": 2,
+  "1W": 3,
+  "1M": 5,
+  "1Y": 7,
+}
 
 type RangeKey = "latest" | RangePresetKey
 
@@ -34,23 +46,46 @@ const RANGES: { label: string; value: RangeKey }[] = [
   { label: "1Y", value: "1Y" },
 ]
 
+function buildInsightUrl(ticker: string, articles: Article[]): string {
+  const params = new URLSearchParams()
+  articles.forEach((article) => params.append("articleUrl", article.url))
+  return `/api/tickers/${encodeURIComponent(ticker)}/articles/insight?${params.toString()}`
+}
+
 export default function StockDetailPage() {
   const { ticker } = useParams()
   const location = useLocation()
   const { enabled: insightsEnabled } = useLlmInsights()
 
-  const preloaded =
-    (location.state as { tickerResult?: TickerResult } | null)?.tickerResult ??
-    null
+  // Router state now carries only { stock } — no articles or scores
+  const preloadedStock =
+    (location.state as { stock?: Stock } | null)?.stock ?? null
 
   const [range, setRange] = useState<RangeKey>("latest")
   const [selectedEventTSec, setSelectedEventTSec] = useState<number | null>(
     null
   )
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
-  const { data: fetched, loading: fetchLoading } = useTickerSentiment(ticker)
+  const [debouncedHoveredEventTSec, setDebouncedHoveredEventTSec] = useState<
+    number | null
+  >(null)
+  const [insightState, setInsightState] = useState<{
+    key: string
+    insight: InvestmentInsight | null
+  } | null>(null)
+  const [insightLoading, setInsightLoading] = useState(false)
 
-  const data: TickerResult | null = fetched ?? preloaded
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setDebouncedHoveredEventTSec(hoveredEventTSec),
+      hoveredEventTSec === null ? 0 : 500
+    )
+    return () => clearTimeout(timer)
+  }, [hoveredEventTSec])
+
+  // Stage 1 (latest): articles + sentiment for the "latest" tab
+  const { articles: latestArticles, avgScore: latestAvgScore } =
+    useTickerLatestPipeline(ticker)
 
   const duration: CandleDuration = range === "latest" ? "today" : range
   const interval = pickIntervalForDuration(duration)
@@ -61,86 +96,151 @@ export default function StockDetailPage() {
     interval
   )
 
-  // Client-side event detection — only for non-latest modes.
   const events = useMemo(() => {
     if (range === "latest" || candles.length === 0) return []
-    return detectEvents(candles, [])
+    const maxEvents = MAX_EVENTS_BY_RANGE[range as RangePresetKey]
+    return detectEvents(candles, [], { maxEvents })
   }, [range, candles])
 
   const intervalSec = interval != null ? intervalToSec(interval) : undefined
 
+  // Stage 1 (event mode): articles + sentiment per event
   const {
-    eventSourceMap,
-    allSources,
-    loading: eventSentimentLoading,
-  } = useSentimentByEvents(
+    eventPipelineMap,
+    allArticles: eventAllArticles,
+    loading: eventLoading,
+  } = useTickerEventPipeline(
     range !== "latest" ? ticker : undefined,
     events,
     intervalSec
   )
 
-  // Per-event sentiment info for the timeline tooltip
+  const scoredLatestArticles = useMemo(
+    () => (latestArticles ?? []).filter((article) => article.score != null),
+    [latestArticles]
+  )
+
+  const insightRequestKey = useMemo(() => {
+    if (!ticker || scoredLatestArticles.length === 0) return null
+    return `${ticker}:${scoredLatestArticles.map((article) => article.url).join("|")}`
+  }, [ticker, scoredLatestArticles])
+
+  useEffect(() => {
+    if (!insightsEnabled || !ticker || !insightRequestKey) return
+
+    const ctrl = new AbortController()
+    const requestKey = insightRequestKey
+    const tickerId = ticker
+
+    async function loadInsight() {
+      setInsightLoading(true)
+      try {
+        const response = await fetch(
+          buildInsightUrl(tickerId, scoredLatestArticles),
+          {
+            signal: ctrl.signal,
+          }
+        )
+        if (ctrl.signal.aborted) return
+
+        if (response.status === 204) {
+          setInsightState({ key: requestKey, insight: null })
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(`Insight request failed (${response.status})`)
+        }
+
+        setInsightState({
+          key: requestKey,
+          insight: (await response.json()) as InvestmentInsight,
+        })
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return
+        setInsightState({ key: requestKey, insight: null })
+        toastApiError("Could not load sentiment insight", e)
+      } finally {
+        if (!ctrl.signal.aborted) setInsightLoading(false)
+      }
+    }
+
+    void loadInsight()
+    return () => ctrl.abort()
+  }, [insightsEnabled, ticker, scoredLatestArticles, insightRequestKey])
+
+  // Per-event avg scores for the timeline tooltip
   const eventInfoByTSec = useMemo(() => {
     const map = new Map<number, { avgScore: number }>()
-    for (const [tSec, result] of eventSourceMap) {
-      map.set(tSec, { avgScore: result.avgScore })
+    for (const [tSec, entry] of eventPipelineMap) {
+      if (entry.avgScore != null) map.set(tSec, { avgScore: entry.avgScore })
     }
     return map
-  }, [eventSourceMap])
+  }, [eventPipelineMap])
 
-  const articles = range === "latest" ? (data?.sources ?? []) : allSources
+  const articles =
+    range === "latest" ? (latestArticles ?? []) : eventAllArticles
 
-  // Header avgScore always anchored to the latest sentiment
-  const avgScore = data?.avgScore
+  // avgScore in header is always from latest mode
+  const avgScore = latestAvgScore
 
-  const activeEventTSec = selectedEventTSec ?? hoveredEventTSec
+  const activeEventTSec = selectedEventTSec ?? debouncedHoveredEventTSec
 
   const highlightedUrls = useMemo((): Set<string> | undefined => {
     if (!activeEventTSec) return undefined
-    const result = eventSourceMap.get(activeEventTSec)
-    return result && result.sources.length > 0
-      ? new Set<string>(result.sources.map((s) => s.url))
+    const entry = eventPipelineMap.get(activeEventTSec)
+    return entry && entry.articles.length > 0
+      ? new Set<string>(entry.articles.map((a) => a.url))
       : undefined
-  }, [activeEventTSec, eventSourceMap])
+  }, [activeEventTSec, eventPipelineMap])
 
-  const isLoading = fetchLoading && !data
-  const isSentimentLoading =
-    range !== "latest" && (candlesLoading || eventSentimentLoading)
+  const isInitialLoading =
+    range === "latest"
+      ? latestArticles === undefined
+      : eventAllArticles.length === 0 && eventLoading
 
-  if (isLoading) {
-    return <div className="p-8">Loading data...</div>
+  const stockName = preloadedStock?.name || ticker || ""
+  const currentInsight =
+    insightsEnabled && insightState?.key === insightRequestKey
+      ? insightState.insight
+      : null
+
+  if (!ticker) {
+    return <div className="p-8">Ticker not found.</div>
   }
-  if (!data) {
-    return <div className="p-8">No data found for {ticker}</div>
-  }
 
-  const overall = parseSentimentLabel(avgScore ?? data.avgScore)
+  const overall = parseSentimentLabel(avgScore ?? 0)
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold">{data.stock.name || ticker}</h1>
+          <h1 className="text-4xl font-bold">{stockName || ticker}</h1>
           <p className="mt-1 text-xl text-muted-foreground">{ticker}</p>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <Badge
-            variant="outline"
-            className={cn("px-4 py-2 text-base font-bold", overall.className)}
-          >
-            {overall.label} · {(avgScore ?? data.avgScore).toFixed(2)}
-          </Badge>
-          <AddToListButton ticker={ticker!} />
+          {avgScore != null ? (
+            <Badge
+              variant="outline"
+              className={cn("px-4 py-2 text-base font-bold", overall.className)}
+            >
+              {overall.label} · {avgScore.toFixed(2)}
+            </Badge>
+          ) : (
+            <Skeleton className="h-10 w-36 rounded-full" />
+          )}
+          <AddToListButton ticker={ticker} />
         </div>
       </div>
 
-      {insightsEnabled && data.investmentInsight ? (
-        <SentimentInsight insight={data.investmentInsight} />
+      {insightsEnabled && currentInsight ? (
+        <SentimentInsight insight={currentInsight} />
       ) : (
         insightsEnabled &&
-        fetchLoading &&
-        preloaded && <Skeleton className="h-36 w-full rounded-xl" />
+        (insightLoading || scoredLatestArticles.length > 0) && (
+          <Skeleton className="h-36 w-full rounded-xl" />
+        )
       )}
 
       <Separator />
@@ -210,7 +310,7 @@ export default function StockDetailPage() {
                 selection; click elsewhere to clear it.
               </p>
             )}
-            {isSentimentLoading ? (
+            {isInitialLoading ? (
               <div className="flex flex-col gap-3">
                 <Skeleton className="h-20 w-full rounded-xl" />
                 <Skeleton className="h-20 w-full rounded-xl" />
@@ -228,7 +328,7 @@ export default function StockDetailPage() {
         {/* Right column: competitors */}
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold">Competitors</h2>
-          <CompetitorsAccordion ticker={ticker!} />
+          <CompetitorsAccordion ticker={ticker} />
         </div>
       </div>
     </div>
