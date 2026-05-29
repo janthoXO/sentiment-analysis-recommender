@@ -5,10 +5,7 @@
   "properties": {
     "ticker": { "type": "string" },
     "jobId": { "type": "string" },
-    "sources": {
-      "type": "array",
-      "items": { "$ref": "./SourceResult.json" }
-    }
+    "source": { "$ref": "./SourceResult.json" }
   },
-  "required": ["ticker", "jobId", "sources"]
+  "required": ["ticker", "jobId", "source"]
 }

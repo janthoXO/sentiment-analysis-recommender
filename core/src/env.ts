@@ -27,10 +27,15 @@ export const EnvSchema = z.object({
     .default(4 * 7 * 24 * 60 * 60), // 4 weeks
   TOP_TICKERS_SCRAPE_INTERVAL_SEC: z.coerce.number().default(6 * 60 * 60), // 6 hours
   TOP_TICKERS_JITTER_SEC: z.coerce.number().default(30 * 60), // 30 minutes
+
   TRENDING_REFRESH_INTERVAL_SEC: z.coerce.number().default(60 * 60), // 1 hour
   TRENDING_SCRAPE_INTERVAL_SEC: z.coerce.number().default(10 * 60), // 10 minutes
   TRENDING_TICKERS_JITTER_SEC: z.coerce.number().default(2 * 60), // 2 minutes
+
   WATCHLIST_SCRAPE_INTERVAL_SEC: z.coerce.number().default(60 * 60), // 1 hour
+
+  NOTIFICATION_DEBOUNCE_SEC: z.coerce.number().default(30),
+  NOTIFICATION_TOP_N: z.coerce.number().int().positive().default(5),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -1,5 +1,5 @@
 import type { Candle } from "@/api/generated/dtos/candle.gen"
-import type { TickerResultSourcesItem as SourceResult } from "@/api/generated/dtos/tickerResultSourcesItem.gen"
+import type { TickerArticlesSourcesItem as SourceResult } from "@/api/generated/dtos/tickerArticlesSourcesItem.gen"
 
 export type EventKind = "peak" | "low" | "spike"
 
