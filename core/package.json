@@ -20,6 +20,8 @@
   "license": "ISC",
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
+    "@ai-sdk/google": "^3.0.80",
+    "ai": "^6.0.193",
     "amqplib": "^1.0.3",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
