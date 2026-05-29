@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "react-router-dom"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,6 +16,13 @@ import {
   type CandleDuration,
   type RangePresetKey,
 } from "@/lib/intervals"
+
+const MAX_EVENTS_BY_RANGE: Record<RangePresetKey, number> = {
+  "1D": 2,
+  "1W": 3,
+  "1M": 5,
+  "1Y": 7,
+}
 import { detectEvents } from "@/lib/events"
 import type { Stock } from "@/models/Stock"
 import { useCandles } from "@/hooks/useCandles"
@@ -47,6 +54,17 @@ export default function StockDetailPage() {
     null
   )
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
+  const [debouncedHoveredEventTSec, setDebouncedHoveredEventTSec] = useState<
+    number | null
+  >(null)
+
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setDebouncedHoveredEventTSec(hoveredEventTSec),
+      hoveredEventTSec === null ? 0 : 500
+    )
+    return () => clearTimeout(timer)
+  }, [hoveredEventTSec])
 
   // Stage 1 (latest): articles + sentiment for the "latest" tab
   const { articles: latestArticles, avgScore: latestAvgScore } =
@@ -63,7 +81,8 @@ export default function StockDetailPage() {
 
   const events = useMemo(() => {
     if (range === "latest" || candles.length === 0) return []
-    return detectEvents(candles, [])
+    const maxEvents = MAX_EVENTS_BY_RANGE[range as RangePresetKey]
+    return detectEvents(candles, [], { maxEvents })
   }, [range, candles])
 
   const intervalSec = interval != null ? intervalToSec(interval) : undefined
@@ -94,7 +113,7 @@ export default function StockDetailPage() {
   // avgScore in header is always from latest mode
   const avgScore = latestAvgScore
 
-  const activeEventTSec = selectedEventTSec ?? hoveredEventTSec
+  const activeEventTSec = selectedEventTSec ?? debouncedHoveredEventTSec
 
   const highlightedUrls = useMemo((): Set<string> | undefined => {
     if (!activeEventTSec) return undefined

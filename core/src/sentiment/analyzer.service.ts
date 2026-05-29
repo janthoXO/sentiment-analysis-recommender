@@ -15,7 +15,8 @@ type Subscriber = {
 export interface AnalyzerService {
   requestSentiment(
     stock: StockRoot,
-    sources: SourceRoot[]
+    sources: SourceRoot[],
+    priority: number
   ): AsyncGenerator<SourceResultRoot>;
   receiveResult(result: {
     ticker: string;
@@ -51,7 +52,7 @@ export function makeAnalyzerService({
   }
 
   return {
-    async *requestSentiment(stock, sources) {
+    async *requestSentiment(stock, sources, priority) {
       if (sources.length === 0) return;
 
       const ticker = stock.ticker;
@@ -90,7 +91,7 @@ export function makeAnalyzerService({
         const toPublish: SourceRoot[] = toPublishUrls.map(
           (u) => dbByUrl.get(u) ?? sources.find((s) => s.url === u)!
         );
-        mq.publishAnalysisTask(stock, jobId, toPublish, 4);
+        mq.publishAnalysisTask(stock, jobId, toPublish, priority);
       }
 
       yield* yieldAsResolved(pending);

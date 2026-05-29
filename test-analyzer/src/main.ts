@@ -10,29 +10,30 @@ export async function connectMq() {
   const conn = await amqplib.connect(env.RABBITMQ_URL);
   channel = await conn.createChannel();
 
+  await channel.assertExchange(env.MQ_EXCHANGE, "direct", { durable: true });
+
   await channel.assertQueue("analyzer.tasks", {
     durable: true,
     arguments: { "x-max-priority": 10 },
   });
+  await channel.bindQueue("analyzer.tasks", env.MQ_EXCHANGE, "analyzer.tasks");
 
   await channel.assertQueue("analyzer.results", { durable: true });
+  await channel.bindQueue("analyzer.results", env.MQ_EXCHANGE, "analyzer.results");
 
-  // Process up to 10 messages concurrently
   await channel.prefetch(10);
 
-  // 1. Listen on the 'analyzer.tasks' queue
   channel.consume("analyzer.tasks", async (msg) => {
     if (!msg) return;
 
     console.debug("Received MQ message:", msg.content.toString());
 
     try {
-      // take whatever arrives and parse it
-      const {stock, jobId, sources}: { stock: any; jobId: string; sources: any[] } = JSON.parse(msg.content.toString());
+      const { stock, jobId, sources }: { stock: any; jobId: string; sources: any[] } = JSON.parse(msg.content.toString());
 
-      // Publish one result per source
       for (const source of sources) {
-        channel.sendToQueue(
+        channel.publish(
+          env.MQ_EXCHANGE,
           "analyzer.results",
           Buffer.from(
             JSON.stringify({
@@ -41,7 +42,7 @@ export async function connectMq() {
               source: { score: 1, ...source },
             }),
           ),
-          { persistent: true }, // Ensures the message survives a RabbitMQ restart
+          { persistent: true },
         );
       }
 
@@ -49,7 +50,6 @@ export async function connectMq() {
     } catch (e) {
       console.error("Error processing MQ message", e);
     } finally {
-      // Always acknowledge the message so RabbitMQ removes it from the 'analyzer.tasks' queue
       channel.ack(msg);
     }
   });

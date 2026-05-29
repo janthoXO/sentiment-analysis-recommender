@@ -92,7 +92,7 @@ async function bootstrap() {
   });
 
   // Connect MQ now and wire the real publish function
-  await connectMq(env.RABBITMQ_URL, {
+  await connectMq(env.RABBITMQ_URL, env.MQ_EXCHANGE, {
     onAnalyzerResult: (result) => analyzer.receiveResult(result),
   })
     .then((client) => {

@@ -85,7 +85,8 @@ export function makeTrackerService({
       await sourceScoreRepo.upsertManySourceMetadata(tracker.ticker, articles);
       for await (const __ignored of analyzer.requestSentiment(
         stock,
-        articles
+        articles,
+        tracker.priority
       )) {
         void __ignored;
         // results are stored in source_score by receiveResult; nothing to collect here
@@ -178,7 +179,7 @@ export function makeTrackerService({
         topTickers,
         (stock) => ({
           ticker: stock.ticker,
-          priority: 1,
+          priority: env.TOP_TICKERS_PRIORITY,
           expiresAt: null,
           interval: env.TOP_TICKERS_SCRAPE_INTERVAL_SEC * 1000,
           lastTriggeredAt: null,
@@ -190,7 +191,6 @@ export function makeTrackerService({
     }
   }
 
-  const TRENDING_PRIORITY = 2;
   const activeTrendingTracker: Record<string, Tracker> = {};
 
   async function refreshTrendingTickers() {
@@ -206,7 +206,7 @@ export function makeTrackerService({
       trending.map((stock) =>
         trackerRepo.upsertTracker({
           ticker: stock.ticker,
-          priority: TRENDING_PRIORITY,
+          priority: env.TRENDING_PRIORITY,
           interval: env.TRENDING_SCRAPE_INTERVAL_SEC * 1000,
           expiresAt,
           lastTriggeredAt: null,
@@ -219,7 +219,7 @@ export function makeTrackerService({
       trending,
       (stock) => ({
         ticker: stock.ticker,
-        priority: TRENDING_PRIORITY,
+        priority: env.TRENDING_PRIORITY,
         expiresAt,
         interval: env.TRENDING_SCRAPE_INTERVAL_SEC * 1000,
         lastTriggeredAt: null,

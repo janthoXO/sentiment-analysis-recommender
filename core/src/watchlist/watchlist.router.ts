@@ -113,7 +113,7 @@ export function makeWatchlistRouter({
 
       await trackerService.saveTracker(
         normalizedTicker,
-        1,
+        env.WATCHLIST_PRIORITY,
         env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000,
         null
       );
