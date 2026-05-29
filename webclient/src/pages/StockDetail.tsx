@@ -59,13 +59,9 @@ export default function StockDetailPage() {
   >(null)
 
   useEffect(() => {
-    if (hoveredEventTSec === null) {
-      setDebouncedHoveredEventTSec(null)
-      return
-    }
     const timer = setTimeout(
       () => setDebouncedHoveredEventTSec(hoveredEventTSec),
-      500
+      hoveredEventTSec === null ? 0 : 500
     )
     return () => clearTimeout(timer)
   }, [hoveredEventTSec])
