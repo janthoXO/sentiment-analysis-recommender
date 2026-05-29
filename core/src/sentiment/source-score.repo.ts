@@ -3,6 +3,11 @@ import type { Db } from "../utils/postgres.repo.js";
 import { sourceScoreSchema } from "./source-score.schema.js";
 import type { SourceResultRoot, SourceRoot } from "../generated/in/index.js";
 
+type PgErrorCause = {
+  code?: string;
+  column?: string;
+};
+
 function rowToSourceResult(
   row: typeof sourceScoreSchema.$inferSelect & { score: number }
 ): SourceResultRoot {
@@ -13,6 +18,11 @@ function rowToSourceResult(
     scrapedAtSec: row.scrapedAtSec,
     score: row.score,
   };
+}
+
+function isScoreNotNullViolation(error: unknown): boolean {
+  const cause = (error as { cause?: PgErrorCause }).cause;
+  return cause?.code === "23502" && cause.column === "score";
 }
 
 export interface SourceScoreRepo {
@@ -47,6 +57,30 @@ export interface SourceScoreRepo {
 }
 
 export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
+  async function updateExistingSourceMetadata(
+    ticker: string,
+    sources: SourceRoot[]
+  ) {
+    await Promise.all(
+      sources.map((s) =>
+        db
+          .update(sourceScoreSchema)
+          .set({
+            snippet: s.snippet,
+            updatedAtSec: s.updatedAtSec,
+            scrapedAtSec: s.scrapedAtSec,
+          })
+          .where(
+            and(
+              eq(sourceScoreSchema.ticker, ticker),
+              eq(sourceScoreSchema.url, s.url),
+              sql`${s.updatedAtSec} > ${sourceScoreSchema.updatedAtSec}`
+            )
+          )
+      )
+    );
+  }
+
   return {
     async getSourceScore(ticker, url) {
       const rows = await db
@@ -66,28 +100,37 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
 
     async upsertManySourceMetadata(ticker, sources) {
       if (sources.length === 0) return;
-      await db
-        .insert(sourceScoreSchema)
-        .values(
-          sources.map((s) => ({
-            ticker,
-            url: s.url,
-            snippet: s.snippet,
-            updatedAtSec: s.updatedAtSec,
-            scrapedAtSec: s.scrapedAtSec,
-            score: null,
-          }))
-        )
-        .onConflictDoUpdate({
-          target: [sourceScoreSchema.ticker, sourceScoreSchema.url],
-          set: {
-            snippet: sql`excluded.snippet`,
-            updatedAtSec: sql`excluded.updated_at_sec`,
-            scrapedAtSec: sql`excluded.scraped_at_sec`,
-            score: sql`source_score.score`,
-          },
-          setWhere: sql`excluded.updated_at_sec > source_score.updated_at_sec`,
-        });
+      try {
+        await db
+          .insert(sourceScoreSchema)
+          .values(
+            sources.map((s) => ({
+              ticker,
+              url: s.url,
+              snippet: s.snippet,
+              updatedAtSec: s.updatedAtSec,
+              scrapedAtSec: s.scrapedAtSec,
+              score: null,
+            }))
+          )
+          .onConflictDoUpdate({
+            target: [sourceScoreSchema.ticker, sourceScoreSchema.url],
+            set: {
+              snippet: sql`excluded.snippet`,
+              updatedAtSec: sql`excluded.updated_at_sec`,
+              scrapedAtSec: sql`excluded.scraped_at_sec`,
+              score: sql`source_score.score`,
+            },
+            setWhere: sql`excluded.updated_at_sec > source_score.updated_at_sec`,
+          });
+      } catch (e) {
+        if (!isScoreNotNullViolation(e)) throw e;
+
+        console.warn(
+          "source_score.score still has a NOT NULL constraint; metadata insert skipped until migration repairs it"
+        );
+        await updateExistingSourceMetadata(ticker, sources);
+      }
     },
 
     async upsertSourceScore(ticker, sourceResult) {
