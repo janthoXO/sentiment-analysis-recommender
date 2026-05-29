@@ -21,7 +21,8 @@ export const EnvSchema = z.object({
   GROUP_TIMEOUT_MS: z.coerce.number().default(15000),
 
   FINNHUB_API_KEY: z.string(),
-  MAX_ARTICLES: z.coerce.number().default(10),
+  MAX_ARTICLES_PER_TICKER: z.coerce.number().default(10),
+  MIN_ARTICLES_PER_TICKER: z.coerce.number().default(5),
   TOP_TICKERS_REFRESH_INTERVAL_SEC: z.coerce
     .number()
     .default(4 * 7 * 24 * 60 * 60), // 4 weeks

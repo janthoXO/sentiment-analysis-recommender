@@ -15,6 +15,7 @@ export interface DetectOpts {
   windowBars?: number
   spikePct?: number
   linkWindowSec?: number
+  maxEvents?: number
 }
 
 export function detectEvents(
@@ -22,11 +23,20 @@ export function detectEvents(
   articles: SourceResult[],
   opts: DetectOpts = {}
 ): PriceEvent[] {
-  const { windowBars = 5, spikePct = 0.02, linkWindowSec = 86_400 } = opts
+  const {
+    windowBars = 5,
+    spikePct = 0.02,
+    linkWindowSec = 86_400,
+    maxEvents,
+  } = opts
 
   if (candles.length < 2) return []
 
-  const events: PriceEvent[] = []
+  const events: (PriceEvent & { _significance: number })[] = []
+
+  const globalMin = Math.min(...candles.map((c) => c.close))
+  const globalMax = Math.max(...candles.map((c) => c.close))
+  const globalRange = globalMax - globalMin || 1
 
   for (let i = 1; i < candles.length; i++) {
     const candle = candles[i]!
@@ -62,19 +72,37 @@ export function detectEvents(
     )
       continue
 
+    const significance =
+      kind === "peak"
+        ? (close - globalMin) / globalRange
+        : kind === "low"
+          ? (globalMax - close) / globalRange
+          : Math.abs(ret)
+
     events.push({
       id: `${candle.tSec}-${kind}`,
       tSec: candle.tSec,
       kind,
       price: close,
       articleUrls: [],
+      _significance: significance,
     })
   }
+
+  // Trim to maxEvents keeping the most significant, then restore time order
+  const trimmed: PriceEvent[] =
+    maxEvents != null && events.length > maxEvents
+      ? events
+          .slice()
+          .sort((a, b) => b._significance - a._significance)
+          .slice(0, maxEvents)
+          .sort((a, b) => a.tSec - b.tSec)
+      : events
 
   // Link each article to the nearest event within linkWindowSec
   for (const article of articles) {
     let nearest: { event: PriceEvent; dist: number } | null = null
-    for (const event of events) {
+    for (const event of trimmed) {
       const dist = Math.abs(article.updatedAtSec - event.tSec)
       if (dist <= linkWindowSec && (nearest === null || dist < nearest.dist)) {
         nearest = { event, dist }
@@ -85,7 +113,7 @@ export function detectEvents(
     }
   }
 
-  return events
+  return trimmed
 }
 
 // Maps each article to the nearest candle within windowSec.
