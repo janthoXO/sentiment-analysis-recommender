@@ -3,12 +3,14 @@ import { readStream } from "@/lib/stream"
 import { getApiTickersTickerIdSentiment } from "@/api/generated/sentimentSearchAPI.gen"
 import type { TickerResult } from "@/api/generated/dtos"
 import { assertStreamOk, toastApiError } from "@/lib/api-error"
+import { useLlmInsights } from "@/context/llm-insights-provider"
 
 export function useTickerSentiment(ticker: string | undefined): {
   data: TickerResult | null
   loading: boolean
   error: string | null
 } {
+  const { enabled: insightsEnabled } = useLlmInsights()
   const [data, setData] = useState<TickerResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +29,7 @@ export function useTickerSentiment(ticker: string | undefined): {
       try {
         const res = await getApiTickersTickerIdSentiment(
           ticker!,
-          { includeInsights: true },
+          { includeInsights: insightsEnabled },
           {
             signal,
           }
@@ -61,7 +63,7 @@ export function useTickerSentiment(ticker: string | undefined): {
 
     void load()
     return () => abortController.abort()
-  }, [ticker])
+  }, [ticker, insightsEnabled])
 
   return { data, loading, error }
 }

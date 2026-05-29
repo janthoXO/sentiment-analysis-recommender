@@ -1,10 +1,20 @@
 import { useRef, useState } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { Search, Bell, UserCircle, LogOut, X, Eye } from "lucide-react"
+import {
+  Search,
+  Bell,
+  UserCircle,
+  LogOut,
+  X,
+  Eye,
+  Sparkles,
+} from "lucide-react"
 import { useAuth } from "@/context/auth-provider"
 import { useWatchlistContext } from "@/context/watchlist-provider"
+import { useLlmInsights } from "@/context/llm-insights-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import {
   Popover,
   PopoverContent,
@@ -22,6 +32,7 @@ export function AppHeader() {
   const location = useLocation()
   const { isAuthenticated, logout, requireAuth } = useAuth()
   const { events } = useWatchlistContext()
+  const { enabled: insightsEnabled, toggle: toggleInsights } = useLlmInsights()
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -120,6 +131,33 @@ export function AppHeader() {
 
         {/* Right: watchlist, notifications, profile */}
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            role="switch"
+            aria-checked={insightsEnabled}
+            className="gap-2"
+            onClick={toggleInsights}
+          >
+            <Sparkles className="size-4" />
+            <span className="hidden lg:inline">LLM Insights</span>
+            <span
+              className={cn(
+                "relative h-5 w-9 rounded-full transition-colors",
+                insightsEnabled ? "bg-primary" : "bg-muted"
+              )}
+              aria-hidden="true"
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 left-0.5 size-4 rounded-full bg-background shadow-sm transition-transform",
+                  insightsEnabled && "translate-x-4"
+                )}
+              />
+            </span>
+          </Button>
+
           {/* Watchlist */}
           <Button variant="ghost" size="sm" asChild className="gap-1.5">
             <a href="/watchlist" onClick={handleWatchlistClick}>

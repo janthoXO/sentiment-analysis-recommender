@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { AddToListButton } from "./AddToListButton"
 import { cn } from "@/lib/utils"
 import { parseSentimentLabel, parseHeadline } from "@/lib/sentiment"
+import { useLlmInsights } from "@/context/llm-insights-provider"
 import type { TickerResultSourcesItem as SourceResult } from "@/api/generated/dtos/tickerResultSourcesItem.gen"
 import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
 
@@ -23,7 +24,9 @@ export function ResultCard({
   sources = [],
   investmentInsight,
 }: ResultCardProps) {
+  const { enabled: insightsEnabled } = useLlmInsights()
   const sentiment = parseSentimentLabel(avgScore)
+  const visibleInsight = insightsEnabled ? investmentInsight : undefined
 
   const sortedSources = [...sources].sort(
     (a, b) => b.updatedAtSec - a.updatedAtSec
@@ -86,7 +89,7 @@ export function ResultCard({
           </div>
         </CardContent>
 
-        {investmentInsight && (
+        {visibleInsight && (
           <CardContent className="pt-0 pb-2">
             <div className="rounded-md border border-border/70 bg-muted/30 p-3">
               <div className="mb-1 flex items-center justify-between gap-2">
@@ -94,11 +97,11 @@ export function ResultCard({
                   Insight
                 </span>
                 <Badge variant="outline" className="text-[10px] capitalize">
-                  {investmentInsight.confidence}
+                  {visibleInsight.confidence}
                 </Badge>
               </div>
               <p className="line-clamp-3 text-xs text-muted-foreground">
-                {investmentInsight.summary}
+                {visibleInsight.summary}
               </p>
             </div>
           </CardContent>

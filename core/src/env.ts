@@ -32,6 +32,7 @@ export const EnvSchema = z.object({
   LLM_THEME_MAX_TICKERS: z.coerce.number().int().positive().max(20).default(5),
   LLM_THEME_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
   LLM_INSIGHT_ENABLED: booleanEnv.default(false),
+  LLM_INSIGHT_BATCH_SIZE: z.coerce.number().int().positive().max(20).default(6),
   LLM_INSIGHT_MAX_ARTICLES: z.coerce
     .number()
     .int()

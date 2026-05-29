@@ -76,8 +76,7 @@ export async function addInvestmentInsights(
     )
     .map((entry) => entry.result);
 
-  const generated =
-    missing.length > 0 ? await generateBatchInsights(missing) : new Map();
+  const generated = await generateInsightsInBatches(missing);
 
   return Promise.all(
     cacheEntries.map(async ({ result, key, insight }) => {
@@ -92,6 +91,24 @@ export async function addInvestmentInsights(
       return { ...result, investmentInsight: resolvedInsight };
     })
   );
+}
+
+async function generateInsightsInBatches(
+  results: TickerResultRoot[]
+): Promise<Map<string, InvestmentInsightRoot>> {
+  const insights = new Map<string, InvestmentInsightRoot>();
+
+  for (let i = 0; i < results.length; i += env.LLM_INSIGHT_BATCH_SIZE) {
+    const batch = results.slice(i, i + env.LLM_INSIGHT_BATCH_SIZE);
+    if (batch.length === 0) continue;
+
+    const batchInsights = await generateBatchInsights(batch);
+    for (const [ticker, insight] of batchInsights) {
+      insights.set(ticker, insight);
+    }
+  }
+
+  return insights;
 }
 
 async function generateBatchInsights(

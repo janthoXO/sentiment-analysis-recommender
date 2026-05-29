@@ -22,6 +22,7 @@ import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
 import { useTickerSentiment } from "@/hooks/useTickerSentiment"
 import { useCandles } from "@/hooks/useCandles"
 import { useSentimentByEvents } from "@/hooks/useSentimentByEvents"
+import { useLlmInsights } from "@/context/llm-insights-provider"
 
 type RangeKey = "latest" | RangePresetKey
 
@@ -36,6 +37,7 @@ const RANGES: { label: string; value: RangeKey }[] = [
 export default function StockDetailPage() {
   const { ticker } = useParams()
   const location = useLocation()
+  const { enabled: insightsEnabled } = useLlmInsights()
 
   const preloaded =
     (location.state as { tickerResult?: TickerResult } | null)?.tickerResult ??
@@ -133,9 +135,10 @@ export default function StockDetailPage() {
         </div>
       </div>
 
-      {data.investmentInsight ? (
+      {insightsEnabled && data.investmentInsight ? (
         <SentimentInsight insight={data.investmentInsight} />
       ) : (
+        insightsEnabled &&
         fetchLoading &&
         preloaded && <Skeleton className="h-36 w-full rounded-xl" />
       )}
