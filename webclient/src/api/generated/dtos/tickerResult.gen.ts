@@ -5,6 +5,7 @@
  * Core API for handling user searches and delegating tracking tasks.
  * OpenAPI spec version: 1.0.0
  */
+import type { TickerResultInvestmentInsight } from './tickerResultInvestmentInsight.gen';
 import type { TickerResultSourcesItem } from './tickerResultSourcesItem.gen';
 import type { TickerResultStock } from './tickerResultStock.gen';
 
@@ -16,6 +17,7 @@ export interface TickerResult {
      * @maximum 1
      */
   avgScore: number;
+  investmentInsight?: TickerResultInvestmentInsight;
   /** The timestamp (in seconds) of the associated event. */
   eventTSec?: number;
 }

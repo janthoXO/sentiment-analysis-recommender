@@ -15,4 +15,8 @@ q?: string;
  * Repeat the param (?tickerIds=AAPL&tickerIds=MSFT). Mutually exclusive with q.
  */
 tickerIds?: string[];
+/**
+ * Optional. When true, stream a follow-up TickerResult enriched with a cached LLM insight.
+ */
+includeInsights?: boolean;
 };

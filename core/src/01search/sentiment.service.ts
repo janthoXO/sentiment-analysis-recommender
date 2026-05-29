@@ -29,6 +29,7 @@ import {
   isExplicitTickerQuery,
   resolveThemeQueryStocks,
 } from "./theme-query.service.js";
+import { addInvestmentInsights } from "./investment-insight.service.js";
 import { searchTickers } from "@/stocks/stocks.api.js";
 import { env } from "@/env.js";
 import { sanitizeError, errorCode } from "@/middleware/httpError.js";
@@ -167,7 +168,8 @@ function makeStockError(stock: StockRoot, e: unknown): StreamError {
 }
 
 async function* analyzeStocks(
-  stocks: StockRoot[]
+  stocks: StockRoot[],
+  opts: { includeInsights?: boolean } = {}
 ): AsyncGenerator<TickerResultRoot | StreamError> {
   const promises = stocks.map((stock) =>
     analyzeStock({ stock, priority: 4 })
@@ -186,8 +188,17 @@ async function* analyzeStocks(
         return makeStockError(stock, e);
       })
   );
+  const successfulResults: TickerResultRoot[] = [];
   for await (const result of yieldAsResolved(promises)) {
+    if (!("error" in result)) successfulResults.push(result);
     yield result;
+  }
+
+  if (opts.includeInsights && successfulResults.length > 0) {
+    const enrichedResults = await addInvestmentInsights(successfulResults);
+    for (const result of enrichedResults) {
+      if (result.investmentInsight) yield result;
+    }
   }
 }
 
@@ -196,17 +207,19 @@ async function* analyzeStocks(
 // ---------------------------------------------------------------------------
 
 export async function* streamSentiment(
-  input: { q: string } | { tickerIds: string[] }
+  input: { q: string } | { tickerIds: string[] },
+  opts: { includeInsights?: boolean } = {}
 ): AsyncGenerator<TickerResultRoot | StreamError> {
   if ("q" in input) {
-    yield* streamByQuery(input.q);
+    yield* streamByQuery(input.q, opts);
   } else {
-    yield* streamByTickerIds(input.tickerIds);
+    yield* streamByTickerIds(input.tickerIds, opts);
   }
 }
 
 async function* streamByQuery(
-  q: string
+  q: string,
+  opts: { includeInsights?: boolean } = {}
 ): AsyncGenerator<TickerResultRoot | StreamError> {
   const qTrim = q.trim();
   const qUpper = qTrim.toUpperCase();
@@ -220,6 +233,10 @@ async function* streamByQuery(
         const result = await analyzeStock({ stock: directHit, priority: 4 });
         if (result) {
           yield result;
+          if (opts.includeInsights) {
+            const [enriched] = await addInvestmentInsights([result]);
+            if (enriched?.investmentInsight) yield enriched;
+          }
         } else {
           yield {
             error: "No articles found for this ticker",
@@ -291,7 +308,7 @@ async function* streamByQuery(
     }
   }
 
-  yield* analyzeStocks(stocks);
+  yield* analyzeStocks(stocks, opts);
 }
 
 function getQueryCacheKeys(query: string, isExplicitQuery: boolean): string[] {
@@ -320,7 +337,8 @@ function toTitleCase(query: string): string {
 }
 
 async function* streamByTickerIds(
-  tickerIds: string[]
+  tickerIds: string[],
+  opts: { includeInsights?: boolean } = {}
 ): AsyncGenerator<TickerResultRoot | StreamError> {
   if (tickerIds.length === 0) {
     yield {
@@ -337,5 +355,5 @@ async function* streamByTickerIds(
     (ticker) => stockMap.get(ticker) ?? { ticker, name: ticker }
   );
 
-  yield* analyzeStocks(stocks);
+  yield* analyzeStocks(stocks, opts);
 }

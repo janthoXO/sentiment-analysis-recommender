@@ -15,6 +15,9 @@
       "minimum": -1.0,
       "maximum": 1.0
     },
+    "investmentInsight": {
+      "$ref": "./InvestmentInsight.json"
+    },
     "eventTSec": {
       "type": "integer",
       "description": "The timestamp (in seconds) of the associated event."

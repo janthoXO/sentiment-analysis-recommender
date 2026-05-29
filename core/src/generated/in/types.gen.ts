@@ -11,10 +11,22 @@ export type TickerResultRoot = {
     stock: StockRoot;
     sources: Array<SourceResultRoot>;
     avgScore: number;
+    investmentInsight?: InvestmentInsightRoot;
     /**
      * The timestamp (in seconds) of the associated event.
      */
     eventTSec?: number;
+};
+
+/**
+ * InvestmentInsight
+ */
+export type InvestmentInsightRoot = {
+    verdict: 'bullish' | 'bearish' | 'neutral' | 'mixed';
+    confidence: 'low' | 'medium' | 'high';
+    summary: string;
+    reasons: Array<string>;
+    disclaimer: string;
 };
 
 /**
@@ -137,6 +149,10 @@ export type GetApiTickersSentimentData = {
          * Repeat the param (?tickerIds=AAPL&tickerIds=MSFT). Mutually exclusive with q.
          */
         tickerIds?: Array<string>;
+        /**
+         * Optional. When true, stream a follow-up TickerResult enriched with a cached LLM insight.
+         */
+        includeInsights?: boolean;
     };
     url: '/api/tickers/sentiment';
 };
@@ -205,6 +221,10 @@ export type GetApiTickersByTickerIdSentimentData = {
          * Optional. Article-window size in seconds (fromSec = eventTSec - intervalSec, or now - intervalSec for no-event call).
          */
         intervalSec?: number;
+        /**
+         * Optional. When true and no eventTSec is supplied, stream a follow-up TickerResult enriched with a cached LLM insight.
+         */
+        includeInsights?: boolean;
     };
     url: '/api/tickers/{tickerId}/sentiment';
 };

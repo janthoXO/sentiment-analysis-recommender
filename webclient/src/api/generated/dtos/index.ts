@@ -27,5 +27,8 @@ export * from './renameListRequest.gen';
 export * from './searchError.gen';
 export * from './stock.gen';
 export * from './tickerResult.gen';
+export * from './tickerResultInvestmentInsight.gen';
+export * from './tickerResultInvestmentInsightConfidence.gen';
+export * from './tickerResultInvestmentInsightVerdict.gen';
 export * from './tickerResultSourcesItem.gen';
 export * from './tickerResultStock.gen';

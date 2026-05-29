@@ -3,6 +3,26 @@
 import * as z from 'zod';
 
 /**
+ * InvestmentInsight
+ */
+export const zInvestmentInsightRoot = z.object({
+    verdict: z.enum([
+        'bullish',
+        'bearish',
+        'neutral',
+        'mixed'
+    ]),
+    confidence: z.enum([
+        'low',
+        'medium',
+        'high'
+    ]),
+    summary: z.string().min(1),
+    reasons: z.array(z.string().min(1)).min(1).max(3),
+    disclaimer: z.string().min(1)
+});
+
+/**
  * Source
  */
 export const zSourceRoot = z.object({
@@ -34,6 +54,7 @@ export const zTickerResultRoot = z.object({
     stock: zStockRoot,
     sources: z.array(zSourceResultRoot),
     avgScore: z.number().gte(-1).lte(1),
+    investmentInsight: zInvestmentInsightRoot.optional(),
     eventTSec: z.int().optional()
 });
 
@@ -111,7 +132,8 @@ export const zHttpError = z.object({
 
 export const zGetApiTickersSentimentQuery = z.object({
     q: z.string().optional(),
-    tickerIds: z.array(z.string()).optional()
+    tickerIds: z.array(z.string()).optional(),
+    includeInsights: z.boolean().optional().default(false)
 });
 
 /**
@@ -133,7 +155,8 @@ export const zGetApiTickersByTickerIdSentimentPath = z.object({
 
 export const zGetApiTickersByTickerIdSentimentQuery = z.object({
     eventTSec: z.array(z.int()).optional(),
-    intervalSec: z.int().gte(1).optional()
+    intervalSec: z.int().gte(1).optional(),
+    includeInsights: z.boolean().optional().default(false)
 });
 
 /**

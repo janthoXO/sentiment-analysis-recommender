@@ -3,6 +3,11 @@ import z from "zod";
 
 dotenv.config();
 
+const booleanEnv = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}, z.boolean());
+
 export const EnvSchema = z.object({
   PORT: z.coerce.number().default(3001),
   DEBUG: z.coerce.boolean().default(false),
@@ -26,6 +31,15 @@ export const EnvSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   LLM_THEME_MAX_TICKERS: z.coerce.number().int().positive().max(20).default(5),
   LLM_THEME_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
+  LLM_INSIGHT_ENABLED: booleanEnv.default(false),
+  LLM_INSIGHT_MAX_ARTICLES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(10)
+    .default(6),
+  LLM_INSIGHT_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+  CACHE_TTL_INSIGHT_SEC: z.coerce.number().int().positive().default(3600),
   MAX_ARTICLES: z.coerce.number().default(10),
   TOP_TICKERS_REFRESH_INTERVAL_SEC: z.coerce
     .number()

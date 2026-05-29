@@ -23,6 +23,12 @@ paths:
           style: form
           explode: true
           description: Repeat the param (?tickerIds=AAPL&tickerIds=MSFT). Mutually exclusive with q.
+        - in: query
+          name: includeInsights
+          schema:
+            type: boolean
+            default: false
+          description: Optional. When true, stream a follow-up TickerResult enriched with a cached LLM insight.
       responses:
         "200":
           description: NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
@@ -95,6 +101,12 @@ paths:
             type: integer
             minimum: 1
           description: Optional. Article-window size in seconds (fromSec = eventTSec - intervalSec, or now - intervalSec for no-event call).
+        - in: query
+          name: includeInsights
+          schema:
+            type: boolean
+            default: false
+          description: Optional. When true and no eventTSec is supplied, stream a follow-up TickerResult enriched with a cached LLM insight.
       responses:
         "200":
           description: NDJSON stream — one TickerResult or SearchError per line (one per eventTSec, or a single result when no events given).
@@ -536,6 +548,9 @@ components:
 
     TickerResult:
       $ref: "./schemas/TickerResult.json"
+
+    InvestmentInsight:
+      $ref: "./schemas/InvestmentInsight.json"
 
     Candle:
       $ref: "./schemas/Candle.json"

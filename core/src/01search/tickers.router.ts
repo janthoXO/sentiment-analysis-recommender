@@ -5,6 +5,7 @@ import {
   streamSentiment,
   yieldAsResolved,
 } from "./sentiment.service.js";
+import { addInvestmentInsights } from "./investment-insight.service.js";
 import {
   zGetApiTickersByTickerIdPeersPath,
   zGetApiTickersSentimentQuery,
@@ -19,12 +20,23 @@ import { asyncHandler, HttpError } from "@/middleware/httpError.js";
 
 const tickersRouter = Router();
 
+function coerceBooleanQuery(value: unknown): boolean | undefined {
+  if (value == null) return undefined;
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw !== "string") return undefined;
+  return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase());
+}
+
 // Streaming handlers cannot use asyncHandler because headers may already be sent
 // when a per-ticker error occurs. They write errors into the NDJSON stream instead.
 tickersRouter.get(
   "/sentiment",
   async (req: Request, res: Response): Promise<void> => {
-    const parsed = zGetApiTickersSentimentQuery.safeParse(req.query);
+    const parsed = zGetApiTickersSentimentQuery.safeParse({
+      ...req.query,
+      includeInsights: coerceBooleanQuery(req.query["includeInsights"]),
+    });
     if (!parsed.success) {
       res
         .status(400)
@@ -32,7 +44,7 @@ tickersRouter.get(
       return;
     }
 
-    const { q, tickerIds } = parsed.data;
+    const { q, tickerIds, includeInsights = false } = parsed.data;
 
     if (!q && (!tickerIds || tickerIds.length === 0)) {
       res.status(400).json({
@@ -51,7 +63,7 @@ tickersRouter.get(
       : { tickerIds: tickerIds! };
 
     try {
-      for await (const chunk of streamSentiment(input)) {
+      for await (const chunk of streamSentiment(input, { includeInsights })) {
         res.write(JSON.stringify(chunk) + "\n");
       }
       res.end();
@@ -95,6 +107,7 @@ tickersRouter.get(
           : undefined,
       intervalSec:
         rawQ["intervalSec"] != null ? Number(rawQ["intervalSec"]) : undefined,
+      includeInsights: coerceBooleanQuery(rawQ["includeInsights"]),
     };
     const parsed =
       zGetApiTickersByTickerIdSentimentQuery.safeParse(coercedQuery);
@@ -105,7 +118,7 @@ tickersRouter.get(
       return;
     }
 
-    const { eventTSec, intervalSec } = parsed.data;
+    const { eventTSec, intervalSec, includeInsights = false } = parsed.data;
     const stock: StockRoot = (await getTickerStock(ticker)) ?? {
       ticker,
       name: ticker,
@@ -145,7 +158,15 @@ tickersRouter.get(
             ticker,
           };
         });
-        if (result !== null) res.write(JSON.stringify(result) + "\n");
+        if (result !== null) {
+          res.write(JSON.stringify(result) + "\n");
+          if (!("error" in result) && includeInsights) {
+            const [enriched] = await addInvestmentInsights([result]);
+            if (enriched?.investmentInsight) {
+              res.write(JSON.stringify(enriched) + "\n");
+            }
+          }
+        }
       }
 
       res.end();

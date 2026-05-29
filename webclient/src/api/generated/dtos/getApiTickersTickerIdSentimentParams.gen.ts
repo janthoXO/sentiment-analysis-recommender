@@ -16,4 +16,8 @@ eventTSec?: number[];
  * @minimum 1
  */
 intervalSec?: number;
+/**
+ * Optional. When true and no eventTSec is supplied, stream a follow-up TickerResult enriched with a cached LLM insight.
+ */
+includeInsights?: boolean;
 };
