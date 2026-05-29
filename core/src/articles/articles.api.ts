@@ -6,9 +6,6 @@ import YahooFinance from "yahoo-finance2";
 import z from "zod";
 import { HttpError } from "@/middleware/httpError.js";
 
-const MIN_ARTICLES = 5;
-const TOP_X_ARTICLES = 10;
-
 const yf = new YahooFinance();
 
 const zFinnhubNews = z.object({
@@ -125,8 +122,8 @@ export async function getArticles(
     ticker,
     fromSec,
     intervalSec,
-    limit = TOP_X_ARTICLES,
-    minArticles = MIN_ARTICLES,
+    limit = env.MAX_ARTICLES_PER_TICKER,
+    minArticles = env.MIN_ARTICLES_PER_TICKER,
     maxBackoffSteps = 6,
   } = opts;
   const now = new Date();

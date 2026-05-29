@@ -16,6 +16,13 @@ import {
   type CandleDuration,
   type RangePresetKey,
 } from "@/lib/intervals"
+
+const MAX_EVENTS_BY_RANGE: Record<RangePresetKey, number> = {
+  "1D": 2,
+  "1W": 3,
+  "1M": 5,
+  "1Y": 7,
+}
 import { detectEvents } from "@/lib/events"
 import type { Stock } from "@/models/Stock"
 import { useCandles } from "@/hooks/useCandles"
@@ -63,7 +70,8 @@ export default function StockDetailPage() {
 
   const events = useMemo(() => {
     if (range === "latest" || candles.length === 0) return []
-    return detectEvents(candles, [])
+    const maxEvents = MAX_EVENTS_BY_RANGE[range as RangePresetKey]
+    return detectEvents(candles, [], { maxEvents })
   }, [range, candles])
 
   const intervalSec = interval != null ? intervalToSec(interval) : undefined
