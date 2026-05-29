@@ -26,8 +26,8 @@ export function ResultCard({
   const displayName = name && name !== ticker ? name : null
   const metadataBadges = Array.from(
     new Set(
-      [sector, industry, exchange].filter(
-        (value): value is string => Boolean(value)
+      [sector, industry, exchange].filter((value): value is string =>
+        Boolean(value)
       )
     )
   )
