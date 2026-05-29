@@ -22,19 +22,26 @@ export const EnvSchema = z.object({
   GROUP_TIMEOUT_MS: z.coerce.number().default(15000),
 
   FINNHUB_API_KEY: z.string(),
+
   MAX_ARTICLES_PER_TICKER: z.coerce.number().default(10),
   MIN_ARTICLES_PER_TICKER: z.coerce.number().default(5),
+
+  USER_QUERY_PRIORITY: z.coerce.number().default(4),
+
   TOP_TICKERS_REFRESH_INTERVAL_SEC: z.coerce
     .number()
     .default(4 * 7 * 24 * 60 * 60), // 4 weeks
   TOP_TICKERS_SCRAPE_INTERVAL_SEC: z.coerce.number().default(6 * 60 * 60), // 6 hours
   TOP_TICKERS_JITTER_SEC: z.coerce.number().default(30 * 60), // 30 minutes
+  TOP_TICKERS_PRIORITY: z.coerce.number().default(1),
 
   TRENDING_REFRESH_INTERVAL_SEC: z.coerce.number().default(60 * 60), // 1 hour
   TRENDING_SCRAPE_INTERVAL_SEC: z.coerce.number().default(10 * 60), // 10 minutes
   TRENDING_TICKERS_JITTER_SEC: z.coerce.number().default(2 * 60), // 2 minutes
+  TRENDING_PRIORITY: z.coerce.number().default(3),
 
   WATCHLIST_SCRAPE_INTERVAL_SEC: z.coerce.number().default(60 * 60), // 1 hour
+  WATCHLIST_PRIORITY: z.coerce.number().default(2),
 
   NOTIFICATION_DEBOUNCE_SEC: z.coerce.number().default(30),
   NOTIFICATION_TOP_N: z.coerce.number().int().positive().default(5),

@@ -5,6 +5,7 @@ import type {
 } from "../generated/in/index.js";
 import type { AnalyzerService } from "./analyzer.service.js";
 import { sanitizeError, errorCode } from "../middleware/httpError.js";
+import { env } from "@/env.js";
 
 export interface StreamError {
   error: string;
@@ -27,7 +28,11 @@ export function makeSentimentService({
   return {
     async *streamSentimentForArticles(stock, sources) {
       try {
-        yield* analyzer.requestSentiment(stock, sources);
+        yield* analyzer.requestSentiment(
+          stock,
+          sources,
+          env.USER_QUERY_PRIORITY
+        );
       } catch (e) {
         console.error(`Sentiment stream failed for ${stock.ticker}:`, e);
         yield {
