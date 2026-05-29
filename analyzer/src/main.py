@@ -1,7 +1,6 @@
 import logging
 import signal
 import sys
-from typing import Optional
 
 from .cache import AnalyzerCache
 from .config import Config, load_config
@@ -16,11 +15,12 @@ def _setup_logging(level: str) -> None:
     )
 
 
-def _build_handler(scorer: BaseScorer, cache: AnalyzerCache):
+def _build_handler(scorer: BaseScorer, cache: AnalyzerCache, mq: MqClient):
     log = logging.getLogger("analyzer.handler")
 
-    def handle(task: dict) -> Optional[dict]:
-        ticker = task.get("ticker")
+    def handle(task: dict) -> None:
+        stock = task.get("stock")
+        ticker = stock.get("ticker") if isinstance(stock, dict) else None
         job_id = task.get("jobId")
         sources = task.get("sources")
 
@@ -29,13 +29,11 @@ def _build_handler(scorer: BaseScorer, cache: AnalyzerCache):
                 "Skipping malformed task (missing required fields); keys=%s",
                 list(task.keys()),
             )
-            return None
+            return
 
         # ── Layer 1: in-flight deduplication ──────────────────────────────
-        # If another batch for the same ticker is already being processed
-        # (e.g. two workers pulled the same ticker, or prefetch_count > 1),
-        # try to resolve this batch entirely from the article cache so we
-        # don't run duplicate inference.
+        # If another batch for the same ticker is already being processed,
+        # try to resolve this batch entirely from the article cache.
         if cache.is_inflight(ticker):
             log.warning(
                 "Ticker %s already in-flight; attempting full cache resolution "
@@ -43,58 +41,57 @@ def _build_handler(scorer: BaseScorer, cache: AnalyzerCache):
                 ticker,
                 len(sources),
             )
-            cached_sources = []
+            all_cached = True
             for src in sources:
                 score = cache.get(ticker, src.get("url", ""))
                 if score is not None:
-                    cached_sources.append({**src, "score": score})
+                    mq.publish_result({"ticker": ticker, "jobId": job_id, "source": {**src, "score": score}})
                 else:
-                    break  # at least one source is missing — fall through
-            else:
-                # All sources resolved from cache: skip inference entirely
+                    all_cached = False
+                    break
+
+            if all_cached:
                 log.info(
                     "Skipped duplicate in-flight task for %s "
                     "(%d source(s) resolved from cache)",
                     ticker,
-                    len(cached_sources),
+                    len(sources),
                 )
-                return {"ticker": ticker, "jobId": job_id, "sources": cached_sources}
+                return
+            # Otherwise fall through to normal scoring path
 
         # ── Layer 2: per-article TTL cache ─────────────────────────────────
-        # Split sources into cache hits (no NLI needed) and misses (need scoring).
-        result_sources: list[Optional[dict]] = [None] * len(sources)
         to_score_indices: list[int] = []
 
         for i, src in enumerate(sources):
             cached_score = cache.get(ticker, src.get("url", ""))
             if cached_score is not None:
-                result_sources[i] = {**src, "score": cached_score}
                 log.debug(
                     "Cache hit: ticker=%s url=%s score=%.4f",
                     ticker, src.get("url"), cached_score,
                 )
+                mq.publish_result({"ticker": ticker, "jobId": job_id, "source": {**src, "score": cached_score}})
             else:
                 to_score_indices.append(i)
 
-        # ── Inference for cache misses ─────────────────────────────────────
+        if not to_score_indices:
+            return
+
+        # ── Inference for cache misses (batched for throughput) ────────────
         cache.mark_inflight(ticker)
         try:
-            if to_score_indices:
-                snippets = [sources[i].get("snippet", "") for i in to_score_indices]
-                scores = scorer.score_batch(snippets)
+            snippets = [sources[i].get("snippet", "") for i in to_score_indices]
+            scores = scorer.score_batch(snippets)
 
-                for i, score in zip(to_score_indices, scores):
-                    src = sources[i]
-                    url = src.get("url", "")
-                    cache.set(ticker, url, score)
-                    result_sources[i] = {**src, "score": score}
-                    log.info(
-                        "Scored ticker=%s score=%+.4f url=%s", ticker, score, url
-                    )
+            for i, score in zip(to_score_indices, scores):
+                src = sources[i]
+                url = src.get("url", "")
+                cache.set(ticker, url, score)
+                scored_src = {**src, "score": score}
+                mq.publish_result({"ticker": ticker, "jobId": job_id, "source": scored_src})
+                log.info("Scored ticker=%s score=%+.4f url=%s", ticker, score, url)
         finally:
             cache.unmark_inflight(ticker)
-
-        return {"ticker": ticker, "jobId": job_id, "sources": result_sources}
 
     return handle
 
@@ -135,7 +132,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, shutdown)
 
     mq.connect()
-    handler = _build_handler(scorer, cache)
+    handler = _build_handler(scorer, cache, mq)
 
     try:
         mq.consume(handler)

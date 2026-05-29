@@ -1,26 +1,24 @@
 import json
 import logging
-from typing import Callable, Optional
+from typing import Callable
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
 
 logger = logging.getLogger(__name__)
 
-TaskHandler = Callable[[dict], Optional[dict]]
+# Handler receives a task dict and publishes its own per-article results.
+# Return value is ignored (handler publishes inline).
+TaskHandler = Callable[[dict], None]
 
 
 class MqClient:
     """Synchronous RabbitMQ client for the analyzer.
 
-    Consumes `AnalyzerTask` messages from the task queue and publishes
-    `AnalyzerResult` messages to the same exchange under the result
-    routing key, mirroring the topology declared by core (mq.repo.ts).
+    Consumes `AnalyzerTask` messages from the task queue and publishes one
+    `AnalyzerResult` message *per article* to the results queue, mirroring the
+    topology declared by core (mq.repo.ts).
     """
-
-    # Routing key core publishes tasks under (see core/src/mq.repo.ts).
-    # After PR #14 the queue name and routing key are both "tasks".
-    TASK_ROUTING_KEY = "tasks"
 
     def __init__(
         self,
@@ -35,16 +33,14 @@ class MqClient:
         self.task_queue = task_queue
         self.result_routing_key = result_routing_key
         self.prefetch_count = prefetch_count
-        self.connection: Optional[pika.BlockingConnection] = None
-        self.channel: Optional[BlockingChannel] = None
+        self.connection = None
+        self.channel: BlockingChannel | None = None
 
     def connect(self) -> None:
         params = pika.URLParameters(self.url)
         self.connection = pika.BlockingConnection(params)
         self.channel = self.connection.channel()
 
-        # Match the topology asserted by core (mq.repo.ts) so
-        # re-declarations are idempotent rather than a parameter clash.
         self.channel.exchange_declare(
             exchange=self.exchange, exchange_type="direct", durable=True
         )
@@ -56,11 +52,11 @@ class MqClient:
         self.channel.queue_bind(
             queue=self.task_queue,
             exchange=self.exchange,
-            routing_key=self.TASK_ROUTING_KEY,
+            routing_key=self.task_queue,
         )
-        self.channel.queue_declare(queue="results", durable=True)
+        self.channel.queue_declare(queue=self.result_routing_key, durable=True)
         self.channel.queue_bind(
-            queue="results",
+            queue=self.result_routing_key,
             exchange=self.exchange,
             routing_key=self.result_routing_key,
         )
@@ -85,14 +81,11 @@ class MqClient:
                 return
 
             try:
-                result = handler(task)
+                handler(task)
             except Exception:
                 logger.exception("Handler raised; dropping message")
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                 return
-
-            if result is not None:
-                self._publish_result(result)
 
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -101,7 +94,8 @@ class MqClient:
         )
         self.channel.start_consuming()
 
-    def _publish_result(self, result: dict) -> None:
+    def publish_result(self, result: dict) -> None:
+        """Publish a single per-article AnalyzerResult."""
         if self.channel is None:
             raise RuntimeError("MqClient.connect() must be called before publishing")
         self.channel.basic_publish(
@@ -113,6 +107,11 @@ class MqClient:
                 delivery_mode=2,
             ),
         )
+
+    def publish_results(self, results: list[dict]) -> None:
+        """Publish one message per scored article."""
+        for result in results:
+            self.publish_result(result)
 
     def close(self) -> None:
         try:

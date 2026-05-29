@@ -1,5 +1,5 @@
 {
-  "id": "545be574-5e70-4de7-81d9-0d9e7b9d2610",
+  "id": "f8be6d72-fb66-4f1b-81b9-4e7ce4240884",
   "prevId": "ec0ed394-3d80-452a-897f-9056dbd2a602",
   "version": "7",
   "dialect": "postgresql",
@@ -140,7 +140,7 @@
           "name": "score",
           "type": "real",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         }
       },
       "indexes": {},
@@ -188,24 +188,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "sector": {
-          "name": "sector",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "industry": {
-          "name": "industry",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "exchange": {
-          "name": "exchange",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -222,12 +204,6 @@
       "columns": {
         "ticker": {
           "name": "ticker",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -258,7 +234,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "tracker_ticker_ticker_stock_ticker_fk": {
+          "name": "tracker_ticker_ticker_stock_ticker_fk",
+          "tableFrom": "tracker",
+          "tableTo": "ticker_stock",
+          "columnsFrom": [
+            "ticker"
+          ],
+          "columnsTo": [
+            "ticker"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
         "tracker_ticker_priority_interval_pk": {
           "name": "tracker_ticker_priority_interval_pk",
@@ -266,6 +256,59 @@
             "ticker",
             "priority",
             "interval"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_ticker_access": {
+      "name": "user_ticker_access",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ticker": {
+          "name": "ticker",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_accessed_sec": {
+          "name": "last_accessed_sec",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_ticker_access_user_id_users_id_fk": {
+          "name": "user_ticker_access_user_id_users_id_fk",
+          "tableFrom": "user_ticker_access",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "user_ticker_access_user_id_ticker_pk": {
+          "name": "user_ticker_access_user_id_ticker_pk",
+          "columns": [
+            "user_id",
+            "ticker"
           ]
         }
       },
