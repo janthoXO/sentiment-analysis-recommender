@@ -24,17 +24,22 @@ export interface MqClient {
 
 export async function connectMq(
   url: string,
+  exchange: string,
   handlers: MqHandlers
 ): Promise<MqClient> {
   const conn = await amqplib.connect(url);
   const channel = await conn.createChannel();
 
+  await channel.assertExchange(exchange, "direct", { durable: true });
+
   await channel.assertQueue("analyzer.tasks", {
     durable: true,
     arguments: { "x-max-priority": 10 },
   });
+  await channel.bindQueue("analyzer.tasks", exchange, "analyzer.tasks");
 
   await channel.assertQueue("analyzer.results", { durable: true });
+  await channel.bindQueue("analyzer.results", exchange, "analyzer.results");
 
   await channel.prefetch(10);
 
@@ -52,7 +57,8 @@ export async function connectMq(
 
   return {
     publishAnalysisTask(stock, jobId, sources, priority) {
-      channel.sendToQueue(
+      channel.publish(
+        exchange,
         "analyzer.tasks",
         Buffer.from(JSON.stringify({ stock, jobId, sources })),
         { priority }

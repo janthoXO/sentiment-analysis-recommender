@@ -12,6 +12,7 @@ export const EnvSchema = z.object({
     .string()
     .default("postgresql://sentinel:sentinel@localhost:5432/sentinel"),
   RABBITMQ_URL: z.string().default("amqp://sentinel:sentinel@localhost:5672"),
+  MQ_EXCHANGE: z.string().default("sentinel.analyze"),
 
   CACHE_TTL_SECONDS: z.coerce.number().default(900),
   CACHE_TTL_QUERY_SEC: z.coerce.number().default(86400),

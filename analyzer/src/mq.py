@@ -20,8 +20,6 @@ class MqClient:
     topology declared by core (mq.repo.ts).
     """
 
-    TASK_ROUTING_KEY = "tasks"
-
     def __init__(
         self,
         url: str,
@@ -54,11 +52,11 @@ class MqClient:
         self.channel.queue_bind(
             queue=self.task_queue,
             exchange=self.exchange,
-            routing_key=self.TASK_ROUTING_KEY,
+            routing_key=self.task_queue,
         )
-        self.channel.queue_declare(queue="results", durable=True)
+        self.channel.queue_declare(queue=self.result_routing_key, durable=True)
         self.channel.queue_bind(
-            queue="results",
+            queue=self.result_routing_key,
             exchange=self.exchange,
             routing_key=self.result_routing_key,
         )
