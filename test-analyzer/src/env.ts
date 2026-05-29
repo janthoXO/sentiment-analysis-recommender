@@ -6,6 +6,7 @@ dotenv.config();
 export const EnvSchema = z.object({
   DEBUG: z.coerce.boolean().default(false),
   RABBITMQ_URL: z.string().default("amqp://sentinel:sentinel@localhost:5672"),
+  MQ_EXCHANGE: z.string().default("sentinel.analyze"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

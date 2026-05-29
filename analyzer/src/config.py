@@ -41,8 +41,8 @@ def load_config() -> Config:
             "RABBITMQ_URL", "amqp://sentinel:sentinel@localhost:5672"
         ),
         mq_exchange=os.getenv("MQ_EXCHANGE", "sentinel.analyze"),
-        mq_task_queue=os.getenv("MQ_TASK_QUEUE", "tasks"),
-        mq_result_routing_key=os.getenv("MQ_RESULT_ROUTING_KEY", "result"),
+        mq_task_queue=os.getenv("MQ_TASK_QUEUE", "analyzer.tasks"),
+        mq_result_routing_key=os.getenv("MQ_RESULT_ROUTING_KEY", "analyzer.results"),
         scorer_type=scorer_type,
         model_name=model_name,
         hypothesis_positive=os.getenv(

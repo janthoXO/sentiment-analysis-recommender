@@ -3,12 +3,12 @@
   "title": "AnalyzerTask",
   "type": "object",
   "properties": {
-    "ticker": { "type": "string" },
+    "stock": { "$ref": "./Stock.json" },
     "jobId": { "type": "string" },
     "sources": {
       "type": "array",
       "items": { "$ref": "./Source.json" }
     }
   },
-  "required": ["ticker", "jobId", "sources"]
+  "required": ["stock", "jobId", "sources"]
 }

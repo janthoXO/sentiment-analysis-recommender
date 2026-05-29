@@ -13,11 +13,12 @@ export const zSourceRoot = z.object({
 });
 
 /**
- * SourceResult
+ * TickerArticles
  */
-export const zSourceResultRoot = zSourceRoot.and(z.object({
-    score: z.number().gte(-1).lte(1)
-}));
+export const zTickerArticlesRoot = z.object({
+    ticker: z.string(),
+    sources: z.array(zSourceRoot)
+});
 
 /**
  * Stock
@@ -28,14 +29,11 @@ export const zStockRoot = z.object({
 });
 
 /**
- * TickerResult
+ * SourceResult
  */
-export const zTickerResultRoot = z.object({
-    stock: zStockRoot,
-    sources: z.array(zSourceResultRoot),
-    avgScore: z.number().gte(-1).lte(1),
-    eventTSec: z.int().optional()
-});
+export const zSourceResultRoot = zSourceRoot.and(z.object({
+    score: z.number().gte(-1).lte(1)
+}));
 
 /**
  * Candle
@@ -47,6 +45,15 @@ export const zRoot = z.object({
     low: z.number(),
     close: z.number(),
     volume: z.number().optional()
+});
+
+/**
+ * Emitted after the debounce window when new sentiment data arrives for a watched ticker.
+ */
+export const zNotificationEvent = z.object({
+    ticker: z.string(),
+    before: z.array(zSourceResultRoot),
+    latest: z.array(zSourceResultRoot)
 });
 
 export const zAddListItemRequest = z.object({
@@ -109,38 +116,57 @@ export const zHttpError = z.object({
     code: z.string()
 });
 
-export const zGetApiTickersSentimentQuery = z.object({
+export const zGetApiTickersQuery = z.object({
     q: z.string().optional(),
     tickerIds: z.array(z.string()).optional()
 });
 
 /**
- * NDJSON stream of analyzed ticker results (one TickerResult per line, or a SearchError line).
+ * NDJSON stream of Stock records (one Stock per line, or a SearchError line).
  */
-export const zGetApiTickersSentimentResponse = z.union([
-    zTickerResultRoot,
+export const zGetApiTickersResponse = z.union([
+    zStockRoot,
     zSearchError
 ]);
 
 /**
- * List of trending stocks
+ * NDJSON stream of Stock records (one Stock per line, or a SearchError line).
  */
-export const zGetApiTickersTrendingResponse = z.array(zStockRoot);
+export const zGetApiTickersTrendingResponse = z.union([
+    zStockRoot,
+    zSearchError
+]);
 
-export const zGetApiTickersByTickerIdSentimentPath = z.object({
+export const zGetApiTickersByTickerIdArticlesPath = z.object({
     tickerId: z.string()
 });
 
-export const zGetApiTickersByTickerIdSentimentQuery = z.object({
+export const zGetApiTickersByTickerIdArticlesQuery = z.object({
     eventTSec: z.array(z.int()).optional(),
     intervalSec: z.int().gte(1).optional()
 });
 
 /**
- * NDJSON stream — one TickerResult or SearchError per line (one per eventTSec, or a single result when no events given).
+ * NDJSON stream — one TickerArticles per event (or a single result when no events given).
  */
-export const zGetApiTickersByTickerIdSentimentResponse = z.union([
-    zTickerResultRoot,
+export const zGetApiTickersByTickerIdArticlesResponse = z.union([
+    zTickerArticlesRoot,
+    zSearchError
+]);
+
+export const zGetApiTickersByTickerIdArticlesSentimentPath = z.object({
+    tickerId: z.string()
+});
+
+export const zGetApiTickersByTickerIdArticlesSentimentQuery = z.object({
+    articleUrl: z.array(z.string())
+});
+
+/**
+ * NDJSON stream — one SourceResult per line as each article is scored (cached ones emit immediately).
+ */
+export const zGetApiTickersByTickerIdArticlesSentimentResponse = z.union([
+    zSourceResultRoot,
     zSearchError
 ]);
 
@@ -173,9 +199,12 @@ export const zGetApiTickersByTickerIdPeersPath = z.object({
 });
 
 /**
- * List of peer stocks (same country + sector/industry)
+ * NDJSON stream of peer Stock records (one per line, cached peers emitted first).
  */
-export const zGetApiTickersByTickerIdPeersResponse = z.array(zStockRoot);
+export const zGetApiTickersByTickerIdPeersResponse = z.union([
+    zStockRoot,
+    zSearchError
+]);
 
 export const zPostApiAuthRegisterBody = zAuthRequest;
 
@@ -229,11 +258,7 @@ export const zDeleteApiListsByIdItemsByTickerPath = z.object({
     ticker: z.string()
 });
 
-export const zGetApiListsStreamQuery = z.object({
-    token: z.string().optional()
-});
-
 /**
- * SSE stream of sentiment update events (use EventSource, not fetch)
+ * NDJSON stream — one NotificationEvent per line, emitted after the debounce window when sentiment changes.
  */
-export const zGetApiListsStreamResponse = z.string();
+export const zGetApiNotificationsStreamResponse = zNotificationEvent;

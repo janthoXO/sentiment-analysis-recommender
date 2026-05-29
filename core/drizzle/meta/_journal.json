@@ -15,6 +15,13 @@
       "when": 1779628700434,
       "tag": "0001_glorious_harry_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779982419882,
+      "tag": "0002_unusual_maelstrom",
+      "breakpoints": true
     }
   ]
 }

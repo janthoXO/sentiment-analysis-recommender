@@ -1,212 +1,141 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { readNdjson } from "@/lib/ndjson"
+import { assertStreamOk, toastApiError } from "@/lib/api-error"
+import { getApiTickersTickerIdPeers } from "@/api/generated/sentimentSearchAPI.gen"
+import type { Stock as ApiStock } from "@/api/generated/dtos/stock.gen"
+import type { SearchError } from "@/api/generated/dtos/searchError.gen"
+import { useStockPipeline } from "@/hooks/useStockPipeline"
 import {
-  getApiTickersTickerIdPeers,
-  getApiTickersSentiment,
-} from "@/api/generated/sentimentSearchAPI.gen"
-import { readStream } from "@/lib/stream"
-import type { Stock } from "@/api/generated/dtos/stock.gen"
-import type { TickerResult } from "@/api/generated/dtos/tickerResult.gen"
-import { assertOk, toastApiError } from "@/lib/api-error"
+  passthroughStocksSource,
+  articlesSource,
+  sentimentSource,
+} from "@/hooks/sources"
+import type { Stock } from "@/models/Stock"
 
 const EAGER_COUNT = 3
 
+export interface CompetitorState {
+  stock: Stock
+  loading: boolean
+}
+
 export function useCompetitorSentiment(ticker: string | undefined): {
   peers: Stock[]
-  resultsByTicker: Record<string, TickerResult | null>
-  loadingByTicker: Record<string, boolean>
-  errorsByTicker: Record<string, string>
+  stateByTicker: Record<string, CompetitorState>
   peersLoading: boolean
   error: string | null
   loadSentiment: (ticker: string) => void
 } {
   const [peers, setPeers] = useState<Stock[]>([])
-  const [resultsByTicker, setResultsByTicker] = useState<
-    Record<string, TickerResult | null>
-  >({})
-  const [loadingByTicker, setLoadingByTicker] = useState<
-    Record<string, boolean>
-  >({})
-  const [errorsByTicker, setErrorsByTicker] = useState<Record<string, string>>(
-    {}
-  )
   const [peersLoading, setPeersLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const peersRef = useRef<Stock[]>([])
 
-  const pendingRef = useRef<Set<string>>(new Set())
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const eagerPipeline = useStockPipeline({
+    articles: articlesSource,
+    sentiment: sentimentSource,
+  })
+  const lazyPipeline = useStockPipeline({
+    articles: articlesSource,
+    sentiment: sentimentSource,
+  })
 
-  const flushPending = useCallback(() => {
-    const tickers = [...pendingRef.current]
-    if (tickers.length === 0) return
-    pendingRef.current = new Set()
+  // Batch all loadSentiment calls in one tick into a single lazyPipeline.run()
+  const lazyPendingRef = useRef<Set<string>>(new Set())
+  const lazyFlushScheduled = useRef(false)
 
-    setLoadingByTicker((prev) => {
-      const next = { ...prev }
-      for (const t of tickers) next[t] = true
-      return next
-    })
-
-    void (async () => {
-      try {
-        const res = await getApiTickersSentiment({ tickerIds: tickers })
-        if (res.status !== 200) return
-
-        await readStream(res.stream, (parsedObj) => {
-          if ("error" in parsedObj) {
-            const chunk = parsedObj as { error: string; ticker?: string }
-            if (chunk.ticker) {
-              setErrorsByTicker((prev) => ({
-                ...prev,
-                [chunk.ticker!]: chunk.error,
-              }))
-              setResultsByTicker((prev) => ({
-                ...prev,
-                [chunk.ticker!]: null,
-              }))
-              setLoadingByTicker((prev) => ({
-                ...prev,
-                [chunk.ticker!]: false,
-              }))
-            }
-            return
-          }
-          const r = parsedObj as TickerResult
-          setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
-          setLoadingByTicker((prev) => ({ ...prev, [r.stock.ticker]: false }))
-        })
-
-        setResultsByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of tickers) if (next[t] === undefined) next[t] = null
-          return next
-        })
-      } catch (e) {
-        toastApiError("Could not load competitor sentiment", e)
-      } finally {
-        setLoadingByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of tickers) next[t] = false
-          return next
-        })
-      }
-    })()
-  }, [])
+  const eagerRun = eagerPipeline.run
+  const eagerReset = eagerPipeline.reset
+  const lazyRun = lazyPipeline.run
+  const lazyReset = lazyPipeline.reset
 
   const loadSentiment = useCallback(
     (t: string) => {
-      if (resultsByTicker[t] !== undefined || loadingByTicker[t]) return
-      pendingRef.current.add(t)
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-      debounceTimerRef.current = setTimeout(flushPending, 50)
+      if (lazyPipeline.resultsByTicker.has(t) || lazyPendingRef.current.has(t))
+        return
+      lazyPendingRef.current.add(t)
+      if (!lazyFlushScheduled.current) {
+        lazyFlushScheduled.current = true
+        queueMicrotask(() => {
+          lazyFlushScheduled.current = false
+          const tickers = [...lazyPendingRef.current]
+          lazyPendingRef.current = new Set()
+          const stocks = tickers
+            .map((id) => peersRef.current.find((s) => s.ticker === id))
+            .filter((s): s is Stock => s != null)
+          if (stocks.length > 0) lazyRun(passthroughStocksSource(stocks))
+        })
+      }
     },
-    [resultsByTicker, loadingByTicker, flushPending]
+    [lazyPipeline.resultsByTicker, lazyRun]
   )
 
   useEffect(() => {
     if (!ticker) return
 
-    const abortController = new AbortController()
-    const signal = abortController.signal
+    peersRef.current = []
+    lazyPendingRef.current = new Set()
+    const ctrl = new AbortController()
 
-    async function load() {
+    void (async () => {
+      setPeers([])
       setPeersLoading(true)
       setError(null)
-      setPeers([])
-      setResultsByTicker({})
-      setLoadingByTicker({})
-      setErrorsByTicker({})
-
       try {
-        const peersRes = await getApiTickersTickerIdPeers(ticker!, { signal })
-        if (signal.aborted) return
+        const res = await getApiTickersTickerIdPeers(ticker, {
+          signal: ctrl.signal,
+        })
+        if (ctrl.signal.aborted) return
+        assertStreamOk(res, "Could not load competitors")
 
-        const stocks =
-          assertOk<Stock[]>(peersRes, "Could not load competitors") ?? []
-        setPeers(stocks)
-
-        if (stocks.length === 0) return
-
-        const eagerTickers = stocks.slice(0, EAGER_COUNT).map((s) => s.ticker)
-
-        const initialResults: Record<string, TickerResult | null> = {}
-        const initialLoading: Record<string, boolean> = {}
-        for (const t of eagerTickers) initialLoading[t] = true
-        setResultsByTicker(initialResults)
-        setLoadingByTicker(initialLoading)
-
-        const eagerRes = await getApiTickersSentiment(
-          { tickerIds: eagerTickers },
-          { signal }
-        )
-        if (signal.aborted) return
-
-        if (eagerRes.status === 200) {
-          await readStream(eagerRes.stream, (parsedObj) => {
-            if (signal.aborted) return
-            if ("error" in parsedObj) {
-              const chunk = parsedObj as { error: string; ticker?: string }
-              if (chunk.ticker) {
-                setErrorsByTicker((prev) => ({
-                  ...prev,
-                  [chunk.ticker!]: chunk.error,
-                }))
-                setResultsByTicker((prev) => ({
-                  ...prev,
-                  [chunk.ticker!]: null,
-                }))
-                setLoadingByTicker((prev) => ({
-                  ...prev,
-                  [chunk.ticker!]: false,
-                }))
-              }
-              return
-            }
-            const r = parsedObj as TickerResult
-            setResultsByTicker((prev) => ({ ...prev, [r.stock.ticker]: r }))
-            setLoadingByTicker((prev) => ({
-              ...prev,
-              [r.stock.ticker]: false,
-            }))
-          })
+        for await (const item of readNdjson<ApiStock | SearchError>(
+          (res as unknown as { stream: Response }).stream,
+          ctrl.signal
+        )) {
+          if (ctrl.signal.aborted) return
+          if ("error" in item) continue
+          const stock = item as Stock
+          peersRef.current = [...peersRef.current, stock]
+          setPeers((prev) => [...prev, stock])
         }
 
-        if (signal.aborted) return
-        setResultsByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of eagerTickers)
-            if (next[t] === undefined) next[t] = null
-          return next
-        })
-        setLoadingByTicker((prev) => {
-          const next = { ...prev }
-          for (const t of eagerTickers) next[t] = false
-          return next
-        })
-      } catch (e: unknown) {
-        if (signal.aborted) return
+        if (ctrl.signal.aborted) return
+        const eagerPeers = peersRef.current.slice(0, EAGER_COUNT)
+        if (eagerPeers.length > 0) eagerRun(passthroughStocksSource(eagerPeers))
+      } catch (e) {
+        if (ctrl.signal.aborted) return
         const msg =
           e instanceof Error ? e.message : "Failed to load competitors"
         setError(msg)
         toastApiError("Could not load competitors", e)
       } finally {
-        if (!signal.aborted) setPeersLoading(false)
+        if (!ctrl.signal.aborted) setPeersLoading(false)
       }
-    }
+    })()
 
-    void load()
     return () => {
-      abortController.abort()
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      ctrl.abort()
+      eagerReset()
+      lazyReset()
     }
-  }, [ticker])
+  }, [ticker, eagerRun, eagerReset, lazyReset])
+
+  const stateByTicker = useMemo(() => {
+    const merged: Record<string, CompetitorState> = {}
+    for (const [t, s] of eagerPipeline.resultsByTicker) {
+      merged[t] = { stock: s.stock, loading: s.stage !== "done" }
+    }
+    for (const [t, s] of lazyPipeline.resultsByTicker) {
+      merged[t] = { stock: s.stock, loading: s.stage !== "done" }
+    }
+    return merged
+  }, [eagerPipeline.resultsByTicker, lazyPipeline.resultsByTicker])
 
   return {
     peers,
-    resultsByTicker,
-    loadingByTicker,
-    errorsByTicker,
+    stateByTicker,
     peersLoading,
-    error,
+    error: error ?? eagerPipeline.error,
     loadSentiment,
   }
 }
