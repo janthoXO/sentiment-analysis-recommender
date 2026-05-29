@@ -136,9 +136,6 @@ export default function WatchlistPage() {
             <ResultCard
               key={item.ticker}
               stock={state?.stock ?? { ticker: item.ticker, name: item.ticker }}
-              articles={state?.articles}
-              scoresByUrl={state?.scoresByUrl ?? new Map()}
-              avgScore={state?.avgScore ?? null}
             />
           )
         })}

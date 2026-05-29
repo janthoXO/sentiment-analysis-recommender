@@ -13,7 +13,7 @@ import {
   useCompetitorSentiment,
   type CompetitorState,
 } from "@/hooks/useCompetitorSentiment"
-import type { Stock } from "@/api/generated/dtos/stock.gen"
+import type { Stock } from "@/models/Stock"
 
 interface Props {
   ticker: string
@@ -28,7 +28,9 @@ interface PeerRowProps {
 
 function PeerRow({ stock, state }: PeerRowProps) {
   const sentiment =
-    state?.avgScore != null ? parseSentimentLabel(state.avgScore) : null
+    state?.stock.avgScore != null
+      ? parseSentimentLabel(state.stock.avgScore)
+      : null
 
   return (
     <div className="flex items-center justify-between gap-2 py-2">
@@ -48,7 +50,7 @@ function PeerRow({ stock, state }: PeerRowProps) {
           variant="outline"
           className={cn("shrink-0 text-xs font-bold", sentiment.className)}
         >
-          {sentiment.label} · {state!.avgScore!.toFixed(2)}
+          {sentiment.label} · {state!.stock!.avgScore!.toFixed(2)}
         </Badge>
       ) : (
         <Badge

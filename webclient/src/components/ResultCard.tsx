@@ -6,26 +6,15 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { AddToListButton } from "./AddToListButton"
 import { cn } from "@/lib/utils"
 import { parseSentimentLabel, parseHeadline } from "@/lib/sentiment"
-import type { Stock } from "@/api/generated/dtos/stock.gen"
-import type { TickerArticlesSourcesItem } from "@/api/generated/dtos/tickerArticlesSourcesItem.gen"
+import type { Stock } from "@/models/Stock"
+import type { Article } from "@/models/Article"
 
 export interface ResultCardProps {
   stock: Stock
-  /** undefined while articles are still loading */
-  articles: TickerArticlesSourcesItem[] | undefined
-  /** partial during sentiment streaming */
-  scoresByUrl: Map<string, number>
-  /** null while no scores have arrived yet */
-  avgScore: number | null
 }
 
-export function ResultCard({
-  stock,
-  articles,
-  scoresByUrl,
-  avgScore,
-}: ResultCardProps) {
-  const { ticker } = stock
+export function ResultCard({ stock }: ResultCardProps) {
+  const { ticker, articles, avgScore } = stock
   const sentiment = avgScore != null ? parseSentimentLabel(avgScore) : null
 
   // Sort articles by recency; apply positive/negative weighting once we have avgScore
@@ -33,14 +22,14 @@ export function ResultCard({
     ? [...articles].sort((a, b) => b.updatedAtSec - a.updatedAtSec)
     : []
 
-  let displayedArticles: TickerArticlesSourcesItem[]
+  let displayedArticles: Article[]
   if (avgScore != null && avgScore > 0.2) {
-    const pos = sortedArticles.filter((a) => (scoresByUrl.get(a.url) ?? 0) > 0)
-    const neg = sortedArticles.filter((a) => (scoresByUrl.get(a.url) ?? 0) < 0)
+    const pos = sortedArticles.filter((a) => (a.score ?? 0) > 0)
+    const neg = sortedArticles.filter((a) => (a.score ?? 0) < 0)
     displayedArticles = [...pos.slice(0, 2), ...neg.slice(0, 1)]
   } else if (avgScore != null && avgScore < -0.2) {
-    const pos = sortedArticles.filter((a) => (scoresByUrl.get(a.url) ?? 0) > 0)
-    const neg = sortedArticles.filter((a) => (scoresByUrl.get(a.url) ?? 0) < 0)
+    const pos = sortedArticles.filter((a) => (a.score ?? 0) > 0)
+    const neg = sortedArticles.filter((a) => (a.score ?? 0) < 0)
     displayedArticles = [...neg.slice(0, 2), ...pos.slice(0, 1)]
   } else {
     displayedArticles = sortedArticles.slice(0, 3)
@@ -114,7 +103,7 @@ export function ResultCard({
             <p className="text-xs text-muted-foreground">No articles found.</p>
           ) : (
             displayedArticles.map((article) => {
-              const score = scoresByUrl.get(article.url)
+              const score = article.score
               const { headline, body } = parseHeadline(article.snippet || "")
               const articleSentiment =
                 score != null ? parseSentimentLabel(score) : null

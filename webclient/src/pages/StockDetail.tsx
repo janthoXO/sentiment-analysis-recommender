@@ -17,12 +17,11 @@ import {
   type RangePresetKey,
 } from "@/lib/intervals"
 import { detectEvents } from "@/lib/events"
-import type { Stock } from "@/api/generated/dtos/stock.gen"
+import type { Stock } from "@/models/Stock"
 import { useCandles } from "@/hooks/useCandles"
 import {
   useTickerLatestPipeline,
   useTickerEventPipeline,
-  type EventPipelineEntry,
 } from "@/hooks/useTickerPipeline"
 
 type RangeKey = "latest" | RangePresetKey
@@ -50,12 +49,8 @@ export default function StockDetailPage() {
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
 
   // Stage 1 (latest): articles + sentiment for the "latest" tab
-  const {
-    articles: latestArticles,
-    scoresByUrl: latestScoresByUrl,
-    avgScore: latestAvgScore,
-    loading: latestLoading,
-  } = useTickerLatestPipeline(ticker)
+  const { articles: latestArticles, avgScore: latestAvgScore } =
+    useTickerLatestPipeline(ticker)
 
   const duration: CandleDuration = range === "latest" ? "today" : range
   const interval = pickIntervalForDuration(duration)
@@ -93,17 +88,6 @@ export default function StockDetailPage() {
     return map
   }, [eventPipelineMap])
 
-  // Merged scores across all events — used as the ArticleList scoresByUrl in event mode
-  const eventAllScoresByUrl = useMemo(() => {
-    const merged = new Map<string, number>()
-    for (const entry of eventPipelineMap.values()) {
-      for (const [url, score] of entry.scoresByUrl) {
-        merged.set(url, score)
-      }
-    }
-    return merged
-  }, [eventPipelineMap])
-
   const articles =
     range === "latest" ? (latestArticles ?? []) : eventAllArticles
 
@@ -114,24 +98,19 @@ export default function StockDetailPage() {
 
   const highlightedUrls = useMemo((): Set<string> | undefined => {
     if (!activeEventTSec) return undefined
-    const entry: EventPipelineEntry | undefined =
-      eventPipelineMap.get(activeEventTSec)
+    const entry = eventPipelineMap.get(activeEventTSec)
     return entry && entry.articles.length > 0
       ? new Set<string>(entry.articles.map((a) => a.url))
       : undefined
   }, [activeEventTSec, eventPipelineMap])
 
-  // Convert scoresByUrl for ArticleList (which expects TickerResultSourcesItem-like objects)
-  // In latest mode we pass articles + scores separately; ArticleList already accepts them.
-  const isLoading = latestLoading && latestArticles === undefined
-  const isSentimentLoading =
-    range !== "latest" && (candlesLoading || eventLoading)
+  const isInitialLoading =
+    range === "latest"
+      ? latestArticles === undefined
+      : eventAllArticles.length === 0 && eventLoading
 
   const stockName = preloadedStock?.name || ticker || ""
 
-  if (isLoading) {
-    return <div className="p-8">Loading data...</div>
-  }
   if (!ticker) {
     return <div className="p-8">Ticker not found.</div>
   }
@@ -228,7 +207,7 @@ export default function StockDetailPage() {
                 selection; click elsewhere to clear it.
               </p>
             )}
-            {isSentimentLoading ? (
+            {isInitialLoading ? (
               <div className="flex flex-col gap-3">
                 <Skeleton className="h-20 w-full rounded-xl" />
                 <Skeleton className="h-20 w-full rounded-xl" />
@@ -237,9 +216,6 @@ export default function StockDetailPage() {
             ) : (
               <ArticleList
                 articles={articles}
-                scoresByUrl={
-                  range === "latest" ? latestScoresByUrl : eventAllScoresByUrl
-                }
                 highlightedUrls={highlightedUrls}
               />
             )}

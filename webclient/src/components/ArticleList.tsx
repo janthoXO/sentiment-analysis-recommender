@@ -5,24 +5,22 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { parseSentimentLabel, parseHeadline } from "@/lib/sentiment"
-import type { TickerArticlesSourcesItem } from "@/api/generated/dtos/tickerArticlesSourcesItem.gen"
+import type { Article } from "@/models/Article"
 
 interface Props {
-  articles: TickerArticlesSourcesItem[]
-  scoresByUrl: Map<string, number>
+  articles: Article[]
   highlightedUrls?: Set<string>
 }
 
 function ArticleCard({
   article,
-  score,
   dimmed,
 }: {
-  article: TickerArticlesSourcesItem
-  score: number | undefined
+  article: Article
   dimmed: boolean
 }) {
   const { headline, body } = parseHeadline(article.snippet ?? "")
+  const score = article.score
   const articleSentiment = score != null ? parseSentimentLabel(score) : null
 
   return (
@@ -82,7 +80,7 @@ function ArticleCard({
   )
 }
 
-export function ArticleList({ articles, scoresByUrl, highlightedUrls }: Props) {
+export function ArticleList({ articles, highlightedUrls }: Props) {
   const { highlighted, rest } = useMemo(() => {
     if (!highlightedUrls || highlightedUrls.size === 0) {
       return { highlighted: null, rest: articles }
@@ -98,12 +96,7 @@ export function ArticleList({ articles, scoresByUrl, highlightedUrls }: Props) {
     return (
       <div className="flex flex-col gap-4">
         {rest.map((article, i) => (
-          <ArticleCard
-            key={i}
-            article={article}
-            score={scoresByUrl.get(article.url)}
-            dimmed={false}
-          />
+          <ArticleCard key={i} article={article} dimmed={false} />
         ))}
       </div>
     )
@@ -112,12 +105,7 @@ export function ArticleList({ articles, scoresByUrl, highlightedUrls }: Props) {
   return (
     <div className="flex flex-col gap-4">
       {highlighted.map((article, i) => (
-        <ArticleCard
-          key={i}
-          article={article}
-          score={scoresByUrl.get(article.url)}
-          dimmed={false}
-        />
+        <ArticleCard key={i} article={article} dimmed={false} />
       ))}
 
       {rest.length > 0 && (
@@ -130,12 +118,7 @@ export function ArticleList({ articles, scoresByUrl, highlightedUrls }: Props) {
             <Separator className="flex-1" />
           </div>
           {rest.map((article, i) => (
-            <ArticleCard
-              key={i}
-              article={article}
-              score={scoresByUrl.get(article.url)}
-              dimmed={true}
-            />
+            <ArticleCard key={i} article={article} dimmed={true} />
           ))}
         </>
       )}

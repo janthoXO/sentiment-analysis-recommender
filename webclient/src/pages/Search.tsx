@@ -4,6 +4,7 @@ import { ResultCard } from "@/components/ResultCard"
 import { useSearchPipeline } from "@/hooks/useSearchPipeline"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ResultCardSkeleton } from "@/components/ResultCardSkeleton"
 
 export default function SearchPage() {
   const { resultsByTicker, order, loading, search } = useSearchPipeline()
@@ -49,18 +50,12 @@ export default function SearchPage() {
       )}
 
       <div className="mt-4 grid w-full max-w-4xl grid-cols-1 place-items-center gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {loading && order.length === 0 && <ResultCardSkeleton />}
+
         {order.map((ticker) => {
           const state = resultsByTicker.get(ticker)
           if (!state) return null
-          return (
-            <ResultCard
-              key={ticker}
-              stock={state.stock}
-              articles={state.articles}
-              scoresByUrl={state.scoresByUrl}
-              avgScore={state.avgScore}
-            />
-          )
+          return <ResultCard key={ticker} stock={state.stock} />
         })}
       </div>
 

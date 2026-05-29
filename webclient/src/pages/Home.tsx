@@ -54,15 +54,7 @@ export default function HomePage() {
             {order.map((ticker) => {
               const state = resultsByTicker.get(ticker)
               if (!state) return null
-              return (
-                <ResultCard
-                  key={ticker}
-                  stock={state.stock}
-                  articles={state.articles}
-                  scoresByUrl={state.scoresByUrl}
-                  avgScore={state.avgScore}
-                />
-              )
+              return <ResultCard key={ticker} stock={state.stock} />
             })}
           </div>
         </section>
