@@ -30,9 +30,12 @@ export function useStockStream() {
     setErrorsByTicker({})
 
     try {
-      const response = await getApiTickersSentiment(args, {
-        signal: abortController.signal,
-      })
+      const response = await getApiTickersSentiment(
+        { ...args, includeInsights: true },
+        {
+          signal: abortController.signal,
+        }
+      )
 
       assertStreamOk(response, "Search failed")
 

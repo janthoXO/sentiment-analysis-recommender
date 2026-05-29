@@ -56,6 +56,7 @@ export default function SearchPage() {
             avgScore={res.avgScore}
             articleCount={res.sources.length}
             sources={res.sources}
+            investmentInsight={res.investmentInsight}
           />
         ))}
       </div>

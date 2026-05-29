@@ -79,6 +79,7 @@ export default function HomePage() {
                   avgScore={result.avgScore}
                   articleCount={result.sources.length}
                   sources={result.sources}
+                  investmentInsight={result.investmentInsight}
                 />
               ) : (
                 <div

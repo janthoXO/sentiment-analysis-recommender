@@ -13,6 +13,7 @@ export interface ResultCardProps {
   avgScore: number
   articleCount: number
   sources?: SourceResult[]
+  investmentInsight?: TickerResult["investmentInsight"]
 }
 
 export function ResultCard({
@@ -20,6 +21,7 @@ export function ResultCard({
   avgScore,
   articleCount,
   sources = [],
+  investmentInsight,
 }: ResultCardProps) {
   const sentiment = parseSentimentLabel(avgScore)
 
@@ -46,6 +48,7 @@ export function ResultCard({
           stock: { ticker, name: "" },
           sources,
           avgScore,
+          investmentInsight,
         } as TickerResult,
       }}
       className="block w-full max-w-sm"
@@ -82,6 +85,24 @@ export function ResultCard({
             </div>
           </div>
         </CardContent>
+
+        {investmentInsight && (
+          <CardContent className="pt-0 pb-2">
+            <div className="rounded-md border border-border/70 bg-muted/30 p-3">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Insight
+                </span>
+                <Badge variant="outline" className="text-[10px] capitalize">
+                  {investmentInsight.confidence}
+                </Badge>
+              </div>
+              <p className="line-clamp-3 text-xs text-muted-foreground">
+                {investmentInsight.summary}
+              </p>
+            </div>
+          </CardContent>
+        )}
 
         {displayedSources.length > 0 && (
           <CardFooter className="flex flex-col items-start gap-2 pt-0">

@@ -8,6 +8,7 @@ import { AddToListButton } from "@/components/AddToListButton"
 import { StockTimeline } from "@/components/StockTimeline"
 import { ArticleList } from "@/components/ArticleList"
 import { CompetitorsAccordion } from "@/components/CompetitorsAccordion"
+import { SentimentInsight } from "@/components/SentimentInsight"
 import { cn } from "@/lib/utils"
 import { parseSentimentLabel } from "@/lib/sentiment"
 import {
@@ -45,12 +46,9 @@ export default function StockDetailPage() {
     null
   )
   const [hoveredEventTSec, setHoveredEventTSec] = useState<number | null>(null)
-  // Fetch per-ticker sentiment only when not preloaded from router state
-  const { data: fetched, loading: fetchLoading } = useTickerSentiment(
-    preloaded ? undefined : ticker
-  )
+  const { data: fetched, loading: fetchLoading } = useTickerSentiment(ticker)
 
-  const data: TickerResult | null = preloaded ?? fetched
+  const data: TickerResult | null = fetched ?? preloaded
 
   const duration: CandleDuration = range === "latest" ? "today" : range
   const interval = pickIntervalForDuration(duration)
@@ -134,6 +132,13 @@ export default function StockDetailPage() {
           <AddToListButton ticker={ticker!} />
         </div>
       </div>
+
+      {data.investmentInsight ? (
+        <SentimentInsight insight={data.investmentInsight} />
+      ) : (
+        fetchLoading &&
+        preloaded && <Skeleton className="h-36 w-full rounded-xl" />
+      )}
 
       <Separator />
 

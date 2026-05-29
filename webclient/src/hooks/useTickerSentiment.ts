@@ -25,9 +25,13 @@ export function useTickerSentiment(ticker: string | undefined): {
       setData(null)
 
       try {
-        const res = await getApiTickersTickerIdSentiment(ticker!, undefined, {
-          signal,
-        })
+        const res = await getApiTickersTickerIdSentiment(
+          ticker!,
+          { includeInsights: true },
+          {
+            signal,
+          }
+        )
         if (signal.aborted) return
 
         assertStreamOk(res, `Could not load sentiment for ${ticker}`)
