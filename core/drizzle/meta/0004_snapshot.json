@@ -1,6 +1,6 @@
 {
-  "id": "3a96e8d8-b48e-49b1-868f-5ef3c6054572",
-  "prevId": "f8be6d72-fb66-4f1b-81b9-4e7ce4240884",
+  "id": "ea9a7465-e4a8-4325-a9fb-0324868fbeaf",
+  "prevId": "3a96e8d8-b48e-49b1-868f-5ef3c6054572",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -188,6 +188,24 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "sector": {
+          "name": "sector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "industry": {
+          "name": "industry",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exchange": {
+          "name": "exchange",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

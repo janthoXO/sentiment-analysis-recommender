@@ -47,6 +47,17 @@ export type SourceResultRoot = SourceRoot & {
 };
 
 /**
+ * InvestmentInsight
+ */
+export type InvestmentInsightRoot = {
+    verdict: 'bullish' | 'bearish' | 'neutral' | 'mixed';
+    confidence: 'low' | 'medium' | 'high';
+    summary: string;
+    reasons: Array<string>;
+    disclaimer: string;
+};
+
+/**
  * Candle
  */
 export type Root = {
@@ -285,6 +296,49 @@ export type GetApiTickersByTickerIdArticlesSentimentResponses = {
 };
 
 export type GetApiTickersByTickerIdArticlesSentimentResponse = GetApiTickersByTickerIdArticlesSentimentResponses[keyof GetApiTickersByTickerIdArticlesSentimentResponses];
+
+export type GetApiTickersByTickerIdArticlesInsightData = {
+    body?: never;
+    path: {
+        /**
+         * Ticker symbol (e.g. AAPL)
+         */
+        tickerId: string;
+    };
+    query: {
+        /**
+         * Repeat the param (?articleUrl=https://...&articleUrl=https://...). The insight is generated from already-scored articles.
+         */
+        articleUrl: Array<string>;
+    };
+    url: '/api/tickers/{tickerId}/articles/insight';
+};
+
+export type GetApiTickersByTickerIdArticlesInsightErrors = {
+    /**
+     * Invalid query parameters
+     */
+    400: HttpError;
+    /**
+     * Insight unavailable (LLM failure or upstream failure)
+     */
+    503: HttpError;
+};
+
+export type GetApiTickersByTickerIdArticlesInsightError = GetApiTickersByTickerIdArticlesInsightErrors[keyof GetApiTickersByTickerIdArticlesInsightErrors];
+
+export type GetApiTickersByTickerIdArticlesInsightResponses = {
+    /**
+     * LLM sentiment explanation grounded in scored articles.
+     */
+    200: InvestmentInsightRoot;
+    /**
+     * No insight available yet.
+     */
+    204: void;
+};
+
+export type GetApiTickersByTickerIdArticlesInsightResponse = GetApiTickersByTickerIdArticlesInsightResponses[keyof GetApiTickersByTickerIdArticlesInsightResponses];
 
 export type GetApiTickersByTickerIdCandlesData = {
     body?: never;

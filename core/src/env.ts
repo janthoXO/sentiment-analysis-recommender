@@ -18,10 +18,23 @@ export const EnvSchema = z.object({
   CACHE_TTL_QUERY_SEC: z.coerce.number().default(86400),
   CACHE_TTL_ARTICLES_SEC: z.coerce.number().default(3600),
   CACHE_TTL_PEERS_SEC: z.coerce.number().int().positive().default(86400),
+  CACHE_TTL_INSIGHT_SEC: z.coerce.number().int().positive().default(3600),
   CACHE_MIN_SOURCES: z.coerce.number().default(3),
   GROUP_TIMEOUT_MS: z.coerce.number().default(15000),
 
   FINNHUB_API_KEY: z.string(),
+  LLM_PROVIDER: z.enum(["none", "gemini"]).default("none"),
+  LLM_MODEL: z.string().default("gemini-2.5-flash-lite"),
+  GEMINI_API_KEY: z.string().optional(),
+  LLM_THEME_MAX_TICKERS: z.coerce.number().int().positive().max(20).default(5),
+  LLM_THEME_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
+  LLM_INSIGHT_MAX_ARTICLES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(10)
+    .default(6),
+  LLM_INSIGHT_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
 
   MAX_ARTICLES_PER_TICKER: z.coerce.number().default(10),
   MIN_ARTICLES_PER_TICKER: z.coerce.number().default(5),
