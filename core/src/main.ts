@@ -29,6 +29,7 @@ import { getTopTickers, getTrendingTickers } from "./trends/trends.api.js";
 
 // services
 import { makeAnalyzerService } from "./sentiment/analyzer.service.js";
+import { makeInvestmentInsightService } from "./sentiment/investment-insight.service.js";
 import { makeStocksService } from "./stocks/stocks.service.js";
 import { makeArticlesService } from "./articles/articles.service.js";
 import { makeSentimentService } from "./sentiment/sentiment.service.js";
@@ -48,7 +49,17 @@ import { sentimentEmitter } from "./utils/events.js";
 
 import { initApp } from "./router.js";
 
-console.log("Environment variables loaded.", env);
+function redactEnvForLog(environment: typeof env): Record<string, unknown> {
+  const secretKeys = new Set(["FINNHUB_API_KEY", "GEMINI_API_KEY"]);
+  return Object.fromEntries(
+    Object.entries(environment).map(([key, value]) => [
+      key,
+      secretKeys.has(key) && value ? "[redacted]" : value,
+    ])
+  );
+}
+
+console.log("Environment variables loaded.", redactEnvForLog(env));
 
 async function bootstrap() {
   // ── Infrastructure ─────────────────────────────────────────────────────────
@@ -119,6 +130,10 @@ async function bootstrap() {
   });
 
   const sentimentService = makeSentimentService({ analyzer });
+  const investmentInsightService = makeInvestmentInsightService({
+    redis,
+    sourceScoreRepo,
+  });
 
   const trackerService = makeTrackerService({
     trackerRepo,
@@ -148,6 +163,7 @@ async function bootstrap() {
   const sentimentRouter = makeSentimentRouter({
     sentimentService,
     tickerStockRepo,
+    investmentInsightService,
   });
 
   const trendsRouter = makeTrendsRouter({

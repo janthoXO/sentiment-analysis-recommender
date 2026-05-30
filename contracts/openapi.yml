@@ -167,6 +167,51 @@ paths:
         - webclient-out
         - core-in
 
+  /api/tickers/{tickerId}/articles/insight:
+    get:
+      summary: Generate a cached LLM explanation for scored ticker articles.
+      parameters:
+        - in: path
+          name: tickerId
+          required: true
+          schema:
+            type: string
+          description: Ticker symbol (e.g. AAPL)
+        - in: query
+          name: articleUrl
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: Repeat the param (?articleUrl=https://...&articleUrl=https://...). The insight is generated from already-scored articles.
+      responses:
+        "200":
+          description: LLM sentiment explanation grounded in scored articles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestmentInsight"
+        "204":
+          description: No insight available yet.
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+        "503":
+          description: Insight unavailable (LLM failure or upstream failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+      tags:
+        - webclient-out
+        - core-in
+
   /api/tickers/{tickerId}/candles:
     get:
       summary: Get OHLC price candles for a ticker
@@ -575,6 +620,9 @@ components:
     Stock:
       $ref: "./schemas/Stock.json"
 
+    InvestmentInsight:
+      $ref: "./schemas/InvestmentInsight.json"
+
     TickerArticles:
       $ref: "./schemas/TickerArticles.json"
 
@@ -725,4 +773,3 @@ components:
         - ticker
         - before
         - latest
-
