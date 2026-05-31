@@ -4,6 +4,12 @@
 
 Sentinel Finance is a self-hosted stock research tool built as a university project for the Web Information Retrieval course at UniGE. It combines a streaming NLP pipeline, two pluggable ML backends, an interactive price timeline with article event pins, and optional LLM-generated investment insights.
 
+<!-- README-I18N:START -->
+
+**English** | [汉语](./README.zh.md)
+
+<!-- README-I18N:END -->
+
 ---
 
 ## Table of contents
