@@ -2,6 +2,7 @@ import type { SourceUpdateEvent } from "../utils/events.js";
 import type { WatchlistRepo } from "../watchlist/watchlist.repo.js";
 import type { SourceScoreRepo } from "../sentiment/source-score.repo.js";
 import type { UserTickerAccessRepo } from "../stocks/user-ticker-access.repo.js";
+import { secondsToMilliseconds } from "date-fns";
 import type { Env } from "../env.js";
 
 export interface NotificationService {
@@ -110,7 +111,7 @@ export function makeNotificationService({
       if (debounces.has(ticker)) return;
       const timer = setTimeout(
         () => void fireDebounce(ticker),
-        env.NOTIFICATION_DEBOUNCE_SEC * 1000
+        secondsToMilliseconds(env.NOTIFICATION_DEBOUNCE_SEC)
       );
       debounces.set(ticker, timer);
     },

@@ -2,6 +2,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "../utils/postgres.repo.js";
 import { tickerStockSchema } from "./ticker-stock.schema.js";
 import type { StockRoot } from "../generated/in/index.js";
+import { env } from "@/env.js";
 
 type TickerStockRow = typeof tickerStockSchema.$inferSelect;
 
@@ -68,7 +69,7 @@ export function makeTickerStockRepo(db: Db): TickerStockRepo {
         .select()
         .from(tickerStockSchema)
         .where(
-          sql`${tickerStockSchema.ticker} IN (SELECT DISTINCT ticker FROM tracker WHERE priority = 2)`
+          sql`${tickerStockSchema.ticker} IN (SELECT DISTINCT ticker FROM tracker WHERE priority = ${env.TRENDING_PRIORITY})`
         );
       return rows.map(rowToStock);
     },

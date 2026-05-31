@@ -8,7 +8,7 @@ import type { WatchlistRepo } from "./watchlist.repo.js";
 import type { TrackerService } from "../tracker/tracker.service.js";
 import type { TickerStockRepo } from "../stocks/ticker-stock.repo.js";
 import { enrichStockProfile } from "../stocks/stocks.api.js";
-import { getUnixTime } from "date-fns";
+import { getUnixTime, secondsToMilliseconds } from "date-fns";
 import { env } from "../env.js";
 import { asyncHandler, HttpError } from "../middleware/httpError.js";
 
@@ -114,7 +114,7 @@ export function makeWatchlistRouter({
       await trackerService.saveTracker(
         normalizedTicker,
         env.WATCHLIST_PRIORITY,
-        env.WATCHLIST_SCRAPE_INTERVAL_SEC * 1000,
+        secondsToMilliseconds(env.WATCHLIST_SCRAPE_INTERVAL_SEC),
         null
       );
       await watchlistRepo.addListItem(
