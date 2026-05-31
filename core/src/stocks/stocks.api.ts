@@ -16,6 +16,15 @@ const SearchTickersResponse = z.object({
   ),
 });
 
+const FinnhubProfileResponse = z
+  .object({
+    name: z.string().optional(),
+    ticker: z.string().optional(),
+    exchange: z.string().optional(),
+    finnhubIndustry: z.string().optional(),
+  })
+  .passthrough();
+
 async function searchTickersFinnhub(query: string): Promise<StockRoot[]> {
   const url = new URL("https://finnhub.io/api/v1/search");
   url.searchParams.set("q", query);
@@ -54,41 +63,171 @@ async function searchTickersFinnhub(query: string): Promise<StockRoot[]> {
   return Object.values(tickerSet);
 }
 
-const zYahooQuote = z.looseObject({
-  longname: z.string(),
-  shortname: z.string(),
-  symbol: z.string(),
-  quoteType: z.string().optional(),
-});
+const zYahooQuote = z
+  .object({
+    longname: z.string().optional(),
+    shortname: z.string().optional(),
+    symbol: z.string(),
+    quoteType: z.string().optional(),
+    exchange: z.string().optional(),
+    exchDisp: z.string().optional(),
+    sector: z.string().optional(),
+    sectorDisp: z.string().optional(),
+    industry: z.string().optional(),
+    industryDisp: z.string().optional(),
+  })
+  .passthrough();
+
+const zYahooSummaryProfile = z
+  .object({
+    sector: z.string().optional(),
+    sectorDisp: z.string().optional(),
+    industry: z.string().optional(),
+    industryDisp: z.string().optional(),
+  })
+  .passthrough()
+  .optional();
+
+const zYahooPrice = z
+  .object({
+    exchangeName: z.string().optional(),
+    exchange: z.string().optional(),
+    longName: z.string().optional(),
+    shortName: z.string().optional(),
+    symbol: z.string().optional(),
+  })
+  .passthrough()
+  .optional();
+
+const zYahooProfileResult = z
+  .object({
+    price: zYahooPrice,
+    summaryProfile: zYahooSummaryProfile,
+    assetProfile: zYahooSummaryProfile,
+  })
+  .passthrough();
 
 export async function searchTickers(query: string): Promise<StockRoot[]> {
   try {
     const yRes = await yf.search(query, { newsCount: 0 });
     let stocks: StockRoot[] = yRes.quotes
-      .map((q) => {
+      .map((q): StockRoot | null => {
         const yahooQuote = zYahooQuote.parse(q);
-        return yahooQuote.quoteType === "EQUITY"
-          ? {
-              ticker: yahooQuote.symbol.split(".")[0],
-              name:
-                yahooQuote.longname ??
-                yahooQuote.shortname ??
-                yahooQuote.symbol,
-            }
-          : null;
+        const ticker = yahooQuote.symbol.split(".")[0];
+        if (yahooQuote.quoteType !== "EQUITY" || !ticker) return null;
+
+        return {
+          ticker,
+          name: firstTextRequired(
+            yahooQuote.symbol,
+            yahooQuote.longname,
+            yahooQuote.shortname,
+            yahooQuote.symbol
+          ),
+          sector: firstText(yahooQuote.sectorDisp, yahooQuote.sector),
+          industry: firstText(yahooQuote.industryDisp, yahooQuote.industry),
+          exchange: firstText(yahooQuote.exchDisp, yahooQuote.exchange),
+        };
       })
       .filter((q): q is StockRoot => !!q);
     stocks = dedupe(stocks, (s) => s.ticker);
 
     if (stocks.length > 0) {
-      return stocks;
+      return enrichStocksProfiles(stocks);
     }
   } catch (e) {
     if (e instanceof HttpError) throw e;
     // Yahoo failed — fall through to Finnhub
   }
 
-  return searchTickersFinnhub(query);
+  return enrichStocksProfiles(await searchTickersFinnhub(query));
+}
+
+export async function enrichStockProfile(stock: StockRoot): Promise<StockRoot> {
+  const withYahoo = await enrichStockProfileYahoo(stock);
+  if (hasCompleteMetadata(withYahoo)) return withYahoo;
+  return enrichStockProfileFinnhub(withYahoo);
+}
+
+export async function enrichStocksProfiles(
+  stocks: StockRoot[]
+): Promise<StockRoot[]> {
+  return Promise.all(stocks.map(enrichStockProfile));
+}
+
+async function enrichStockProfileYahoo(stock: StockRoot): Promise<StockRoot> {
+  try {
+    const profile = zYahooProfileResult.parse(
+      await yf.quoteSummary(stock.ticker, {
+        modules: ["price", "summaryProfile", "assetProfile"],
+      })
+    );
+    const summaryProfile = profile.summaryProfile ?? profile.assetProfile;
+    const price = profile.price;
+
+    return {
+      ...stock,
+      name: firstTextRequired(
+        stock.name,
+        price?.longName,
+        price?.shortName,
+        stock.name
+      ),
+      sector: firstText(
+        stock.sector,
+        summaryProfile?.sectorDisp,
+        summaryProfile?.sector
+      ),
+      industry: firstText(
+        stock.industry,
+        summaryProfile?.industryDisp,
+        summaryProfile?.industry
+      ),
+      exchange: firstText(stock.exchange, price?.exchangeName, price?.exchange),
+    };
+  } catch {
+    return stock;
+  }
+}
+
+async function enrichStockProfileFinnhub(stock: StockRoot): Promise<StockRoot> {
+  const url = new URL("https://finnhub.io/api/v1/stock/profile2");
+  url.searchParams.set("symbol", stock.ticker);
+  url.searchParams.set("token", env.FINNHUB_API_KEY);
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return stock;
+
+    const profile = FinnhubProfileResponse.parse(await res.json());
+    return {
+      ...stock,
+      name: firstTextRequired(stock.name, profile.name, stock.name),
+      industry: firstText(stock.industry, profile.finnhubIndustry),
+      exchange: firstText(stock.exchange, profile.exchange),
+    };
+  } catch {
+    return stock;
+  }
+}
+
+function hasCompleteMetadata(stock: StockRoot): boolean {
+  return !!(stock.name && stock.sector && stock.industry && stock.exchange);
+}
+
+function firstText(
+  ...values: Array<string | null | undefined>
+): string | undefined {
+  return values
+    .find((value) => typeof value === "string" && value.trim())
+    ?.trim();
+}
+
+function firstTextRequired(
+  fallback: string,
+  ...values: Array<string | null | undefined>
+): string {
+  return firstText(...values) ?? fallback;
 }
 
 const zPeersResponse = z.array(z.string());

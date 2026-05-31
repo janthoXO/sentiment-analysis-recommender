@@ -24,11 +24,28 @@ export function makeStocksService({
   tickerStockRepo,
   stockCache,
   searchTickers,
+  enrichStockProfile,
 }: {
   tickerStockRepo: TickerStockRepo;
   stockCache: StockCacheService;
   searchTickers: (query: string) => Promise<StockRoot[]>;
+  enrichStockProfile: (stock: StockRoot) => Promise<StockRoot>;
 }): StocksService {
+  function hasMetadata(stock: StockRoot): boolean {
+    return !!(stock.sector || stock.industry || stock.exchange);
+  }
+
+  async function ensureMetadata(stock: StockRoot): Promise<StockRoot> {
+    if (hasMetadata(stock)) return stock;
+    const enriched = await enrichStockProfile(stock);
+    await tickerStockRepo.upsertTickerStock(enriched);
+    return enriched;
+  }
+
+  async function ensureMetadataMany(stocks: StockRoot[]): Promise<StockRoot[]> {
+    return Promise.all(stocks.map(ensureMetadata));
+  }
+
   async function* streamStocksByQuery(
     q: string
   ): AsyncGenerator<StockRoot | StreamError> {
@@ -40,7 +57,7 @@ export function makeStocksService({
       const directHit = await tickerStockRepo.getTickerStock(qUpper);
       if (directHit) {
         console.debug(`Direct ticker cache hit for ${qUpper}`);
-        yield directHit;
+        yield await ensureMetadata(directHit);
         return;
       }
     }
@@ -88,6 +105,7 @@ export function makeStocksService({
         } satisfies StreamError;
         return;
       }
+      stocks = await ensureMetadataMany(stocks);
       await tickerStockRepo.upsertManyTickerStocks(stocks);
       const isDirectTickerQuery =
         stocks.length === 1 && stocks[0]!.ticker.toUpperCase() === qUpper;
@@ -99,6 +117,13 @@ export function makeStocksService({
           )
         );
       }
+    } else {
+      stocks = await ensureMetadataMany(stocks);
+      await Promise.all(
+        cacheKeys.map((cacheKey) =>
+          stockCache.setQueryStockCache(cacheKey, stocks!)
+        )
+      );
     }
 
     for (const stock of stocks) {
@@ -121,7 +146,9 @@ export function makeStocksService({
     const stockMap = await tickerStockRepo.getManyTickerStocks(upper);
 
     for (const ticker of upper) {
-      yield stockMap.get(ticker) ?? { ticker, name: ticker };
+      yield await ensureMetadata(
+        stockMap.get(ticker) ?? { ticker, name: ticker }
+      );
     }
   }
 

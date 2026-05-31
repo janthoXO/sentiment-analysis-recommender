@@ -3,6 +3,8 @@ import type { Db } from "../utils/postgres.repo.js";
 import { tickerStockSchema } from "./ticker-stock.schema.js";
 import type { StockRoot } from "../generated/in/index.js";
 
+type TickerStockRow = typeof tickerStockSchema.$inferSelect;
+
 export interface TickerStockRepo {
   getTickerStock(ticker: string): Promise<StockRoot | null>;
   upsertTickerStock(stock: StockRoot): Promise<void>;
@@ -18,7 +20,7 @@ export function makeTickerStockRepo(db: Db): TickerStockRepo {
       const row = await (db as any).query.tickerStockSchema.findFirst({
         where: eq(tickerStockSchema.ticker, ticker),
       });
-      return (row as StockRoot | undefined) ?? null;
+      return row ? rowToStock(row as TickerStockRow) : null;
     },
 
     async upsertTickerStock(stock) {
@@ -27,7 +29,12 @@ export function makeTickerStockRepo(db: Db): TickerStockRepo {
         .values(stock)
         .onConflictDoUpdate({
           target: tickerStockSchema.ticker,
-          set: { name: stock.name },
+          set: {
+            name: stock.name,
+            sector: stock.sector ?? null,
+            industry: stock.industry ?? null,
+            exchange: stock.exchange ?? null,
+          },
         });
     },
 
@@ -38,7 +45,12 @@ export function makeTickerStockRepo(db: Db): TickerStockRepo {
         .values(stocks)
         .onConflictDoUpdate({
           target: tickerStockSchema.ticker,
-          set: { name: sql`excluded.name` },
+          set: {
+            name: sql`excluded.name`,
+            sector: sql`excluded.sector`,
+            industry: sql`excluded.industry`,
+            exchange: sql`excluded.exchange`,
+          },
         });
     },
 
@@ -48,7 +60,7 @@ export function makeTickerStockRepo(db: Db): TickerStockRepo {
         .select()
         .from(tickerStockSchema)
         .where(inArray(tickerStockSchema.ticker, tickers));
-      return new Map((rows as StockRoot[]).map((r) => [r.ticker, r]));
+      return new Map(rows.map((r) => [r.ticker, rowToStock(r)]));
     },
 
     async getTrendingStocks() {
@@ -58,7 +70,17 @@ export function makeTickerStockRepo(db: Db): TickerStockRepo {
         .where(
           sql`${tickerStockSchema.ticker} IN (SELECT DISTINCT ticker FROM tracker WHERE priority = 2)`
         );
-      return rows as StockRoot[];
+      return rows.map(rowToStock);
     },
+  };
+}
+
+function rowToStock(row: TickerStockRow): StockRoot {
+  return {
+    ticker: row.ticker,
+    name: row.name,
+    sector: row.sector ?? undefined,
+    industry: row.industry ?? undefined,
+    exchange: row.exchange ?? undefined,
   };
 }

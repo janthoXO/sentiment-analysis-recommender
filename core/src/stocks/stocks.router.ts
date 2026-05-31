@@ -3,6 +3,7 @@ import z from "zod";
 import { getUnixTime } from "date-fns";
 import { zGetApiTickersByTickerIdPeersPath } from "../generated/in/zod.gen.js";
 import type { StockRoot } from "../generated/in/index.js";
+import { enrichStockProfile } from "./stocks.api.js";
 import type { StocksService } from "./stocks.service.js";
 import type { StockCacheService } from "./stock.cache.js";
 import type { TickerStockRepo } from "./ticker-stock.repo.js";
@@ -162,11 +163,12 @@ export function makeStocksRouter({
                 const stocks = await searchTickers(t);
                 const exact = stocks.find((s) => s.ticker.toUpperCase() === t);
                 if (exact) {
-                  void tickerStockRepo.upsertTickerStock(exact);
-                  return exact;
+                  const enrichedExact = await enrichStockProfile(exact);
+                  await tickerStockRepo.upsertTickerStock(enrichedExact);
+                  return enrichedExact;
                 }
               }
-              return stock ?? { ticker: t, name: t };
+              return enrichStockProfile(stock ?? { ticker: t, name: t });
             } catch (e) {
               console.error(`Error enriching peer ${t}:`, e);
               return null;

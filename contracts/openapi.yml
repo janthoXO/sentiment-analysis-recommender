@@ -49,7 +49,7 @@ paths:
       tags:
         - webclient-out
         - core-in
-        
+
   /api/tickers/trending:
     get:
       summary: Stream the current trending US tickers as NDJSON

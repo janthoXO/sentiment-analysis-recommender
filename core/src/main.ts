@@ -23,7 +23,11 @@ import { makeArticlesCache } from "./articles/articles.cache.js";
 import { makeCandlesCache } from "./stocks/candles.cache.js";
 
 // external APIs (no feature deps)
-import { searchTickers, getCompanyPeers } from "./stocks/stocks.api.js";
+import {
+  searchTickers,
+  getCompanyPeers,
+  enrichStockProfile,
+} from "./stocks/stocks.api.js";
 import { getArticles } from "./articles/articles.api.js";
 import { getTopTickers, getTrendingTickers } from "./trends/trends.api.js";
 
@@ -120,6 +124,7 @@ async function bootstrap() {
     tickerStockRepo,
     stockCache,
     searchTickers,
+    enrichStockProfile,
   });
 
   const articlesService = makeArticlesService({
