@@ -1,18 +1,8 @@
 import { Router } from "express";
-import type { CandleDuration } from "./candles.api.js";
-import { fetchCandlesByWindow } from "./candles.api.js";
+import { fetchCandles } from "./candles.api.js";
 import type { CandlesCacheService } from "./candles.cache.js";
 import { zGetApiTickersByTickerIdCandlesQuery } from "../generated/in/zod.gen.js";
-import { getUnixTime } from "date-fns";
 import { asyncHandler, HttpError } from "../middleware/httpError.js";
-
-const DURATION_TO_SEC: Record<CandleDuration, number | null> = {
-  "1D": 86_400,
-  "1W": 7 * 86_400,
-  "1M": 30 * 86_400,
-  "1Y": 365 * 86_400,
-  today: null,
-};
 
 export function makeCandlesRouter({
   candlesCache,
@@ -40,11 +30,6 @@ export function makeCandlesRouter({
       }
       const { duration, interval } = parsed.data;
 
-      const toSec = getUnixTime(new Date());
-      const durSec = DURATION_TO_SEC[duration];
-      const fromSec =
-        durSec !== null ? toSec - durSec : Math.floor(toSec / 86_400) * 86_400;
-
       const cached = await candlesCache.getCandlesCache(
         ticker,
         duration,
@@ -55,12 +40,7 @@ export function makeCandlesRouter({
         return;
       }
 
-      const series = await fetchCandlesByWindow(
-        ticker,
-        fromSec,
-        toSec,
-        interval
-      );
+      const series = await fetchCandles(ticker, duration, interval);
       await candlesCache.setCandlesCache(ticker, duration, interval, series);
       res.json(series);
     })

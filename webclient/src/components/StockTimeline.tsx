@@ -13,12 +13,15 @@ import type { Candle } from "@/api/generated/dtos/candle.gen"
 import type { CandleInterval } from "@/lib/intervals"
 import type { PriceEvent } from "@/lib/events"
 import { parseSentimentLabel } from "@/lib/sentiment"
-import { format } from "date-fns"
+import { format, fromUnixTime, isSameDay } from "date-fns"
 
 interface Props {
   candles: Candle[]
   interval: CandleInterval | null
   mode: "latest" | "events"
+  /** Display window [fromSec, toSec] in Unix seconds. The axis always extends
+   *  to toSec (= now) even when the last candle ends before it. */
+  domainSec: [number, number]
   events?: PriceEvent[]
   eventInfoByTSec?: Map<number, { avgScore: number }>
   selectedEventTSec: number | null
@@ -31,36 +34,27 @@ const SELECTED_COLOR = "var(--chart-1)"
 const HOVERED_COLOR = "var(--chart-2)"
 const DEFAULT_PIN_COLOR = "var(--muted-foreground)"
 
-const TICK_FORMAT: Record<string, string> = {
-  "5m": "HH:mm",
-  "30m": "HH:mm",
-  "1d": "MMM d",
-}
-
 const TOOLTIP_FORMAT: Record<string, string> = {
   "5m": "HH:mm",
   "30m": "EEE HH:mm",
   "1d": "MMM d, yyyy",
 }
 
-function formatTick(tSec: number, interval: CandleInterval | null): string {
-  return format(new Date(tSec * 1000), TICK_FORMAT[interval ?? "5m"] ?? "HH:mm")
-}
-
 function formatTooltipLabel(
   tSec: number,
   interval: CandleInterval | null
 ): string {
-  return format(
-    new Date(tSec * 1000),
-    TOOLTIP_FORMAT[interval ?? "5m"] ?? "HH:mm"
-  )
+  return format(fromUnixTime(tSec), TOOLTIP_FORMAT[interval ?? "5m"] ?? "HH:mm")
 }
+
+// Number of evenly-spaced ticks across the domain.
+const N_TICKS = 7
 
 export function StockTimeline({
   candles,
   interval,
   mode,
+  domainSec,
   events = [],
   eventInfoByTSec,
   selectedEventTSec,
@@ -77,7 +71,12 @@ export function StockTimeline({
   }
 
   const eventTSecSet = new Set(events.map((e) => e.tSec))
-  const tickInterval = Math.max(1, Math.floor(candles.length / 8))
+
+  // Evenly-spaced tick positions across the full display domain [from, now].
+  const [domainFrom, domainTo] = domainSec
+  const ticks = Array.from({ length: N_TICKS }, (_, i) =>
+    Math.round(domainFrom + ((domainTo - domainFrom) * i) / (N_TICKS - 1))
+  )
 
   const domainPad = (() => {
     const prices = candles.map((c) => c.close)
@@ -92,8 +91,7 @@ export function StockTimeline({
   const closePriceByTSec = new Map(candles.map((c) => [c.tSec, c.close]))
   const activeTSec = selectedEventTSec ?? hoveredEventTSec
 
-  // Hover: activate event when cursor x-column matches any event pin, regardless of y.
-  // activeLabel is the raw XAxis dataKey value (tSec) at the cursor column.
+  // Hover: activate event when cursor x-column matches any event pin.
   const handleMouseMove = (state: MouseHandlerDataParam) => {
     if (mode !== "events") return
     const tSec = Number(state.activeLabel)
@@ -111,6 +109,18 @@ export function StockTimeline({
     } else {
       onSelectEvent(null)
     }
+  }
+
+  // Tick formatter: daily charts always show "MMM d"; intraday charts show the
+  // date only where a new day begins (first tick or day boundary), otherwise time.
+  const formatXTick = (value: number, index: number): string => {
+    const d = fromUnixTime(value)
+    if (interval === "1d") {
+      return format(d, "MMM d")
+    }
+    const prevTSec = ticks[index - 1] ?? value
+    const isNewDay = index === 0 || !isSameDay(fromUnixTime(prevTSec), d)
+    return format(d, isNewDay ? "MMM d" : "HH:mm")
   }
 
   return (
@@ -153,8 +163,10 @@ export function StockTimeline({
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
               dataKey="tSec"
-              tickFormatter={(v: number) => formatTick(v, interval)}
-              interval={tickInterval}
+              type="number"
+              domain={domainSec}
+              ticks={ticks}
+              tickFormatter={formatXTick}
               tick={{ fontSize: 11 }}
               stroke="var(--muted-foreground)"
             />
