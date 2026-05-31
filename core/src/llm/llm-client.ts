@@ -52,7 +52,7 @@ export async function generateStructuredLlmObject<Schema extends z.ZodType>({
     return parsed.success ? parsed.data : null;
   } catch (error) {
     if (APICallError.isInstance(error) && error.statusCode === 429) {
-      throw new LlmRateLimitError(env.LLM_PROVIDER);
+      throw new LlmRateLimitError(env.LLM_PROVIDER ?? "none");
     }
 
     throw error;
@@ -61,10 +61,10 @@ export async function generateStructuredLlmObject<Schema extends z.ZodType>({
 
 function getLanguageModel(): LanguageModel | null {
   switch (env.LLM_PROVIDER) {
-    case "none":
-      return null;
     case "gemini":
       return getGeminiModel();
+    default:
+      return null;
   }
 }
 

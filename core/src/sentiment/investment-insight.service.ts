@@ -77,7 +77,7 @@ export function makeInvestmentInsightService({
 
   return {
     async getInvestmentInsight(stock, articleUrls) {
-      if (env.LLM_PROVIDER === "none" || articleUrls.length === 0) {
+      if (!env.LLM_PROVIDER || articleUrls.length === 0) {
         return null;
       }
 

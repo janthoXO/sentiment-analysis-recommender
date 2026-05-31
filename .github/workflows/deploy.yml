@@ -39,6 +39,12 @@ jobs:
             echo "RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}" >> .env.prod
             echo "FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}" >> .env.prod
             echo "SCORER_TYPE=${{ vars.SCORER_TYPE }}" >> .env.prod
+            echo "LLM_PROVIDER=${{ vars.LLM_PROVIDER }}" >> .env.prod
+            echo "LLM_MODEL=${{ vars.LLM_MODEL }}" >> .env.prod
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env.prod
+            echo "LLM_INSIGHT_ENABLED=${{ vars.LLM_INSIGHT_ENABLED }}" >> .env.prod
+            echo "LLM_INSIGHT_BATCH_SIZE=${{ vars.LLM_INSIGHT_BATCH_SIZE }}" >> .env.prod
+            echo "LLM_INSIGHT_MAX_ARTICLES=${{ vars.LLM_INSIGHT_MAX_ARTICLES }}" >> .env.prod
 
       - name: SSH to VM and Execute Docker-Compose Up
         uses: appleboy/ssh-action@v1.2.5
