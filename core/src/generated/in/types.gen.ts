@@ -17,7 +17,8 @@ export type TickerArticlesRoot = {
  */
 export type SourceRoot = {
     url: string;
-    snippet: string;
+    title: string;
+    body: string;
     /**
      * Timestamp of the last update moment in seconds since Unix epoch
      */

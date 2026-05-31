@@ -13,7 +13,8 @@ function rowToSourceResult(
 ): SourceResultRoot {
   return {
     url: row.url,
-    snippet: row.snippet,
+    title: row.title,
+    body: row.body,
     updatedAtSec: row.updatedAtSec,
     scrapedAtSec: row.scrapedAtSec,
     score: row.score,
@@ -66,7 +67,8 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
         db
           .update(sourceScoreSchema)
           .set({
-            snippet: s.snippet,
+            title: s.title,
+            body: s.body,
             updatedAtSec: s.updatedAtSec,
             scrapedAtSec: s.scrapedAtSec,
           })
@@ -107,7 +109,8 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
             sources.map((s) => ({
               ticker,
               url: s.url,
-              snippet: s.snippet,
+              title: s.title,
+              body: s.body,
               updatedAtSec: s.updatedAtSec,
               scrapedAtSec: s.scrapedAtSec,
               score: null,
@@ -116,7 +119,8 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
           .onConflictDoUpdate({
             target: [sourceScoreSchema.ticker, sourceScoreSchema.url],
             set: {
-              snippet: sql`excluded.snippet`,
+              title: sql`excluded.title`,
+              body: sql`excluded.body`,
               updatedAtSec: sql`excluded.updated_at_sec`,
               scrapedAtSec: sql`excluded.scraped_at_sec`,
               score: sql`source_score.score`,
@@ -139,7 +143,8 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
         .values({
           ticker,
           url: sourceResult.url,
-          snippet: sourceResult.snippet,
+          title: sourceResult.title,
+          body: sourceResult.body,
           updatedAtSec: sourceResult.updatedAtSec,
           scrapedAtSec: sourceResult.scrapedAtSec,
           score: sourceResult.score,
@@ -148,7 +153,8 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
           target: [sourceScoreSchema.ticker, sourceScoreSchema.url],
           set: {
             score: sql`excluded.score`,
-            snippet: sql`excluded.snippet`,
+            title: sql`excluded.title`,
+            body: sql`excluded.body`,
             updatedAtSec: sql`excluded.updated_at_sec`,
             scrapedAtSec: sql`excluded.scraped_at_sec`,
           },
@@ -174,7 +180,8 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
         );
       return (rows as (typeof sourceScoreSchema.$inferSelect)[]).map((r) => ({
         url: r.url,
-        snippet: r.snippet,
+        title: r.title,
+        body: r.body,
         updatedAtSec: r.updatedAtSec,
         scrapedAtSec: r.scrapedAtSec,
       }));

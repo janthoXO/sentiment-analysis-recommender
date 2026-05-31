@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AddToListButton } from "./AddToListButton"
 import { cn } from "@/lib/utils"
-import { parseSentimentLabel, parseHeadline } from "@/lib/sentiment"
+import { parseSentimentLabel } from "@/lib/sentiment"
 import type { Stock } from "@/models/Stock"
 import type { Article } from "@/models/Article"
 
@@ -124,7 +124,8 @@ export function ResultCard({ stock }: ResultCardProps) {
           ) : (
             displayedArticles.map((article) => {
               const score = article.score
-              const { headline, body } = parseHeadline(article.snippet || "")
+              const headline = article.title
+              const body = article.body
               const articleSentiment =
                 score != null ? parseSentimentLabel(score) : null
 
