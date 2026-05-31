@@ -1,7 +1,7 @@
 import { env } from "@/env.js";
 import type { SourceRoot } from "@/generated/in/index.js";
 import * as cheerio from "cheerio";
-import { format, getUnixTime, subDays } from "date-fns";
+import { format, fromUnixTime, getUnixTime, subDays } from "date-fns";
 import YahooFinance from "yahoo-finance2";
 import z from "zod";
 import { HttpError } from "@/middleware/httpError.js";
@@ -41,8 +41,8 @@ export async function getArticlesByTickerTime(
   limit: number,
   now: Date = new Date()
 ): Promise<SourceRoot[]> {
-  const from = new Date(fromSec * 1000);
-  const to = new Date(toSec * 1000);
+  const from = fromUnixTime(fromSec);
+  const to = fromUnixTime(toSec);
   const url = new URL("https://finnhub.io/api/v1/company-news");
   url.searchParams.set("symbol", ticker);
   url.searchParams.set("from", format(from, "yyyy-MM-dd"));
@@ -154,13 +154,13 @@ export async function getArticles(
   }
 
   // Finnhub exponential walk-back fallback.
-  const stepNow = new Date(toSec * 1000);
+  const stepNow = fromUnixTime(toSec);
   let articles: SourceRoot[] = [];
   for (let i = 0; articles.length < minArticles && i < maxBackoffSteps; i++) {
     try {
       articles = await getArticlesByTickerTime(
         ticker,
-        getUnixTime(subDays(new Date(toSec * 1000), 2 ** i)),
+        getUnixTime(subDays(fromUnixTime(toSec), 2 ** i)),
         toSec,
         limit,
         stepNow

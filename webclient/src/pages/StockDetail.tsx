@@ -22,6 +22,7 @@ import type { Stock } from "@/models/Stock"
 import type { Article } from "@/models/Article"
 import type { InvestmentInsight } from "@/models/InvestmentInsight"
 import { useCandles } from "@/hooks/useCandles"
+import { getUnixTime } from "date-fns"
 import {
   useTickerLatestPipeline,
   useTickerEventPipeline,
@@ -103,6 +104,13 @@ export default function StockDetailPage() {
   }, [range, candles])
 
   const intervalSec = interval != null ? intervalToSec(interval) : undefined
+
+  // Axis domain: start at the first available candle, extend to now.
+  // This gives a blank trailing tail after the last candle but no blank
+  // leading space before data begins.
+  const nowSec = getUnixTime(new Date())
+  const domainFromSec = candles[0]?.tSec ?? nowSec
+  const domainSec: [number, number] = [domainFromSec, nowSec]
 
   // Stage 1 (event mode): articles + sentiment per event
   const {
@@ -300,6 +308,7 @@ export default function StockDetailPage() {
                 candles={candles}
                 interval={interval ?? null}
                 mode={range === "latest" ? "latest" : "events"}
+                domainSec={domainSec}
                 events={events}
                 eventInfoByTSec={eventInfoByTSec}
                 selectedEventTSec={selectedEventTSec}

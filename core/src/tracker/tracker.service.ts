@@ -6,6 +6,7 @@ import type { TickerStockRepo } from "../stocks/ticker-stock.repo.js";
 import type { TrackerRepo } from "./tracker.repo.js";
 import type { GetArticlesOptions } from "../articles/articles.api.js";
 import type { Tracker } from "./tracker.js";
+import { secondsToMilliseconds } from "date-fns";
 import { env } from "../env.js";
 
 export interface TrackerService {
@@ -181,10 +182,10 @@ export function makeTrackerService({
           ticker: stock.ticker,
           priority: env.TOP_TICKERS_PRIORITY,
           expiresAt: null,
-          interval: env.TOP_TICKERS_SCRAPE_INTERVAL_SEC * 1000,
+          interval: secondsToMilliseconds(env.TOP_TICKERS_SCRAPE_INTERVAL_SEC),
           lastTriggeredAt: null,
         }),
-        env.TOP_TICKERS_JITTER_SEC * 1000
+        secondsToMilliseconds(env.TOP_TICKERS_JITTER_SEC)
       );
     } catch (err) {
       console.error("Failed to fetch top tickers", err);
@@ -195,7 +196,7 @@ export function makeTrackerService({
 
   async function refreshTrendingTickers() {
     console.log("Fetching trending tickers...");
-    const refreshMs = env.TRENDING_REFRESH_INTERVAL_SEC * 1000;
+    const refreshMs = secondsToMilliseconds(env.TRENDING_REFRESH_INTERVAL_SEC);
     const trending = await getTrendingTickers();
     console.log(`Fetched ${trending.length} trending tickers.`);
     if (trending.length === 0) return;
@@ -207,7 +208,7 @@ export function makeTrackerService({
         trackerRepo.upsertTracker({
           ticker: stock.ticker,
           priority: env.TRENDING_PRIORITY,
-          interval: env.TRENDING_SCRAPE_INTERVAL_SEC * 1000,
+          interval: secondsToMilliseconds(env.TRENDING_SCRAPE_INTERVAL_SEC),
           expiresAt,
           lastTriggeredAt: null,
         })
@@ -221,10 +222,10 @@ export function makeTrackerService({
         ticker: stock.ticker,
         priority: env.TRENDING_PRIORITY,
         expiresAt,
-        interval: env.TRENDING_SCRAPE_INTERVAL_SEC * 1000,
+        interval: secondsToMilliseconds(env.TRENDING_SCRAPE_INTERVAL_SEC),
         lastTriggeredAt: null,
       }),
-      env.TRENDING_TICKERS_JITTER_SEC * 1000
+      secondsToMilliseconds(env.TRENDING_TICKERS_JITTER_SEC)
     );
   }
 
@@ -245,14 +246,14 @@ export function makeTrackerService({
         const now = Date.now();
         if (
           now - lastTopTickerRefresh >=
-          env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000
+          secondsToMilliseconds(env.TOP_TICKERS_REFRESH_INTERVAL_SEC)
         ) {
           lastTopTickerRefresh = now;
           refreshTopTickers().catch((err) =>
             console.error("Error in top trackers refresh interval", err)
           );
         }
-      }, env.TOP_TICKERS_REFRESH_INTERVAL_SEC * 1000);
+      }, secondsToMilliseconds(env.TOP_TICKERS_REFRESH_INTERVAL_SEC));
     },
 
     async initTrendingTickers() {
@@ -263,7 +264,7 @@ export function makeTrackerService({
         refreshTrendingTickers().catch((err) =>
           console.error("Trending tickers refresh failed", err)
         );
-      }, env.TRENDING_REFRESH_INTERVAL_SEC * 1000);
+      }, secondsToMilliseconds(env.TRENDING_REFRESH_INTERVAL_SEC));
     },
 
     async saveTracker(ticker, priority, intervalMs, expirationMs) {
