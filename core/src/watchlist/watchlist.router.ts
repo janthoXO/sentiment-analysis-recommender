@@ -106,10 +106,10 @@ export function makeWatchlistRouter({
         if (!stock) {
           throw HttpError.notFound("TICKER_NOT_FOUND", "Ticker not found");
         }
-      }
 
-      stock = await enrichStockProfile(stock);
-      await tickerStockRepo.upsertTickerStock(stock);
+        stock = await enrichStockProfile(stock);
+        await tickerStockRepo.upsertTickerStock(stock);
+      }
 
       await trackerService.saveTracker(
         normalizedTicker,
