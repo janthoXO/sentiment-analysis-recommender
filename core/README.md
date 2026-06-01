@@ -44,15 +44,15 @@ pnpm exec drizzle-kit migrate
 
 ### Available scripts
 
-| Script | Description |
-|--------|-------------|
-| `pnpm run dev` | Start with hot reload (tsx watch) |
-| `pnpm run build` | Compile TypeScript to `dist/` |
-| `pnpm run start` | Run compiled output |
-| `pnpm run lint` | ESLint |
-| `pnpm run format` | Prettier |
+| Script                        | Description                                              |
+| ----------------------------- | -------------------------------------------------------- |
+| `pnpm run dev`                | Start with hot reload (tsx watch)                        |
+| `pnpm run build`              | Compile TypeScript to `dist/`                            |
+| `pnpm run start`              | Run compiled output                                      |
+| `pnpm run lint`               | ESLint                                                   |
+| `pnpm run format`             | Prettier                                                 |
 | `pnpm run contracts:generate` | Regenerate TypeScript types from `contracts/openapi.yml` |
-| `pnpm run db:generate` | Generate a new Drizzle migration from schema changes |
+| `pnpm run db:generate`        | Generate a new Drizzle migration from schema changes     |
 
 ---
 
