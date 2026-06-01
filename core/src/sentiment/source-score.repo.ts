@@ -152,7 +152,7 @@ export function makeSourceScoreRepo(db: Db): SourceScoreRepo {
             updatedAtSec: sql`excluded.updated_at_sec`,
             scrapedAtSec: sql`excluded.scraped_at_sec`,
           },
-          setWhere: sql`excluded.updated_at_sec > source_score.updated_at_sec`,
+          setWhere: sql`${sourceScoreSchema.score} IS NULL OR excluded.updated_at_sec >= source_score.updated_at_sec`,
         });
     },
 
