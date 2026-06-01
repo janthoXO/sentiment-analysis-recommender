@@ -33,14 +33,14 @@ API calls are proxied to `http://localhost:3001` via the Vite config. No separat
 
 ### Available scripts
 
-| Script | Description |
-|--------|-------------|
-| `pnpm run dev` | Start Vite dev server with HMR |
-| `pnpm run build` | TypeScript compile + Vite production build |
-| `pnpm run preview` | Preview the production build locally |
-| `pnpm run typecheck` | Type-check without emitting |
-| `pnpm run lint` | ESLint |
-| `pnpm run format` | Prettier |
+| Script                        | Description                                        |
+| ----------------------------- | -------------------------------------------------- |
+| `pnpm run dev`                | Start Vite dev server with HMR                     |
+| `pnpm run build`              | TypeScript compile + Vite production build         |
+| `pnpm run preview`            | Preview the production build locally               |
+| `pnpm run typecheck`          | Type-check without emitting                        |
+| `pnpm run lint`               | ESLint                                             |
+| `pnpm run format`             | Prettier                                           |
 | `pnpm run contracts:generate` | Regenerate API client from `contracts/openapi.yml` |
 
 ---
