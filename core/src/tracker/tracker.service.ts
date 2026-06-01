@@ -9,6 +9,8 @@ import type { Tracker } from "./tracker.js";
 import { secondsToMilliseconds } from "date-fns";
 import { env } from "../env.js";
 
+const MAX_NODE_TIMEOUT_MS = 2_147_483_647;
+
 export interface TrackerService {
   initPersistedTrackers(): Promise<void>;
   initTopTrackers(): Promise<void>;
@@ -43,6 +45,25 @@ export function makeTrackerService({
   getTrendingTickers: () => Promise<StockRoot[]>;
 }): TrackerService {
   const intervalTimers = new Map<string, NodeJS.Timeout>();
+
+  function setLongTimeout(callback: () => void, delayMs: number): void {
+    if (delayMs <= MAX_NODE_TIMEOUT_MS) {
+      setTimeout(callback, delayMs);
+      return;
+    }
+
+    setTimeout(
+      () => setLongTimeout(callback, delayMs - MAX_NODE_TIMEOUT_MS),
+      MAX_NODE_TIMEOUT_MS
+    );
+  }
+
+  function setLongInterval(callback: () => void, intervalMs: number): void {
+    setLongTimeout(() => {
+      callback();
+      setLongInterval(callback, intervalMs);
+    }, intervalMs);
+  }
 
   function getTrackerKey(tracker: Tracker) {
     return `${tracker.ticker}-${tracker.priority}-${tracker.interval}`;
@@ -242,7 +263,7 @@ export function makeTrackerService({
 
     async initTopTrackers() {
       await refreshTopTickers();
-      setInterval(() => {
+      setLongInterval(() => {
         const now = Date.now();
         if (
           now - lastTopTickerRefresh >=
