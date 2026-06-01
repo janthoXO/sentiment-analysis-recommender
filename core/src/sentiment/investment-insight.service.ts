@@ -15,6 +15,10 @@ import { dedupe } from "@/utils/dedupe.js";
 import type { RedisClient } from "@/utils/cache.repo.js";
 import type { SourceScoreRepo } from "./source-score.repo.js";
 
+// FinBERT / NLI scorer truncates at 512 tokens; ~4 chars/token gives the char
+// budget so the LLM sees no more article text than was actually scored.
+const SCORER_CHAR_LIMIT = 512 * 4;
+
 const DISCLAIMER =
   "This is not financial advice. It is an educational summary of recent article sentiment.";
 
@@ -174,7 +178,7 @@ function buildInsightPrompt(
     (source, index) => ({
       id: `${stock.ticker}-${index + 1}`,
       score: roundScore(source.score),
-      snippet: compactText(`${source.title}\n${source.body}`, 360),
+      snippet: compactText(`${source.title}\n${source.body}`, SCORER_CHAR_LIMIT),
     })
   );
 
