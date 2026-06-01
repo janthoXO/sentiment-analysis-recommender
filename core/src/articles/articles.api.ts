@@ -15,22 +15,31 @@ const zFinnhubNews = z.object({
   datetime: z.number(),
 });
 
-async function scrapeArticleSnippet(
-  url: string,
-  fallbackTitle: string
-): Promise<string> {
+async function scrapeArticleBody(url: string): Promise<string> {
   try {
     const html = await fetch(url, {
       headers: { "user-agent": "Mozilla/5.0" },
     }).then((r) => r.text());
     const $ = cheerio.load(html);
-    const meta =
+
+    // Try to get full article paragraphs (Yahoo Finance uses .caas-body)
+    const paragraphs = $(".caas-body p, article p")
+      .map((_, el) => $(el).text().trim())
+      .get()
+      .filter(Boolean);
+
+    if (paragraphs.length > 0) {
+      return paragraphs.join("\n\n");
+    }
+
+    // Fall back to meta description
+    return (
       $('meta[property="og:description"]').attr("content") ??
       $('meta[name="description"]').attr("content") ??
-      $("article p").first().text().trim();
-    return meta ? `${fallbackTitle}\n${meta}` : fallbackTitle;
+      ""
+    );
   } catch {
-    return fallbackTitle;
+    return "";
   }
 }
 
@@ -71,7 +80,8 @@ export async function getArticlesByTickerTime(
   return data
     .map((news) => ({
       url: news.url,
-      snippet: `${news.headline}\n${news.summary}`,
+      title: news.headline,
+      body: news.summary,
       scrapedAtSec: getUnixTime(now),
       updatedAtSec: news.datetime,
     }))
@@ -88,7 +98,8 @@ async function getArticlesByTickerLatest(
     return Promise.all(
       res.news.map(async (n) => ({
         url: n.link,
-        snippet: await scrapeArticleSnippet(n.link, n.title),
+        title: n.title,
+        body: await scrapeArticleBody(n.link),
         scrapedAtSec: getUnixTime(now),
         updatedAtSec: getUnixTime(n.providerPublishTime),
       }))

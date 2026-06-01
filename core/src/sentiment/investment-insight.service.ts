@@ -157,7 +157,7 @@ function makeInsightCacheKey(
     sources: selectInsightSources(sources).map((source) => ({
       urlHash: hashText(source.url),
       score: roundScore(source.score),
-      snippetHash: hashText(source.snippet),
+      snippetHash: hashText(`${source.title}\n${source.body}`),
     })),
   };
 
@@ -174,7 +174,7 @@ function buildInsightPrompt(
     (source, index) => ({
       id: `${stock.ticker}-${index + 1}`,
       score: roundScore(source.score),
-      snippet: compactText(source.snippet, 360),
+      snippet: compactText(`${source.title}\n${source.body}`, 360),
     })
   );
 

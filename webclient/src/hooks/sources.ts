@@ -75,7 +75,8 @@ export function passthroughStocksSource(stocks: Stock[]): StockSource {
 export function mapArticles(sources: TickerArticlesSourcesItem[]): Article[] {
   return sources.map((s) => ({
     url: s.url,
-    snippet: s.snippet ?? "",
+    title: s.title ?? "",
+    body: s.body ?? "",
     updatedAtSec: s.updatedAtSec,
     scrapedAtSec: s.scrapedAtSec,
   }))

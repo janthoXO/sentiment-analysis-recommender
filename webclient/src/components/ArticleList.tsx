@@ -1,11 +1,13 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { parseSentimentLabel, parseHeadline } from "@/lib/sentiment"
+import { parseSentimentLabel } from "@/lib/sentiment"
 import type { Article } from "@/models/Article"
+
+const BODY_PREVIEW_LENGTH = 240
 
 interface Props {
   articles: Article[]
@@ -19,9 +21,15 @@ function ArticleCard({
   article: Article
   dimmed: boolean
 }) {
-  const { headline, body } = parseHeadline(article.snippet ?? "")
+  const [expanded, setExpanded] = useState(false)
   const score = article.score
   const articleSentiment = score != null ? parseSentimentLabel(score) : null
+
+  const isBodyLong = article.body.length > BODY_PREVIEW_LENGTH
+  const displayedBody =
+    !expanded && isBodyLong
+      ? article.body.slice(0, BODY_PREVIEW_LENGTH).trimEnd() + "…"
+      : article.body
 
   return (
     <div
@@ -32,24 +40,28 @@ function ArticleCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p
-            className={cn(
-              "text-base leading-snug font-semibold",
-              dimmed && "text-muted-foreground"
-            )}
-          >
-            {headline || article.url}
-          </p>
           <a
             href={article.url}
             target="_blank"
             rel="noreferrer"
-            className={cn(
-              "flex items-center gap-1 truncate text-sm hover:underline",
-              dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
-            )}
+            className="hover:underline"
           >
-            {article.url} <ExternalLink className="size-3 shrink-0" />
+            <p
+              className={cn(
+                "text-base leading-snug font-semibold",
+                dimmed && "text-muted-foreground"
+              )}
+            >
+              {article.title || article.url}
+            </p>
+            <p
+              className={cn(
+                "flex items-center gap-1 truncate text-sm",
+                dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
+              )}
+            >
+              {article.url} <ExternalLink className="size-3 shrink-0" />
+            </p>
           </a>
         </div>
         {articleSentiment ? (
@@ -66,15 +78,26 @@ function ArticleCard({
           <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
         )}
       </div>
-      {body && (
+      {displayedBody && (
         <p
           className={cn(
             "text-sm",
             dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
           )}
         >
-          {body}
+          {displayedBody}
         </p>
+      )}
+      {isBodyLong && (
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          className={cn(
+            "self-start text-xs font-medium hover:underline",
+            dimmed ? "text-muted-foreground/60" : "text-muted-foreground"
+          )}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
       )}
     </div>
   )

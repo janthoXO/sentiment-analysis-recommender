@@ -8,7 +8,8 @@ export const sourceScoreSchema = pgTable(
       .notNull()
       .references(() => tickerStockSchema.ticker),
     url: text("url").notNull(),
-    snippet: text("snippet").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
     updatedAtSec: bigint("updated_at_sec", { mode: "number" }).notNull(),
     scrapedAtSec: bigint("scraped_at_sec", { mode: "number" }).notNull(),
     score: real("score"),
