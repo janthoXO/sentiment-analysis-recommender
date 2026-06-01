@@ -7,7 +7,8 @@ import * as z from 'zod';
  */
 export const zSourceRoot = z.object({
     url: z.url(),
-    snippet: z.string(),
+    title: z.string(),
+    body: z.string(),
     updatedAtSec: z.number().gte(0),
     scrapedAtSec: z.number().gte(0)
 });

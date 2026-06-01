@@ -1,6 +1,7 @@
 export type Article = {
   url: string
-  snippet: string
+  title: string
+  body: string
   updatedAtSec: number
   scrapedAtSec: number
   score?: number

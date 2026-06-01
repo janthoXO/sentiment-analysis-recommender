@@ -80,7 +80,10 @@ def _build_handler(scorer: BaseScorer, cache: AnalyzerCache, mq: MqClient):
         # ── Inference for cache misses (batched for throughput) ────────────
         cache.mark_inflight(ticker)
         try:
-            snippets = [sources[i].get("snippet", "") for i in to_score_indices]
+            snippets = [
+            f"{sources[i].get('title', '')}\n{sources[i].get('body', '')}".strip()
+            for i in to_score_indices
+        ]
             scores = scorer.score_batch(snippets)
 
             for i, score in zip(to_score_indices, scores):

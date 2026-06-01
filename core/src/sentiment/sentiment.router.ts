@@ -58,7 +58,8 @@ export function makeSentimentRouter({
       // Reconstruct minimal SourceRoot objects; metadata was persisted by the articles endpoint
       const sources: SourceRoot[] = parsed.data.articleUrl.map((url) => ({
         url,
-        snippet: "",
+        title: "",
+        body: "",
         updatedAtSec: 0,
         scrapedAtSec: 0,
       }));
