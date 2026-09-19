@@ -1,6 +1,8 @@
-# Developer Onboarding
+# Sentinel Finance Developer Guide — Local Setup, API Contracts and CI/CD
 
-Welcome to the Sentinel Finance codebase. This guide covers everything you need to get the full stack running locally, understand how the services fit together, and start contributing.
+**Developer guide for Sentinel Finance, the open-source real-time stock news sentiment analyzer (FinBERT, Node.js, React, Python, RabbitMQ).** Covers local setup, services, API contracts, CI/CD, env vars, troubleshooting.
+
+Product overview: [README.md](README.md). Machine-readable summary: [llms.txt](llms.txt).
 
 ---
 
@@ -13,6 +15,9 @@ Welcome to the Sentinel Finance codebase. This guide covers everything you need 
 - [API contracts](#api-contracts)
 - [CI/CD pipelines](#cicd-pipelines)
 - [Environment variables reference](#environment-variables-reference)
+- [Troubleshooting](#troubleshooting)
+- [How to contribute](#how-to-contribute)
+- [License](#license)
 
 ---
 
@@ -58,10 +63,12 @@ sentiment-analysis-recommender/
 
 ## Local setup
 
+Fastest path: whole stack in Docker, see [How to install](README.md#how-to-install). Below: hybrid setup, infra in Docker, Node services on host for hot reload.
+
 ### 1. Clone and configure
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/janthoXO/sentiment-analysis-recommender.git
 cd sentiment-analysis-recommender
 cp core/.env.example core/.env
 # Edit core/.env and set FINNHUB_API_KEY=your_key_here
@@ -229,6 +236,7 @@ The `gate.yml` workflow is the merge gate. A PR is only mergeable when all check
 | `GEMINI_API_KEY` | — | Required when `LLM_PROVIDER=google` |
 | `LLM_INSIGHT_ENABLED` | `false` | Enable per-ticker LLM insight generation |
 | `LLM_THEME_MAX_TICKERS` | `5` | Max tickers returned by theme/LLM search |
+| `LLM_THEME_CONFIDENCE_THRESHOLD` | `0.6` | Min LLM confidence for a theme ticker match |
 | `LLM_INSIGHT_BATCH_SIZE` | `6` | Articles sent per insight request |
 | `LLM_INSIGHT_MAX_ARTICLES` | `6` | Max articles used for insight |
 | `LLM_INSIGHT_TIMEOUT_MS` | `8000` | LLM request timeout |
@@ -245,3 +253,32 @@ The `gate.yml` workflow is the merge gate. A PR is only mergeable when all check
 | `CACHE_TTL_SECONDS` | `3600` | In-process per-article score cache TTL |
 
 See `analyzer/.env.example` for the full list including NLI hypothesis variables.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Cards show, scores never appear | No analyzer consuming queue | Start `analyzer` or `test-analyzer`; check RabbitMQ UI on `:15672` |
+| `PRECONDITION_FAILED` / `inequivalent arg 'x-max-priority'` | Queue declared with old args | Delete queue in RabbitMQ UI, restart `core` + `analyzer` |
+| No articles for ticker | Missing/invalid `FINNHUB_API_KEY` or rate limit | Check key in `.env`; free tier = 60 calls/min |
+| Analyzer first start slow | Downloading Hugging Face model (~700 MB) | Wait once; cached in `hfcache` volume |
+| CI `contracts.*` job fails | Generated code stale | Run `pnpm run contracts:generate` in `core` and `webclient`, commit |
+| No insight toggle in UI | `LLM_INSIGHT_ENABLED` not `true` | Set it + `LLM_PROVIDER=google` + `GEMINI_API_KEY` |
+| Port in use (5432/6379/5672/3001) | Local Postgres/Redis/etc. running | Stop local service or remap port in `docker-compose.yml` |
+
+---
+
+## How to contribute
+
+1. Branch from `main`, e.g. `<issue-number>-short-desc`.
+2. Contract change? Edit `contracts/` first, regen code (see [API contracts](#api-contracts)).
+3. Run lint + typecheck for touched services.
+4. Open PR. `gate.yml` must pass. Owners in `.github/CODEOWNERS` review.
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 [@janthoXO](https://github.com/janthoXO), [@RicarlOz](https://github.com/RicarlOz).

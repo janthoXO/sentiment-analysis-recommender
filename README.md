@@ -1,8 +1,13 @@
-# Sentinel Finance
+# Sentinel Finance — Real-Time Stock News Sentiment Analysis with FinBERT
 
-**Real-time NLP sentiment analysis for equities.** Search any US stock ticker or company name and see how the latest news feels — scored from −1 (bearish) to +1 (bullish) — streamed to your browser as articles arrive.
+**Sentinel Finance is an open-source, self-hosted web app that scores the sentiment of the latest news for any US stock from −1 (bearish) to +1 (bullish) using FinBERT, and streams the results to your browser in real time.**
 
-Sentinel Finance is a self-hosted stock research tool built as a university project for the Web Information Retrieval course at UniGE. It combines a streaming NLP pipeline, two pluggable ML backends, an interactive price timeline with article event pins, and optional LLM-generated investment insights.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-Node.js%2022-3178C6?logo=typescript&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-FinBERT-FFD21E)
 
 <!-- README-I18N:START -->
 
@@ -10,22 +15,91 @@ Sentinel Finance is a self-hosted stock research tool built as a university proj
 
 <!-- README-I18N:END -->
 
+Search a ticker (`AAPL`), a company name (`Apple`) or a theme (`artificial intelligence`) and watch news cards appear within seconds, each one scored by a financial NLP model. It is built for retail investors, students and developers who want a transparent, self-hostable alternative to closed sentiment dashboards. It was built as a university project for the Web Information Retrieval course at the University of Genoa (UniGE).
+
 ---
 
 ## Table of contents
 
-- [Features](#features)
-- [Design decisions & trade-offs](#design-decisions--trade-offs)
+- [Key features](#key-features)
+- [How to install](#how-to-install)
+- [System requirements](#system-requirements)
+- [How it works](#how-it-works)
+- [Comparison with alternatives](#comparison-with-alternatives)
+- [Design decisions and trade-offs](#design-decisions-and-trade-offs)
 - [Architecture overview](#architecture-overview)
 - [Project layout](#project-layout)
+- [FAQ](#faq)
+- [License](#license)
 
-> For setup instructions and developer onboarding, see [README_DEV.md](README_DEV.md).
+> For developer onboarding, service-by-service setup and environment variables, see [README_DEV.md](README_DEV.md).
 
 ---
 
-## Features
+## Key features
 
-### Search & discovery
+- **Real-time news sentiment scoring** for any US-listed stock, on a −1 (bearish) to +1 (bullish) scale.
+- **FinBERT and NLI backends**: switch between [ProsusAI/finbert](https://huggingface.co/ProsusAI/finbert) and [DeBERTa-v3 NLI](https://huggingface.co/cross-encoder/nli-deberta-v3-base) with one environment variable.
+- **Progressive NDJSON streaming**: tickers, articles and scores render as they arrive instead of after a full batch.
+- **Interactive price chart with news event pins**: OHLC chart (Today, 1D, 1W, 1M, 1Y) that pins big price moves to the articles published around them.
+- **Natural-language theme search**: optional Gemini LLM maps queries like "clean energy" to matching tickers.
+- **AI investment insight cards**: optional LLM summary with a bullish / bearish / neutral verdict and confidence level.
+- **Watchlists with sentiment-change alerts**: get notified when the news sentiment of a watched stock shifts.
+- **Trending tickers and background prefetch**: S&P 500 and trending stocks are kept warm in Redis for instant results.
+- **Self-hosted and open source (MIT)**: runs locally with a single `docker compose up`.
+
+---
+
+## How to install
+
+### Quick start with Docker Compose
+
+1. Get a free API key from [Finnhub](https://finnhub.io/).
+2. Clone the repository and start the full stack:
+
+```bash
+git clone https://github.com/janthoXO/sentiment-analysis-recommender.git
+cd sentiment-analysis-recommender
+echo "FINNHUB_API_KEY=your_key_here" > .env
+docker compose up --build
+```
+
+3. Open [http://localhost:3000](http://localhost:3000) and search for a stock.
+
+The first start downloads the FinBERT model (~700 MB) into a Docker volume. Later starts reuse it.
+
+### Enable the optional LLM features
+
+Add these lines to `.env` to turn on Gemini theme search and insight cards:
+
+```bash
+LLM_PROVIDER=google
+GEMINI_API_KEY=your_gemini_key
+LLM_INSIGHT_ENABLED=true
+```
+
+### Run without the ML model
+
+For quick UI work, use the `test-analyzer` stub that returns random scores. See [README_DEV.md](README_DEV.md#local-setup).
+
+---
+
+## System requirements
+
+| Requirement | Details |
+|-------------|---------|
+| OS | Linux, macOS (Intel and Apple Silicon) or Windows with WSL 2 |
+| Docker | Docker Engine or Docker Desktop with Compose v2 |
+| Memory | ~4 GB RAM free for the FinBERT analyzer and infrastructure |
+| Disk | ~3 GB for images and the Hugging Face model cache |
+| API keys | Finnhub (required, free tier works); Gemini (optional) |
+| Browser | Any current Chromium, Firefox or Safari |
+
+---
+
+## How it works
+
+### Search and discovery
 
 Users can search by ticker symbol (`AAPL`), company name (`Apple`), or a natural-language theme (`artificial intelligence`). The home page surfaces currently trending US tickers automatically.
 
@@ -51,7 +125,7 @@ Clicking a result opens a detailed view with:
 - **LLM insight card** — when enabled, a Gemini-generated paragraph summarises the overall sentiment narrative and assigns a confidence level and directional verdict (bullish / bearish / neutral).
 - **Competitors accordion** — peer companies with their own sentiment scores, fetched in parallel.
 
-### Watchlists & real-time alerts
+### Watchlists and real-time alerts
 
 Authenticated users can create named watchlists and add any ticker to them. A long-lived NDJSON notification stream compares the current sentiment state to a baseline taken the last time the user viewed the ticker. When the average score diverges meaningfully, a push notification is sent to the connected client.
 
@@ -67,7 +141,22 @@ A background scheduler keeps popular tickers warm in Redis so frequent searches 
 
 ---
 
-## Design decisions & trade-offs
+## Comparison with alternatives
+
+| Feature | Sentinel Finance | Commercial sentiment APIs / terminals | Generic finance portals |
+|---------|------------------|----------------------------------------|-------------------------|
+| **Open source** | Yes (MIT) | No (proprietary) | No |
+| **Self-hosted** | Yes (Docker Compose) | No (SaaS) | No |
+| **Per-article sentiment score** | Yes, −1 to +1 | Usually, paid tiers | Rarely |
+| **Transparent model** | FinBERT / DeBERTa NLI, swappable | Black box | N/A |
+| **Real-time streaming UI** | Yes (NDJSON) | Varies | Page reload |
+| **Price chart with news pins** | Yes | Some | Basic news list |
+| **Natural-language theme search** | Yes (optional Gemini) | Rare | Keyword search |
+| **Cost** | Free (Finnhub free tier) | Subscription | Free with ads / premium |
+
+---
+
+## Design decisions and trade-offs
 
 ### NDJSON streaming instead of a single JSON response
 
@@ -161,7 +250,7 @@ A background scheduler keeps popular tickers warm in Redis so frequent searches 
 | `analyzer` | Python · Transformers · PyTorch | Stateless NLP worker; scores article snippets |
 | `contracts` | OpenAPI 3 · AsyncAPI 2 · JSON Schema | Shared REST and message contracts; drives codegen |
 
-Infrastructure: **PostgreSQL** (user data, article scores), **Redis** (response cache), **RabbitMQ** (async scoring queue).
+Infrastructure: **PostgreSQL** (user data, article scores), **Redis** (response cache), **RabbitMQ** (async scoring queue). News and price data come from the **Finnhub API**.
 
 ---
 
@@ -176,7 +265,42 @@ sentiment-analysis-recommender/
 ├── test-analyzer/      Stub analyzer (random scores — no ML model needed)
 ├── webclient/          React frontend
 ├── docker-compose.yml              Local development stack
-└── docker-compose.prod.yml         Production stack (pulls from GHCR)
+├── docker-compose.prod.yml         Production stack (pulls from GHCR)
+└── llms.txt            Machine-readable project summary for AI tools
 ```
 
 Each service directory contains its own README with setup and internals.
+
+---
+
+## FAQ
+
+### What is Sentinel Finance?
+
+Sentinel Finance is an open-source web application that fetches the latest news for US stocks and scores each article's sentiment from −1 (bearish) to +1 (bullish) with the FinBERT financial NLP model.
+
+### How is the stock sentiment score calculated?
+
+Each article headline and summary is passed to the analyzer. With FinBERT, the score is `P(positive) − P(negative)`. With the NLI backend, it is `P(entailment "stock will go up") − P(entailment "stock will go down")`. The ticker score is the average over its recent articles.
+
+### Which stocks are supported?
+
+All US-listed stocks available through the Finnhub API, including the full S&P 500, which is prefetched in the background.
+
+### Is Sentinel Finance free?
+
+Yes. The code is MIT licensed and the Finnhub free tier is enough to run it. Gemini LLM features are optional.
+
+### Can I run it without a GPU?
+
+Yes. The analyzer runs on CPU and switches to CUDA automatically when a GPU is available. Articles are batch-scored in a single model pass, so CPU inference is fast enough for interactive use.
+
+### Is this financial advice?
+
+No. Sentinel Finance is a research and educational tool. Sentiment scores describe the tone of news coverage, not the future price of a stock.
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE). Copyright (c) 2026 [@janthoXO](https://github.com/janthoXO) and [@RicarlOz](https://github.com/RicarlOz).

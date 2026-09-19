@@ -1,4 +1,13 @@
-# Sentinel Finance
+# Sentinel Finance — 基于 FinBERT 的美股新闻实时情感分析
+
+**Sentinel Finance 是一款开源、可自托管的 Web 应用，使用 FinBERT 对任意美股的最新新闻进行情感评分（−1 看跌 至 +1 看涨），并将结果实时流式传输到浏览器。**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-Node.js%2022-3178C6?logo=typescript&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-FinBERT-FFD21E)
 
 <!-- README-I18N:START -->
 
@@ -6,24 +15,89 @@
 
 <!-- README-I18N:END -->
 
-**美股实时 NLP 情感分析。** 搜索任意美股代码或公司名称，即可查看最新新闻的情绪评分——从 −1（看跌）到 +1（看涨）——文章到达时即时流式传输至浏览器。
-
-Sentinel Finance 是一款自托管的股票研究工具，作为 UniGE Web Information Retrieval 课程的大学项目开发。它结合了流式 NLP 管道、两个可插拔的 ML 后端、带文章事件标注的交互式价格时间线，以及可选的 LLM 生成投资洞察。
+搜索股票代码（`AAPL`）、公司名称（`Apple`）或主题（`人工智能`），几秒内即可看到新闻卡片逐一出现，每篇文章都由金融 NLP 模型评分。本项目面向散户投资者、学生和开发者，是封闭式情感分析看板的透明、可自托管替代方案。它是热那亚大学（UniGE）Web Information Retrieval 课程的大学项目。
 
 ---
 
 ## 目录
 
-- [功能](#功能)
+- [核心功能](#核心功能)
+- [如何安装](#如何安装)
+- [系统要求](#系统要求)
+- [工作原理](#工作原理)
+- [与其他方案对比](#与其他方案对比)
 - [设计决策与权衡](#设计决策与权衡)
 - [架构概览](#架构概览)
 - [项目结构](#项目结构)
+- [常见问题](#常见问题)
+- [许可证](#许可证)
 
-> 关于安装说明和开发者入门，请参阅 [README_DEV.md](README_DEV.md)。
+> 开发者入门、各服务的设置和环境变量，请参阅 [README_DEV.md](README_DEV.md)。
 
 ---
 
-## 功能
+## 核心功能
+
+- **实时新闻情感评分**：适用于任意美股上市公司，评分范围 −1（看跌）至 +1（看涨）。
+- **FinBERT 与 NLI 后端**：通过一个环境变量在 [ProsusAI/finbert](https://huggingface.co/ProsusAI/finbert) 与 [DeBERTa-v3 NLI](https://huggingface.co/cross-encoder/nli-deberta-v3-base) 之间切换。
+- **渐进式 NDJSON 流**：股票、文章和评分随到随显，无需等待完整批量响应。
+- **带新闻事件标注的交互式价格图表**：OHLC 图表（今日、1天、1周、1月、1年），将大幅价格波动与同期发布的文章关联。
+- **自然语言主题搜索**：可选的 Gemini LLM 将“清洁能源”等查询映射为匹配的股票。
+- **AI 投资洞察卡片**：可选的 LLM 摘要，给出看涨 / 看跌 / 中性判断及置信度。
+- **带情感变化提醒的观察列表**：当观察股票的新闻情感发生变化时收到通知。
+- **热门股票与后台预取**：S&P 500 和热门股票在 Redis 中保持缓存，结果即时返回。
+- **自托管且开源（MIT）**：一条 `docker compose up` 即可在本地运行。
+
+---
+
+## 如何安装
+
+### 使用 Docker Compose 快速开始
+
+1. 在 [Finnhub](https://finnhub.io/) 获取免费 API 密钥。
+2. 克隆仓库并启动完整服务栈：
+
+```bash
+git clone https://github.com/janthoXO/sentiment-analysis-recommender.git
+cd sentiment-analysis-recommender
+echo "FINNHUB_API_KEY=your_key_here" > .env
+docker compose up --build
+```
+
+3. 打开 [http://localhost:3000](http://localhost:3000) 并搜索股票。
+
+首次启动会将 FinBERT 模型（约 700 MB）下载到 Docker 卷中，之后的启动会复用该缓存。
+
+### 启用可选的 LLM 功能
+
+在 `.env` 中添加以下内容，以开启 Gemini 主题搜索和洞察卡片：
+
+```bash
+LLM_PROVIDER=google
+GEMINI_API_KEY=your_gemini_key
+LLM_INSIGHT_ENABLED=true
+```
+
+### 不使用 ML 模型运行
+
+进行界面开发时，可使用返回随机评分的 `test-analyzer` 存根。详见 [README_DEV.md](README_DEV.md#local-setup)。
+
+---
+
+## 系统要求
+
+| 要求 | 说明 |
+|------|------|
+| 操作系统 | Linux、macOS（Intel 与 Apple Silicon）或 Windows + WSL 2 |
+| Docker | Docker Engine 或 Docker Desktop，需 Compose v2 |
+| 内存 | FinBERT 分析器及基础设施约需 4 GB 可用内存 |
+| 磁盘 | 镜像和 Hugging Face 模型缓存约需 3 GB |
+| API 密钥 | Finnhub（必需，免费套餐即可）；Gemini（可选） |
+| 浏览器 | 任意较新版本的 Chromium、Firefox 或 Safari |
+
+---
+
+## 工作原理
 
 ### 搜索与发现
 
@@ -64,6 +138,21 @@ Sentinel Finance 是一款自托管的股票研究工具，作为 UniGE Web Info
 | S&P 500 预取 | 12 小时 | 夜间预热搜索最频繁的股票 |
 | 观察列表刷新 | 1 小时 | 保持被观察股票为最新状态，用于通知差异比对 |
 | 热门检测 | 10 分钟 | 追踪成交量突然飙升的股票 |
+
+---
+
+## 与其他方案对比
+
+| 功能 | Sentinel Finance | 商业情感 API / 终端 | 通用财经门户 |
+|------|------------------|---------------------|--------------|
+| **开源** | 是（MIT） | 否（专有） | 否 |
+| **可自托管** | 是（Docker Compose） | 否（SaaS） | 否 |
+| **逐篇文章情感评分** | 是，−1 至 +1 | 通常有，需付费套餐 | 很少 |
+| **模型透明** | FinBERT / DeBERTa NLI，可切换 | 黑盒 | 不适用 |
+| **实时流式界面** | 是（NDJSON） | 视产品而定 | 需刷新页面 |
+| **带新闻标注的价格图表** | 是 | 部分支持 | 仅基础新闻列表 |
+| **自然语言主题搜索** | 是（可选 Gemini） | 少见 | 关键词搜索 |
+| **费用** | 免费（Finnhub 免费套餐） | 订阅制 | 免费含广告 / 高级版 |
 
 ---
 
@@ -161,7 +250,7 @@ Sentinel Finance 是一款自托管的股票研究工具，作为 UniGE Web Info
 | `analyzer` | Python · Transformers · PyTorch | 无状态 NLP 工作进程；对文章片段评分 |
 | `contracts` | OpenAPI 3 · AsyncAPI 2 · JSON Schema | 共享 REST 和消息契约；驱动代码生成 |
 
-基础设施：**PostgreSQL**（用户数据、文章评分）、**Redis**（响应缓存）、**RabbitMQ**（异步评分队列）。
+基础设施：**PostgreSQL**（用户数据、文章评分）、**Redis**（响应缓存）、**RabbitMQ**（异步评分队列）。新闻和价格数据来自 **Finnhub API**。
 
 ---
 
@@ -176,7 +265,42 @@ sentiment-analysis-recommender/
 ├── test-analyzer/      存根分析器（随机评分——无需 ML 模型）
 ├── webclient/          React 前端
 ├── docker-compose.yml              本地开发栈
-└── docker-compose.prod.yml         生产栈（从 GHCR 拉取）
+├── docker-compose.prod.yml         生产栈（从 GHCR 拉取）
+└── llms.txt            面向 AI 工具的机器可读项目摘要
 ```
 
 每个服务目录包含其自己的 README，内含设置和内部说明。
+
+---
+
+## 常见问题
+
+### Sentinel Finance 是什么？
+
+Sentinel Finance 是一款开源 Web 应用，获取美股的最新新闻，并使用 FinBERT 金融 NLP 模型为每篇文章给出 −1（看跌）至 +1（看涨）的情感评分。
+
+### 股票情感评分是如何计算的？
+
+每篇文章的标题和摘要会被发送给分析器。使用 FinBERT 时，评分为 `P(positive) − P(negative)`。使用 NLI 后端时，评分为 `P(entailment "股票将上涨") − P(entailment "股票将下跌")`。股票评分为其近期文章评分的平均值。
+
+### 支持哪些股票？
+
+Finnhub API 提供的所有美股上市公司，包括在后台预取的全部 S&P 500 成分股。
+
+### Sentinel Finance 免费吗？
+
+是的。代码采用 MIT 许可证，Finnhub 免费套餐即可运行。Gemini LLM 功能为可选项。
+
+### 没有 GPU 能运行吗？
+
+可以。分析器可在 CPU 上运行，检测到 GPU 时会自动切换至 CUDA。文章在单次模型传递中批量评分，因此 CPU 推理速度足以满足交互使用。
+
+### 这是投资建议吗？
+
+不是。Sentinel Finance 是一款研究与教育工具。情感评分描述的是新闻报道的语气，而非股票的未来价格。
+
+---
+
+## 许可证
+
+基于 [MIT 许可证](LICENSE) 发布。Copyright (c) 2026 [@janthoXO](https://github.com/janthoXO) 与 [@RicarlOz](https://github.com/RicarlOz)。
